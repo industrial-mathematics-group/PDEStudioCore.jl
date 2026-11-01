@@ -82,7 +82,8 @@ Base.setproperty!(config::SimulationConfig, name::Symbol, value) = setfield!(con
     resolve_dynamic_function(name, provided = nothing)
 
 Looks up the function called `name` (a `Symbol` or `String`) in the target module
-(see [`set_target_module!`](@ref)). A function passed as `provided` (or as `name`) is returned directly.
+(see [`set_target_module!`](@ref)), then among the solvers and references of the built-in examples
+([`PDEStudioCore.Examples`](@ref)). A function passed as `provided` (or as `name`) is returned directly.
 Returns `nothing` (with a warning) if the name cannot be resolved.
 """
 function resolve_dynamic_function(name, provided::Union{Function, Nothing} = nothing)
@@ -95,6 +96,7 @@ function resolve_dynamic_function(name, provided::Union{Function, Nothing} = not
     # Look the binding up in the latest world, so functions defined after the caller started
     # (e.g. by including source files) are found.
     f = Base.invokelatest(_lookup_global, mod, sym)
+    f === nothing && (f = _lookup_global(Examples, sym))
     f === nothing && @warn "Could not resolve function `$sym` in module $mod (did you call `set_target_module!`?)."
     return f
 end

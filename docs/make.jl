@@ -19,6 +19,7 @@ makedocs(
         "Advanced Config" => "advanced_config.md",
         "Data & Storage" => "data.md",
         "Statistics" => "statistics.md",
+        "Examples" => "examples.md",
         "API Reference" => "api.md",
     ],
 )

@@ -107,4 +107,4 @@ The `dim_keys` tuple of a [`DomainInfo`](@ref) is the *sole identifier* of the a
 
 ## 🚀 Examples
 
-Runnable examples live in the `examples/` directory of the repository; the [Simulation Config](simulation_config.md) page walks through a complete setup step by step.
+Every `test_*()` function returns a ready configuration of a built-in example, e.g. `run_all_simulations(test_heat_1d())`: linear advection, Burgers, the heat equation in 1D and 2D, the Poisson equation and particles in a rotating flow. See [Examples](examples.md); their solvers in `src/Examples/` are a starting point for your own. The [Simulation Config](simulation_config.md) page walks through a complete setup step by step.
