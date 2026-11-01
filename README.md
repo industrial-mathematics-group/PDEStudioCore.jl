@@ -33,10 +33,35 @@ pkg> add PDEStudioCore
 
 ```julia
 using PDEStudioCore
+
+set_stat_preset!("hyperbolic")             # mass, L1/L2 norms and errors, wave position, …
+set_save_path!("results")
+run_all_simulations(test_heat_1d(); parallel = true, calculate_stats = true)
+```
+
+`test_heat_1d()` is one of the built-in examples: a function returning a ready `SimulationConfig` (methods, sweep and
+exact solution included). In [PDEStudio](https://github.com/blhackslash/PDEStudio.jl), `set_sim_config!(test_heat_1d())`
+shows it.
+
+| Example | Equation | Data | Methods (sweep) |
+| :--- | :--- | :--- | :--- |
+| `test_advection_1d()` | linear advection (hyperbolic) | 1D + time | upwind, Lax–Friedrichs, Lax–Wendroff, exact (CFL number) |
+| `test_burgers_1d()` | inviscid Burgers (shock) | 1D + time | Lax–Friedrichs, Godunov, non-conservative upwind (grid size) |
+| `test_heat_1d()` | heat equation (parabolic) | 1D + time | explicit, implicit, Crank–Nicolson, exact (diffusion number) |
+| `test_heat_2d()` | heat equation (parabolic) | 2D + time | explicit, ADI, exact (diffusion number) |
+| `test_poisson_2d()` | Poisson equation (elliptic) | 2D + iterations (as `t`) | Jacobi, Gauss–Seidel, SOR, exact (grid size) |
+| `test_particles_2d()` | particles in a rotating flow (ODE) | Lagrangian 2D | explicit Euler, RK2, RK4 (time step) |
+
+Their solvers are short, commented functions in [`src/Examples/`](src/Examples/), a starting point for your own.
+
+## Your own solver
+
+```julia
+using PDEStudioCore
 using StaticArrays
 
 # 1. A solver: the resolved parameters of one run in, a dataset out
-function advection_1d(params::ParamDict)
+function my_advection(params::ParamDict)
     N, c, T, cfl = params[:N], params[:c], params[:T], params[:cfl]
     x  = collect(range(0.0, 1.0, length = N + 1))[1:N]          # periodic grid
     dt = cfl * (x[2] - x[1]) / c
@@ -52,15 +77,15 @@ function advection_1d(params::ParamDict)
 end
 
 # 2. An exact solution (optional): a factory params -> ((x, t) -> u), enables error statistics
-exact_advection(params) = xt -> SVector(sin(2π * (xt[1] - params[:c] * xt[2])))
+my_exact_advection(params) = xt -> SVector(sin(2π * (xt[1] - params[:c] * xt[2])))
 
 # 3. The configuration
-shared  = create_param_dict(:N => 100, :c => 1.0, :T => 2.0, :cfl => 0.5, :sim_func_name => :advection_1d)
+shared  = create_param_dict(:N => 100, :c => 1.0, :T => 2.0, :cfl => 0.5, :sim_func_name => :my_advection)
 methods = create_method_dict(:upwind         => create_param_dict(:scheme => "upwind"),
                              :lax_friedrichs => create_param_dict(:scheme => "lax_friedrichs"))
 config  = SimulationConfig(shared, methods, [:upwind, :lax_friedrichs];      # active methods (`defaults`)
                            varied = create_varied_dict(:cfl => [0.3, 0.5, 0.8]),
-                           reference = :exact_advection)
+                           reference = :my_exact_advection)
 
 # 4. Run: 2 methods × 3 CFL numbers = 6 runs, with statistics
 set_stat_preset!("hyperbolic")             # mass, L1/L2 norms and errors, wave position, …
@@ -74,7 +99,7 @@ sim = load_sim_data(p, :raw)
 sim.stats[:l2error]                        # one value per time step
 ```
 
-More complete scripts are in [`examples/`](examples/): `advection_1d.jl` and the minimal `dummy.jl`.
+The built-in examples in [`src/Examples/`](src/Examples/) are complete versions of this, for other equations too.
 
 ## Concepts at a glance
 

@@ -20,10 +20,5 @@ include("solvers.jl")
     include("test_pipeline.jl")
     include("test_data.jl")
 
-    @testset "Examples" begin
-        for example in ("advection_1d.jl", "dummy.jl")
-            path = joinpath(@__DIR__, "..", "examples", example)
-            isfile(path) && @test isnothing(include(path))
-        end
-    end
+    include("test_examples.jl")
 end

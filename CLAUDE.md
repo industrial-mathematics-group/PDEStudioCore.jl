@@ -15,8 +15,9 @@ julia -t 8 --project=test test/runtests.jl                  # same suite, faster
 julia --project=docs docs/make.jl                           # docs (instantiate docs env first)
 ```
 
-The suite also runs `examples/advection_1d.jl` and `examples/dummy.jl`; keep them working
-and quick.
+The built-in examples (`src/Examples/`, exported as `test_*`) are tested in `test/test_examples.jl`: each config
+runs, and each solver shows what its docstring claims (stability limits, order, conservation). Keep them quick
+(each runs in about a second) and their docstrings true: PDEStudio's quick start uses them.
 
 ## Layout
 
@@ -29,6 +30,7 @@ and quick.
 | `src/ConversionUtils.jl` | Eulerian ↔ Lagrangian conversion, resampling |
 | `src/StatCalculation.jl` | Stat registry, `calc_stat` evaluation, references |
 | `src/Simulations.jl` | Task generation, `run_all_simulations`, `run_smart_simulation` |
+| `src/Examples/` | Built-in examples (`PDEStudioCore.Examples`): solvers, exact solutions, `test_*()` configs |
 | `presets/` | Stat presets (`hyperbolic.jl`), loaded with `set_stat_preset!` |
 
 ## Invariants (treat changes as breaking)
