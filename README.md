@@ -1,10 +1,15 @@
-# PDEStudioCore.jl
+<div align="center">
+
+<img alt="PDEStudioCore.jl" src="logos/svg/logo.svg#gh-light-mode-only" width="480">
+<img alt="PDEStudioCore.jl" src="logos/svg/logo-dark.svg#gh-dark-mode-only" width="480">
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22893504.svg)](https://doi.org/10.5281/zenodo.22893504)
 [![Build Status](https://github.com/blhackslash/PDEStudioCore.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/blhackslash/PDEStudioCore.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/blhackslash/PDEStudioCore.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/blhackslash/PDEStudioCore.jl)
 [![Dev Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://blhackslash.github.io/PDEStudioCore.jl/dev/)
 [![Stable Docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://blhackslash.github.io/PDEStudioCore.jl/stable/)
+
+</div>
 
 **PDEStudioCore.jl** is a headless Julia backend for running, storing and analysing PDE simulations. You write the solver; PDEStudioCore runs it over parameter sweeps, caches every result on disk under a hash of its parameters, and computes statistics (norms, errors against a reference, conservation) for you.
 
