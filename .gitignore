@@ -35,3 +35,7 @@ Manifest.toml
 *.gif
 
 docs/build/
+
+# Logos and documentation assets are tracked despite the image rules above
+!logos/**
+!docs/src/assets/**
