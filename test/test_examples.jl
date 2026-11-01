@@ -65,7 +65,7 @@ end
         err(m) = final_error(run_example(cfg, m), ex)
         @test err(:sor) < 2e-3                                                   # O(h²) at N = 32
         @test err(:jacobi) > err(:gauss_seidel) > 10 * err(:sor)
-        @test run_example(cfg, :sor).domain.time_dim === :iteration                # the iterations are the time axis
+        @test run_example(cfg, :sor).axes[end] == 0:cfg.shared[:iterations]          # t counts the iterations
     end
 
     @testset "Particles: Euler spirals out, RK4 keeps the radius" begin

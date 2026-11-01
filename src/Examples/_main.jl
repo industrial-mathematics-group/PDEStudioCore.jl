@@ -10,7 +10,7 @@ Ready-made simulations: each `test_*()` returns a [`SimulationConfig`](@ref) tha
 | [`test_burgers_1d`](@ref) | inviscid Burgers (nonlinear hyperbolic, shock) | 1D + time | Lax–Friedrichs, Godunov, non-conservative upwind | grid size |
 | [`test_heat_1d`](@ref) | heat equation (parabolic) | 1D + time | explicit, implicit, Crank–Nicolson, exact | diffusion number |
 | [`test_heat_2d`](@ref) | heat equation (parabolic) | 2D + time | explicit, ADI, exact | diffusion number |
-| [`test_poisson_2d`](@ref) | Poisson equation (elliptic) | 2D + iterations | Jacobi, Gauss–Seidel, SOR, exact | grid size |
+| [`test_poisson_2d`](@ref) | Poisson equation (elliptic) | 2D + iterations (as `t`) | Jacobi, Gauss–Seidel, SOR, exact | grid size |
 | [`test_particles_2d`](@ref) | particles in a rotating flow (ODE) | Lagrangian 2D | explicit Euler, RK2, RK4 | time step |
 
 The solvers are ordinary functions of the run's parameters (`solve_*`, `exact_*` for the references), written to be

@@ -6,8 +6,9 @@ the wave steepens and a shock forms at ``t = 1/\\pi``. `N` cells, end time `T`, 
 `:scheme`:
 - `"lax_friedrichs"`: conservative, first order, diffusive;
 - `"godunov"`: conservative, first order, with the exact Riemann flux (sharp shock);
-- `"nonconservative_upwind"`: upwind for ``u_t + u\\,u_x = 0``. Smooth solutions are fine, but the shock moves at
-  the wrong speed and mass is lost: only conservative schemes converge to the right weak solution.
+- `"nonconservative_upwind"`: upwind for ``u_t + u\\,u_x = 0``. Consistent, but not conservative: the mass drifts
+  from the start (about 7 % by ``t = 0.8`` at ``N = 50``) and the shock moves at the wrong speed. Only conservative
+  schemes converge to the right weak solution.
 """
 function solve_burgers_1d(params::ParamDict)
     N, T, cfl = params[:N], params[:T], params[:cfl]

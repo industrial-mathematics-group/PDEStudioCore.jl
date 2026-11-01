@@ -8,8 +8,9 @@ iteratively from ``u = 0`` with `iterations` sweeps of the method `:solver`:
 - `"gauss_seidel"`: uses the new values as soon as they exist; about twice as fast;
 - `"sor"`: Gauss–Seidel over-relaxed with the optimal ``\\omega = 2 / (1 + \\sin(\\pi / N))``; ``\\approx N`` sweeps.
 
-A stationary problem: the time axis is the iteration count (`:iteration`), so the plots show the convergence.
-The error statistics level off at the discretisation error ``O(1/N^2)``.
+A stationary problem: the time axis `t` counts the iterations (``t = k`` after ``k`` sweeps), so the plots show the
+convergence. The error statistics level off at the discretisation error ``O(1/N^2)``. (It is called `t` rather than
+e.g. `:iteration` so that frontends that know the axes `x, y, z, t`, such as PDEStudio, show it as it is.)
 """
 function solve_poisson_2d(params::ParamDict)
     N, iterations, solver = params[:N], params[:iterations], params[:solver]
@@ -36,7 +37,7 @@ function solve_poisson_2d(params::ParamDict)
         end
         u[:, :, k + 1] .= SVector.(v)
     end
-    return create_sim_data((x, x), u, collect(0.0:iterations), params; time_dim = :iteration)
+    return create_sim_data((x, x), u, collect(0.0:iterations), params)   # dims (:x, :y, :t), t = iterations
 end
 
 """
@@ -44,7 +45,7 @@ end
 
 The exact solution of [`solve_poisson_2d`](@ref) (the same for every iteration).
 """
-exact_poisson_2d(params::ParamDict) = xyk -> SVector(sin(π * xyk[1]) * sin(π * xyk[2]))
+exact_poisson_2d(params::ParamDict) = xyt -> SVector(sin(π * xyt[1]) * sin(π * xyt[2]))
 
 """
     test_poisson_2d() -> SimulationConfig

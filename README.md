@@ -49,7 +49,7 @@ shows it.
 | `test_burgers_1d()` | inviscid Burgers (shock) | 1D + time | Lax–Friedrichs, Godunov, non-conservative upwind (grid size) |
 | `test_heat_1d()` | heat equation (parabolic) | 1D + time | explicit, implicit, Crank–Nicolson, exact (diffusion number) |
 | `test_heat_2d()` | heat equation (parabolic) | 2D + time | explicit, ADI, exact (diffusion number) |
-| `test_poisson_2d()` | Poisson equation (elliptic) | 2D + iterations | Jacobi, Gauss–Seidel, SOR, exact (grid size) |
+| `test_poisson_2d()` | Poisson equation (elliptic) | 2D + iterations (as `t`) | Jacobi, Gauss–Seidel, SOR, exact (grid size) |
 | `test_particles_2d()` | particles in a rotating flow (ODE) | Lagrangian 2D | explicit Euler, RK2, RK4 (time step) |
 
 Their solvers are short, commented functions in [`src/Examples/`](src/Examples/), a starting point for your own.
