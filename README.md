@@ -4,16 +4,16 @@
 <img alt="PDEStudioCore.jl" src="logos/svg/logo-dark.svg#gh-dark-mode-only" width="480">
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22893504.svg)](https://doi.org/10.5281/zenodo.22893504)
-[![Build Status](https://github.com/blhackslash/PDEStudioCore.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/blhackslash/PDEStudioCore.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/blhackslash/PDEStudioCore.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/blhackslash/PDEStudioCore.jl)
-[![Dev Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://blhackslash.github.io/PDEStudioCore.jl/dev/)
-[![Stable Docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://blhackslash.github.io/PDEStudioCore.jl/stable/)
+[![Build Status](https://github.com/industrial-mathematics-group/PDEStudioCore.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/industrial-mathematics-group/PDEStudioCore.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/industrial-mathematics-group/PDEStudioCore.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/industrial-mathematics-group/PDEStudioCore.jl)
+[![Dev Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://industrial-mathematics-group.github.io/PDEStudioCore.jl/dev/)
+[![Stable Docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://industrial-mathematics-group.github.io/PDEStudioCore.jl/stable/)
 
 </div>
 
 **PDEStudioCore.jl** is a headless Julia backend for running, storing and analysing PDE simulations. You write the solver; PDEStudioCore runs it over parameter sweeps, caches every result on disk under a hash of its parameters, and computes statistics (norms, errors against a reference, conservation) for you.
 
-It is the engine behind the interactive frontend [PDEStudio.jl](https://github.com/blhackslash/PDEStudio.jl), but works on its own, for example on a cluster without a display.
+It is the engine behind the interactive frontend [PDEStudio.jl](https://github.com/industrial-mathematics-group/PDEStudio.jl), but works on its own, for example on a cluster without a display.
 
 ## Features
 
@@ -40,7 +40,7 @@ run_all_simulations(test_heat_1d(); parallel = true, calculate_stats = true)
 ```
 
 `test_heat_1d()` is one of the built-in examples: a function returning a ready `SimulationConfig` (methods, sweep and
-exact solution included). In [PDEStudio](https://github.com/blhackslash/PDEStudio.jl), `set_sim_config!(test_heat_1d())`
+exact solution included). In [PDEStudio](https://github.com/industrial-mathematics-group/PDEStudio.jl), `set_sim_config!(test_heat_1d())`
 shows it.
 
 | Example | Equation | Data | Methods (sweep) |
@@ -117,7 +117,7 @@ Functions are referenced by name and resolved in the module set with `set_target
 
 ## Documentation
 
-The [documentation](https://blhackslash.github.io/PDEStudioCore.jl/) covers the data structures, the `SimulationConfig` in depth, storage and conversions, custom statistics and the full API.
+The [documentation](https://industrial-mathematics-group.github.io/PDEStudioCore.jl/) covers the data structures, the `SimulationConfig` in depth, storage and conversions, custom statistics and the full API.
 
 ## Citing
 
