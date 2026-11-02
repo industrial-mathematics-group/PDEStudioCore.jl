@@ -7,7 +7,7 @@ makedocs(
     checkdocs = :exports,
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", "false") == "true",
-        canonical = "https://blhackslash.github.io/PDEStudioCore.jl/",
+        canonical = "https://industrial-mathematics-group.github.io/PDEStudioCore.jl/",
         # The sidebar logo needs no entry here: Documenter shows docs/src/assets/logo.svg (and logo-dark.svg for the
         # dark themes) automatically. `assets` only takes CSS/JS files and favicons.
         assets = [asset("assets/favicon.png", class = :ico, islocal = true)],
@@ -25,7 +25,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/blhackslash/PDEStudioCore.jl.git",
+    repo = "github.com/industrial-mathematics-group/PDEStudioCore.jl.git",
     devbranch = "main",
     push_preview = true,
 )
