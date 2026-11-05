@@ -89,19 +89,32 @@ _literal(q::QuoteNode) = q.value isa Symbol ? q.value : throw(_NotALiteral())
 _literal(sym::Symbol) = haskey(_LITERAL_CONSTANTS, sym) ? _LITERAL_CONSTANTS[sym] : _literal_type(sym)
 _literal(::Any) = throw(_NotALiteral())
 
+# The parts of a composite literal. A range is only a literal on its own (e.g. a sweep typed as "1:10"):
+# `val2str` never writes ranges into containers, and inside one (`Vector{T}[1:n, …]`, `reshape(1:n, …)`,
+# `2 * (1:n)`) it would be expanded before any size check could see it.
+function _literal_parts(args)
+    parts = map(_literal, args)
+    any(p -> p isa AbstractRange, parts) && throw(_NotALiteral())
+    return parts
+end
+
 function _literal(ex::Expr)
     head, args = ex.head, ex.args
     if head === :vect
-        return Base.vect(map(_literal, args)...)
+        return Base.vect(_literal_parts(args)...)
     elseif head === :tuple
         any(a -> a isa Expr && a.head in (:(=), :kw, :parameters), args) && throw(_NotALiteral())
-        return tuple(map(_literal, args)...)
+        return tuple(_literal_parts(args)...)
     elseif head === :ref
-        return getindex(_literal_type(args[1]), map(_literal, args[2:end])...)
+        return getindex(_literal_type(args[1]), _literal_parts(args[2:end])...)
     elseif head === :curly
-        return Core.apply_type(_literal_type(args[1]), map(_literal, args[2:end])...)
+        T = _literal_type(args[1])
+        params = _literal_parts(args[2:end])
+        # Integer type parameters size types (`NTuple{N, T}`, `Array{T, N}`): huge ones crash the compiler.
+        T === Val || all(p -> !(p isa Integer) || abs(p) <= _MAX_TYPE_PARAMETER, params) || throw(_NotALiteral())
+        return Core.apply_type(T, params...)
     elseif head === :call
-        return _literal_call(args[1], map(_literal, args[2:end]))
+        return _literal_call(args[1], _literal_parts(args[2:end]))
     elseif head === :macrocall && length(args) == 3 && args[3] isa String
         # Integer literals too large for Int64/UInt64 are parsed as `@int128_str "..."` etc.
         T = get(_BIG_LITERAL_MACROS, args[1], nothing)
@@ -120,6 +133,8 @@ const _BIG_LITERAL_MACROS = Dict{Any, Type}(
 # whole value (ranges are lazy, but hashing writes out every element; see `str2val`).
 const _MAX_LITERAL_BITS = 2^20
 const _MAX_LITERAL_LENGTH = 10^6
+const _MAX_TYPE_PARAMETER = 256  # integer type parameters (except in `Val`)
+const _MAX_DIMS = 16             # dimensions of `reshape`
 _exact_bits(x::Integer) = ndigits(x; base = 2)
 _exact_bits(x::Rational) = max(_exact_bits(numerator(x)), _exact_bits(denominator(x)))
 _exact_bits(x::Complex) = max(_exact_bits(real(x)), _exact_bits(imag(x)))
@@ -150,12 +165,13 @@ function _literal_call(f, values::Vector)
     elseif f === :reshape && length(values) == 2 && values[1] isa AbstractVector &&
            values[2] isa Tuple{Vararg{Integer}}
         # (overflow-checked: wrapped dimensions could otherwise pass for an empty array)
-        foldl(Base.checked_mul, values[2]; init = 1) > _MAX_LITERAL_LENGTH && throw(_NotALiteral())
+        dims = values[2]
+        (length(dims) <= _MAX_DIMS && all(d -> 0 <= d <= _MAX_LITERAL_LENGTH, dims) &&
+         foldl(Base.checked_mul, dims; init = 1) <= _MAX_LITERAL_LENGTH) || throw(_NotALiteral())
         return reshape(values[1], values[2])
     elseif f isa Symbol && haskey(_LITERAL_FUNCTIONS, f) && all(v -> v isa Number, values)
         # Exact powers and ranges grow with their arguments: a file must not be able to request huge ones.
-        # Ranges are capped here, where they are built, because typed containers (`Vector{T}[1:n]`) collect
-        # them before `str2val` bounds the element count of the whole value.
+        # Ranges are capped here, where they are built (they are only literals on their own, see `_literal_parts`).
         # (A division, not a product: the product of the exponent and the bits overflows for huge exponents.)
         if f === :^ && length(values) == 2
             bits = _exact_bits(values[1])
