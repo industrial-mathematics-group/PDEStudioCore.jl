@@ -1,0 +1,24 @@
+9223372036854775806:9223372036854775807                      => UnitRange{Int64}                                    len=2  t=0.065  alloc=8897440
+1:2:9223372036854775807                                      => String                                              len=-  t=0.005  alloc=327080
+-9223372036854775807:2:9223372036854775807                   => String                                              len=-  t=0.0  alloc=3376
+BigInt(1):BigInt(10)^6                                       => UnitRange{BigInt}                                   len=1000000  t=0.353  alloc=238714520
+BigInt(1):BigInt(10)^6+1                                     => String                                              len=-  t=0.0  alloc=8104
+BigInt(1):BigInt(2)^200                                      => String                                              len=-  t=0.0  alloc=6112
+BigInt(2)^200:-1:BigInt(1)                                   => String                                              len=-  t=0.02  alloc=2278096
+BigFloat(1):BigFloat(1e6)                                    => StepRangeLen{BigFloat, BigFloat, BigFloat, BigInt}  len=1000000  t=0.358  alloc=370539688
+BigFloat(1):BigFloat(1e6)+1                                  => String                                              len=-  t=0.049  alloc=10101264
+BigFloat(1):BigFloat(1e30)                                   => String                                              len=-  t=0.0  alloc=6144
+BigInt(1)//1:BigInt(10)^7//1                                 => String                                              len=-  t=0.072  alloc=8703480
+Int128(1):Int128(10)^6                                       => UnitRange{Int128}                                   len=1000000  t=0.084  alloc=10282736
+Int128(1):Int128(10)^6+1                                     => String                                              len=-  t=0.002  alloc=10064
+-170141183460469231731687303715884105728:1701411834604692317 => String                                              len=-  t=0.014  alloc=891304
+UInt128(0):340282366920938463463374607431768211455           => String                                              len=-  t=0.06  alloc=9672568
+0x00000000:0xffffffff                                        => String                                              len=-  t=0.026  alloc=3044536
+Int32(0):Int32(2)^30                                         => String                                              len=-  t=0.048  alloc=3958808
+1:1:0                                                        => StepRange{Int64, Int64}                             len=0  t=0.006  alloc=779480
+1:-1:2                                                       => StepRange{Int64, Int64}                             len=0  t=0.0  alloc=2800
+10^6:1:1                                                     => StepRange{Int64, Int64}                             len=0  t=0.002  alloc=6016
+1.0:-1.0:2.0                                                 => StepRangeLen{Float64, Base.TwicePrecision{Float64}  len=0  t=0.005  alloc=932512
+1:0.5:5                                                      => StepRangeLen{Float64, Base.TwicePrecision{Float64}  len=9  t=0.022  alloc=3375552
+1:0.5:500001                                                 => String                                              len=-  t=0.0  alloc=2960
+1:0.5:500000.5                                               => StepRangeLen{Float64, Base.TwicePrecision{Float64}  len=1000000  t=0.002  alloc=57232

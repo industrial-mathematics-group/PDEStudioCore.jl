@@ -1,0 +1,20 @@
+[105546] signal 11 (1): Segmentation fault
+[105564] signal 11 (1): Segmentation fault
+[105584] signal 11 (1): Segmentation fault
+[105651] signal 11 (1): Segmentation fault
+[105675] signal 11 (1): Segmentation fault
+[105705] signal 11 (1): Segmentation fault
+Val{2^62}()                                   => Val{4611686018427387904}                      t=0.07  hash ok 0.15 s  normalize ok 0.0 s
+Val{1:10^6}()                                 => Val{1:1000000}                                t=0.08  hash ok 0.15 s  normalize ok 0.0 s
+Val{(1, 2.0, :a)}()                           => Val{(1, 2.0, :a)}                             t=0.12  hash ok 0.16 s  normalize ok 0.0 s
+Complex{BigFloat}[1:10]                       => String                                        t=0.09  hash ok 0.11 s  normalize ok 0.0 s
+Tuple{Int}[(1,)]                              => Vector{Tuple{Int64}}                          t=0.08  hash ok 0.17 s  normalize ok 0.0 s
+NTuple{3, Int}                                => DataType                                      t=0.06  hash ok 0.15 s  normalize ok 0.02 s
+NTuple{40, Int}                               => DataType                                      t=0.06  hash ok 0.15 s  normalize ok 0.0 s
+Vector{NTuple{10^6, Int}}[]                   => Vector{Vector{NTuple{1000000, Int64}}}        t=0.51  hash ok 1.44 s  normalize ok 0.04 s
+LLVM ERROR: out of memory
+[105884] signal 6 (-6): Aborted
+IdDict{Int, Vector{Float64}}(1 => 1:10^6)     => String                                        t=0.19  hash ok 0.09 s  normalize ok 0.0 s
+Base.DimsInteger{2^62}                        => String                                        t=0.04  hash ok 0.09 s  normalize ok 0.0 s
+[106420] signal 11 (1): Segmentation fault
+[106445] signal 11 (1): Segmentation fault

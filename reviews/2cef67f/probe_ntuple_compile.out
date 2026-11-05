@@ -1,0 +1,6 @@
+Dict{NTuple{100, Int}, Int}()                 => Dict{NTuple{100, Int64}, Int64}               t=0.14  hash ok 0.3 s  normalize ok 0.0 s
+Vector{NTuple{100, Float64}}[]                => Vector{Vector{NTuple{100, Float64}}}          t=0.02  hash ok 0.11 s  normalize ok 0.0 s
+Dict{NTuple{1000, Int}, Int}()                => Dict{NTuple{1000, Int64}, Int64}              t=0.53  hash ok 0.3 s  normalize ok 0.0 s
+Vector{NTuple{1000, Float64}}[]               => Vector{Vector{NTuple{1000, Float64}}}         t=0.02  hash ok 0.11 s  normalize ok 0.0 s
+Dict{NTuple{10000, Int}, Int}()               => Dict{NTuple{10000, Int64}, Int64}             t=55.83  hash ok 0.29 s  normalize ok 0.0 s
+Vector{NTuple{10000, Float64}}[]              => Vector{Vector{NTuple{10000, Float64}}}        t=0.02  hash ok 0.12 s  normalize ok 0.0 s
