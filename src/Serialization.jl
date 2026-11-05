@@ -116,7 +116,13 @@ const _BIG_LITERAL_MACROS = Dict{Any, Type}(
     GlobalRef(Core, Symbol("@big_str")) => BigInt,
 )
 
-const _MAX_BIG_EXPONENT = 10_000
+# Size limits of literals (see `_literal_call`): bits of an exact power, elements of a range.
+const _MAX_LITERAL_BITS = 2^20
+const _MAX_LITERAL_LENGTH = 10^6
+_exact_bits(x::Integer) = ndigits(x; base = 2)
+_exact_bits(x::Rational) = max(_exact_bits(numerator(x)), _exact_bits(denominator(x)))
+_exact_bits(x::Complex) = max(_exact_bits(real(x)), _exact_bits(imag(x)))
+_exact_bits(::Number) = 0  # fixed-size (or fixed-precision) results
 
 function _literal_call(f, values::Vector)
     if f === :(=>) && length(values) == 2
@@ -125,10 +131,12 @@ function _literal_call(f, values::Vector)
            values[2] isa Tuple{Vararg{Integer}}
         return reshape(values[1], values[2])
     elseif f isa Symbol && haskey(_LITERAL_FUNCTIONS, f) && all(v -> v isa Number, values)
-        # Arbitrary-precision powers grow with the exponent: a file must not be able to request a huge one.
-        f === :^ && any(v -> v isa Union{BigInt, BigFloat}, values) && abs(values[2]) > _MAX_BIG_EXPONENT &&
+        # Exact powers and ranges grow with their arguments: a file must not be able to request huge ones.
+        f === :^ && length(values) == 2 && abs(values[2]) * _exact_bits(values[1]) > _MAX_LITERAL_BITS &&
             throw(_NotALiteral())
-        return _LITERAL_FUNCTIONS[f](values...)
+        result = _LITERAL_FUNCTIONS[f](values...)
+        f === :(:) && length(result) > _MAX_LITERAL_LENGTH && throw(_NotALiteral())
+        return result
     end
     T = _literal_type(f)
     # Only plain dictionary types: e.g. `EnvDict()` would return the live `ENV`.
@@ -166,7 +174,8 @@ end
 # Normalisation used before saving and hashing: strings are kept verbatim (they are never
 # re-interpreted as code), closures become "Closure", other values round-trip through val2str.
 # Known limitation: `nothing`/`missing` *inside* containers come back as the types `Nothing`/`Missing`
-# (or the container as a string). Left as is: hashes are computed from this form and are pinned.
+# (or the container as a string). The hashes would not change (`val2str(nothing) == val2str(Nothing)`), but the
+# stored "params" of existing files would no longer match newly normalised filters (`find_sim_data`, deletion).
 _normalize_param(v::AbstractString) = String(v)
 _normalize_param(v::Union{Nothing, Missing}) = v  # would otherwise become the types `Nothing`/`Missing`
 _normalize_param(v) = str2val(val2str(v))

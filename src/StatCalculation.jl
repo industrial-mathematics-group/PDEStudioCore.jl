@@ -208,9 +208,11 @@ from the dataset (or all of them with `force_overwrite = true`). `ref_func(x)` i
 at the spacetime point `x::SVector{D}`; it is evaluated once per node/particle. Statistics that come
 out all-`NaN` (e.g. errors without a reference) are dropped. Statistics added with
 [`add_stat!`](@ref) are kept unless the global registry has a statistic of the same name (see there).
-With `save = true` the dataset is saved, unless the file for its parameters holds a different solution:
-a conversion, a resampled grid or a reference dataset shares the parameters (and hash) of the native run,
-so saving it would replace the native data. Then nothing is saved and a warning is logged.
+With `save = true` the dataset is saved when a registered statistic changed (values attached with
+[`add_stat!`](@ref) alone don't trigger a save: use [`save_sim_data`](@ref) with `overwrite = true`), unless the
+file for its parameters holds a different solution: a conversion, a resampled grid or a reference dataset shares
+the parameters (and hash) of the native run, so saving it would replace the native data. Then nothing is saved
+and a warning is logged. Like [`save_sim_data`](@ref), saving normalises `sim_data.params`.
 Returns `sim_data`.
 """
 calculate_all_stats!(sim_data::NoSimData, ref_func = nothing; kwargs...) = sim_data
@@ -244,7 +246,8 @@ function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwr
         path = _find_file(sim_data.params)
         if path !== nothing && !known_native && !_is_native_representation(path, sim_data)
             @warn "Statistics were not saved: the file for these parameters holds a different solution " *
-                  "(this looks like a converted or reference dataset). Pass `save = false` for derived datasets."
+                  "(a converted or reference dataset, or data changed after loading). Pass `save = false` for " *
+                  "derived datasets, or use `save_sim_data(data; overwrite = true)` to replace the stored data."
         else
             # Remember what was evaluated (and whether a reference was available), so the pipeline does
             # not reload data for stats that came out NaN, but retries them once a reference exists.

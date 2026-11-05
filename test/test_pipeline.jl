@@ -51,6 +51,7 @@ keep_post(data) = true                            # saves the (unchanged) data a
     cfg4 = SimulationConfig(Dict(:N => 8),
                             Dict(:godunov_exact_riemann => Dict(:sim_func_name => :advection_solver_1d),
                                  :upwind => Dict(:scheme => "upwind", :sim_func_name => :advection_solver_1d)))
+    empty!(PDEStudioCore._WARNED_REFERENCE_NAMES)  # warned once per session: keep the suite re-runnable
     tasks4 = @test_logs (:warn, r"godunov_exact_riemann.*marks it as a reference") match_mode = :any generate_tasks(cfg4)
     @test length(tasks4) == 1
 end
@@ -118,6 +119,9 @@ end
     cfg_dt = SimulationConfig(create_param_dict(:dt__1 => 0.1, :sim_func_name => :dummy_tuple_solver);
                               varied = create_varied_dict(:dt__1 => [0.2]))
     @test only(generate_tasks(cfg_dt))[:dt__1] == 0.2
+    # Bool tuples stay Bool tuples
+    tasks_b, _ = generate_method_tasks(create_param_dict(:flags => (true, true)), [:flags__y], [[false]])
+    @test tasks_b[1][:flags] === (true, false)
     # a suffix on a scalar parameter is a configuration error, reported as such
     @test_throws ArgumentError generate_method_tasks(create_param_dict(:N => 10), [:N__all], [[20]])
     @test_throws ArgumentError generate_tasks(SimulationConfig(create_param_dict(:N => 10, :sim_func_name => :dummy_tuple_solver);

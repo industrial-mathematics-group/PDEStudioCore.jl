@@ -59,7 +59,11 @@
     @test str2val("EnvDict()") isa String
     @test str2val("Dict(:a => 1)") == Dict(:a => 1)
     @test str2val("BigInt(3)^(10^7)") isa String
-    @test str2val("BigInt(2)^100") == big(2)^100
+    @test str2val("(BigInt(10)^10000)^10000") isa String      # nested powers
+    @test str2val("(BigInt(3)//1)^(10^7)") isa String         # other exact types
+    @test str2val("(BigInt(3) + 0im)^(10^6)") isa String
+    @test str2val("1:10^9") isa String                         # hashing would write out every element
+    @test str2val("BigInt(2)^100") == big(2)^100 && str2val("2^10") == 1024 && str2val("1:10") == 1:10
 end
 
 @testset "Parameter normalisation & hashing" begin

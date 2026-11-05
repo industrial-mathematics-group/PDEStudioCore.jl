@@ -141,7 +141,7 @@ function generate_method_tasks(base_params::AbstractDict, active_keys::AbstractV
                 end
             end
             for (base_key, arr) in updates
-                task[base_key] = all(x -> x isa Integer, arr) ? Tuple(Int.(arr)) : Tuple(arr)
+                task[base_key] = all(x -> x isa Integer && !(x isa Bool), arr) ? Tuple(Int.(arr)) : Tuple(arr)
             end
         end
         push!(tasks, task)
@@ -324,7 +324,9 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref):
    a reference are evaluated again once a reference is configured. `force_stats = true` recomputes
    every registered statistic without rerunning the simulations,
 3. with `post_process = true`, calls `config.postprocess(data)` for every dataset and saves the
-   (modified) data again when it returns `true`; the data of pass 1 is saved either way.
+   (modified) data again when it returns `true`; the data of pass 1 is saved either way. This pass runs on
+   every call, for cached datasets too, so a post-processor must be idempotent (and should return `true`
+   only when it changed something: saving rewrites the file and drops its cached conversions).
 Failures of individual tasks are logged and do not abort the batch.
 """
 function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = false, calculate_stats::Bool = false,

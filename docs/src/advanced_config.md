@@ -57,7 +57,7 @@ Methods whose name contains a word starting with `analytic`, `reference`, `exact
 
 ## 3. Custom Post-Processing
 
-`postprocess` names a function that receives every dataset after the statistics pass. Mutate the data as you like and return `true` to save the changes; any other return value (including `nothing`) leaves the file untouched.
+`postprocess` names a function that receives every dataset after the statistics pass. Change the data and return `true` to save the changes; any other return value (including `nothing`) leaves the file untouched. The pass runs on every `run_all_simulations` call, for cached datasets as well, so make the function idempotent (e.g. set a statistic rather than accumulate into the solution), and return `true` only when it changed something: saving rewrites the file (and drops its cached conversions). Statistics stored in the file are not recomputed after a post-processor changed the solution.
 
 ```julia
 function add_maximum(data)

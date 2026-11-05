@@ -90,11 +90,11 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         calculate_all_stats!(sim)
         @test flag() == false && stat(file).inode != inode
         @test load_sim_data(p).u == sim.u && haskey(load_sim_data(p).stats, :l1error)
-        # Rewrites don't grow the file, and leave no temporary files behind
+        # Flag updates don't rewrite the data (the file grows by little), and leave no temporary files behind
         for v in (true, false, true, false)
             PDEStudioCore._set_key!(file, "evaluated_with_reference", v)
         end
-        @test filesize(file) <= size0 + 64
+        @test filesize(file) <= size0 + 4096 && load_sim_data(p).u == sim.u
         @test !any(f -> endswith(f, ".tmp"), readdir(dirname(file)))
         # Unchanged entries don't touch the file at all
         inode = stat(file).inode

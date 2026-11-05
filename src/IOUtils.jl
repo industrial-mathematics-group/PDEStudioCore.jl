@@ -120,12 +120,16 @@ function _load_key(path::AbstractString, key::AbstractString)
     end
 end
 
-# A temporary file next to `path`, unique per writer, so concurrent writers never share one.
-_tmp_path(path::AbstractString) = string(path, ".", getpid(), "_", string(rand(UInt64); base = 16), ".tmp")
+# A temporary file next to `path`, unique per writer (process, task and time; without touching the global RNG),
+# so concurrent writers never share one.
+_tmp_path(path::AbstractString) =
+    string(path, ".", getpid(), "_", string(objectid(current_task()); base = 16), "_", time_ns(), ".tmp")
 
-# Sets top-level entries of an existing file atomically: the file is rewritten to a temporary path (with all
-# other entries copied) and renamed into place, like every other writer. Does nothing if every entry already
-# has the given value (`only_missing = true`: if every key already exists).
+# Sets top-level entries of an existing file atomically: the entries are written into a byte copy of the file,
+# which is then renamed into place, like every other writer. The other entries are not loaded and stored again
+# (that would change entries of types the session hasn't loaded). Does nothing if every entry already has the
+# given value (`only_missing = true`: if every key already exists). Replacing an entry leaves its old space in
+# the file, so a changed flag grows the file by a few hundred bytes; the data itself is never rewritten here.
 function _update_entries!(path::AbstractString, entries::AbstractDict{String}; only_missing::Bool = false)
     pending = jldopen(path, "r") do file
         filter(((k, v),) -> !haskey(file, k) || (!only_missing && !isequal(file[k], v)), entries)
@@ -133,13 +137,10 @@ function _update_entries!(path::AbstractString, entries::AbstractDict{String}; o
     isempty(pending) && return nothing
     tmp = _tmp_path(path)
     try
-        jldopen(tmp, "w") do file
-            jldopen(path, "r") do old
-                for k in keys(old)
-                    haskey(pending, k) || _copy_entry!(file, old, k)
-                end
-            end
+        cp(path, tmp)
+        jldopen(tmp, "a+") do file
             for (k, v) in pending
+                haskey(file, k) && delete!(file, k)
                 file[k] = v
             end
         end
@@ -291,6 +292,7 @@ end
 
 # Whether `data` is the dataset stored as "raw" in `path`: the same representation and the same solution (its
 # statistics may differ), not a conversion or an exact solution that shares its parameters (and hash).
+# Loads the stored solution once for the comparison.
 function _is_native_representation(path::AbstractString, data::AbstractSimData)
     native, shape = _native_and_shape(path)
     native === _data_kind(data) || return false
