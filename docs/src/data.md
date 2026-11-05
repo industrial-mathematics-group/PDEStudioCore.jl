@@ -79,7 +79,7 @@ Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed
 | `"sources"` | SHA-256 digests of the source files (pipeline runs with `sources`) |
 | `"conv_L"`, `"conv_E_<n1>x<n2>…"` | cached conversions |
 
-Writes are atomic: a file is written to a temporary path and renamed into place, so an interrupted run never corrupts existing data, and rewriting a file does not grow it. Rewriting the raw data drops stale conversion caches but keeps any other entries (including groups) you stored yourself.
+Writes are atomic: a file is written to a temporary path and renamed into place, so an interrupted run never corrupts existing data, and rewriting a file does not grow it. This includes the bookkeeping entries of the statistics pass and cached conversions: adding one rewrites the file. Rewriting the raw data drops stale conversion caches but keeps any other entries (including groups) you stored yourself.
 
 Converted and reference datasets carry the parameters of the native run, so they map to the same file. [`calculate_all_stats!`](@ref) detects this (by representation and shape) and does not save them over the native data; an explicit `save_sim_data(...; overwrite = true)` of such a dataset does replace it.
 
