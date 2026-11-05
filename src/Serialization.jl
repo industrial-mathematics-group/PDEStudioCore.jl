@@ -116,6 +116,8 @@ const _BIG_LITERAL_MACROS = Dict{Any, Type}(
     GlobalRef(Core, Symbol("@big_str")) => BigInt,
 )
 
+const _MAX_BIG_EXPONENT = 10_000
+
 function _literal_call(f, values::Vector)
     if f === :(=>) && length(values) == 2
         return values[1] => values[2]
@@ -123,10 +125,14 @@ function _literal_call(f, values::Vector)
            values[2] isa Tuple{Vararg{Integer}}
         return reshape(values[1], values[2])
     elseif f isa Symbol && haskey(_LITERAL_FUNCTIONS, f) && all(v -> v isa Number, values)
+        # Arbitrary-precision powers grow with the exponent: a file must not be able to request a huge one.
+        f === :^ && any(v -> v isa Union{BigInt, BigFloat}, values) && abs(values[2]) > _MAX_BIG_EXPONENT &&
+            throw(_NotALiteral())
         return _LITERAL_FUNCTIONS[f](values...)
     end
     T = _literal_type(f)
-    if T <: AbstractDict && all(v -> v isa Pair, values)
+    # Only plain dictionary types: e.g. `EnvDict()` would return the live `ENV`.
+    if (T <: Dict || T <: IdDict) && all(v -> v isa Pair, values)
         return T(values...)
     elseif T <: Val && isempty(values)
         return T()
@@ -159,6 +165,8 @@ end
 
 # Normalisation used before saving and hashing: strings are kept verbatim (they are never
 # re-interpreted as code), closures become "Closure", other values round-trip through val2str.
+# Known limitation: `nothing`/`missing` *inside* containers come back as the types `Nothing`/`Missing`
+# (or the container as a string). Left as is: hashes are computed from this form and are pinned.
 _normalize_param(v::AbstractString) = String(v)
 _normalize_param(v::Union{Nothing, Missing}) = v  # would otherwise become the types `Nothing`/`Missing`
 _normalize_param(v) = str2val(val2str(v))

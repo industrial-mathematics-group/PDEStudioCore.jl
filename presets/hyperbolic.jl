@@ -32,6 +32,8 @@ function calc_stat(::Val{:l2norm}, fixed_coords, u, ana, domain::DomainInfo)
 end
 
 function calc_stat(::Val{:wave_height}, fixed_coords, u, ana, domain::DomainInfo)
+    # A Lagrangian step can have no particles at all; there is no maximum then.
+    isempty(u) && return map(_ -> oftype(zero(eltype(eltype(u))), NaN), zero(eltype(u)))
     return reduce((a, b) -> max.(a, b), u)
 end
 

@@ -109,4 +109,12 @@ end
     u_ana = PDEStudioCore.generate_pointwise_reference(static, st -> 1.0)
     field = PDEStudioCore._calc_stat!(static, u_ana, :pointwise_diff)
     @test length(field) == 1 && length(field[1]) == 5 && all(==(SVector(0.0)), field[1])
+
+    # A step without particles has no maximum: NaN there, and the other statistics are still computed
+    x = [[SVector(0.0), SVector(1.0)], SVector{1, Float64}[]]
+    u = [[SVector(1.0), SVector(2.0)], SVector{1, Float64}[]]
+    emptied = create_sim_data(x, u, [0.0, 1.0], create_param_dict(:case => "empty-step"))
+    calculate_all_stats!(emptied; save = false)
+    @test emptied.stats[:wave_height][1] == SVector(2.0) && isnan(emptied.stats[:wave_height][2][1])
+    @test emptied.stats[:mass][2] == SVector(0.0)
 end

@@ -55,6 +55,11 @@
     @test str2val("exit()") == "exit()"
     @test str2val("rm(\"x\")") == "rm(\"x\")"
     @test str2val("run(`echo hacked`)") isa String
+    # ... and literals neither reach live global state nor request unbounded computations
+    @test str2val("EnvDict()") isa String
+    @test str2val("Dict(:a => 1)") == Dict(:a => 1)
+    @test str2val("BigInt(3)^(10^7)") isa String
+    @test str2val("BigInt(2)^100") == big(2)^100
 end
 
 @testset "Parameter normalisation & hashing" begin
