@@ -8,12 +8,27 @@ const _REFERENCE_KEYWORDS = ("analytic", "reference", "exact", "baseline", "true
     is_reference_method(m_name::Symbol)
 
 `true` if a word of the method name (split at `_`, `-` and non-alphanumerics) starts with
-"analytic", "reference", "exact", "baseline" or "true" (e.g. `:analytic`, `:exact_solution`).
-Reference methods are skipped by [`run_all_simulations`](@ref).
+"analytic", "reference", "exact", "baseline" or "true" (e.g. `:analytic`, `:exact_solution`, but also
+`:godunov_exact_riemann`). Reference methods are skipped by [`run_all_simulations`](@ref) (with a
+warning if such a method has its own `:sim_func_name`).
 """
 function is_reference_method(m_name::Union{Symbol, AbstractString})
     words = split(lowercase(String(m_name)), r"[^a-z0-9]+"; keepempty = false)
     return any(w -> any(k -> startswith(w, k), _REFERENCE_KEYWORDS), words)
+end
+
+# Methods named like a reference but with a solver of their own (e.g. `:godunov_exact_riemann`) are most likely
+# real methods. They are skipped all the same (frontends rely on the naming rule); warn once per name.
+const _WARNED_REFERENCE_NAMES = Set{Symbol}()
+function _warn_skipped_solvers(config)
+    for m in config.defaults
+        (is_reference_method(m) && haskey(get(config.methods, m, ParamDict()), :sim_func_name)) || continue
+        m in _WARNED_REFERENCE_NAMES && continue
+        push!(_WARNED_REFERENCE_NAMES, m)
+        @warn "Method :$m has its own :sim_func_name, but its name marks it as a reference method " *
+              "(see `is_reference_method`), so it is not run. Rename it to run it."
+    end
+    return nothing
 end
 
 """
@@ -78,8 +93,10 @@ end
 Expands one method's parameters over the Cartesian product of `active_values`. Keys of the form
 `:Ns__x`/`:Ns__1` (`__y`/`__2`, `__z`/`__3`, `__<n>`) set one entry of the tuple parameter `:Ns`;
 `:Ns__xy` (`__xz`, `__yz`, `__xyz`) sets several entries and `:Ns__all` every entry of the tuple to
-the same swept value. Varied keys that are absent from `base_params` (or ignored) are not applied to
-this method.
+the same swept value (the result is a `Tuple`; entries past its end are added, gaps filled with `0.0`).
+A key that is itself a parameter of `base_params` (e.g. `:dt__1`) is an ordinary key. Varied keys that are
+absent from `base_params` (or ignored) are not applied to this method. Throws an `ArgumentError` if a
+suffix key addresses a parameter that is not a tuple or vector.
 Returns `(tasks, grid_indices)`.
 """
 function generate_method_tasks(base_params::AbstractDict, active_keys::AbstractVector, active_values::AbstractVector;
@@ -92,7 +109,7 @@ function generate_method_tasks(base_params::AbstractDict, active_keys::AbstractV
     varied_tup = Tuple{Int, Symbol, Union{Symbol, Vector{Int}}}[]  # (index into the value tuple, base key, tuple entries)
     for (i, k) in enumerate(Symbol.(active_keys))
         k in ignore && continue
-        base_key, idxs = _split_varied_key(k)
+        base_key, idxs = haskey(base, k) ? (k, nothing) : _split_varied_key(k)
         if idxs === nothing
             push!(varied_std, (i, k))
         elseif !(base_key in ignore)
@@ -111,7 +128,11 @@ function generate_method_tasks(base_params::AbstractDict, active_keys::AbstractV
             updates = Dict{Symbol, Vector{Any}}()
             for (i, base_key, idxs) in varied_tup
                 haskey(task, base_key) || continue
-                arr = get!(() -> collect(Any, task[base_key]), updates, base_key)
+                value = task[base_key]
+                value isa Union{Tuple, AbstractVector} || throw(ArgumentError(
+                    "the varied key :$(active_keys[i]) sets entries of :$base_key, but :$base_key = $(repr(value)) " *
+                    "is not a tuple or vector; vary :$base_key itself instead"))
+                arr = get!(() -> collect(Any, value), updates, base_key)
                 for idx in (idxs === :all ? (1:length(arr)) : idxs)
                     while length(arr) < idx
                         push!(arr, 0.0)
@@ -144,6 +165,7 @@ function generate_tasks(config::SimulationConfig)
     end
     methods = isempty(config.methods) && isempty(config.defaults) ? Union{Nothing, Symbol}[nothing] :
               Union{Nothing, Symbol}[m for m in config.defaults if !is_reference_method(m)]
+    _warn_skipped_solvers(config)
 
     tasks = ParamDict[]
     seen = Set{String}()
@@ -152,7 +174,7 @@ function generate_tasks(config::SimulationConfig)
         base = method === nothing ? copy(config.shared) : assemble_params(config.shared, config.methods, method)
         ignore = method === nothing ? Symbol[] : get_ignore_keys(config.methods, method)
         for k in vkeys
-            base_key, _ = _split_varied_key(k)
+            base_key, _ = haskey(base, k) ? (k, nothing) : _split_varied_key(k)
             (haskey(base, base_key) && !(k in ignore) && !(base_key in ignore)) && push!(used, k)
         end
         method_tasks, _ = generate_method_tasks(base, vkeys, vvals; ignore_keys = ignore)
@@ -240,7 +262,7 @@ function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, f
         (force_overwrite || _needs_stats(path, required, has_reference)) || return :cached
         sim_data = _load_key(path, "raw")
         ref_func = has_reference ? ref_factory(params) : nothing
-        calculate_all_stats!(sim_data, ref_func; force_overwrite = force_overwrite)
+        _calculate_all_stats!(sim_data, ref_func, force_overwrite, true, true)
         return :ran
     catch e
         @error "Statistics failed for parameters $params" exception = (e, catch_backtrace())
@@ -253,7 +275,12 @@ function _post_task(params::ParamDict, post_func)
         path = _find_file(params)
         path === nothing && return :missing
         sim_data = _load_key(path, "raw")
-        post_func(sim_data) === true && save_sim_data(sim_data; overwrite = true, verbose = false)
+        if post_func(sim_data) === true
+            # The rewrite keeps the record of evaluated statistics, so the next run doesn't redo them.
+            evaluated = jldopen(f -> haskey(f, "evaluated_stats") ? f["evaluated_stats"] : nothing, path, "r")
+            metadata = evaluated === nothing ? Dict{String, Any}() : Dict{String, Any}("evaluated_stats" => evaluated)
+            _save_sim_data(sim_data, true, false, metadata)
+        end
         return :ran
     catch e
         @error "Post-processing failed for parameters $params" exception = (e, catch_backtrace())
@@ -297,7 +324,7 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref):
    a reference are evaluated again once a reference is configured. `force_stats = true` recomputes
    every registered statistic without rerunning the simulations,
 3. with `post_process = true`, calls `config.postprocess(data)` for every dataset and saves the
-   data when it returns `true`.
+   (modified) data again when it returns `true`; the data of pass 1 is saved either way.
 Failures of individual tasks are logged and do not abort the batch.
 """
 function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = false, calculate_stats::Bool = false,

@@ -67,6 +67,39 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         @test_logs (:warn, r"not saved") match_mode = :any calculate_all_stats!(ref, exact_advection)
         @test size(load_sim_data(PARAMS_CONV).u) == size(sim_base.u)
         @test haskey(ref.stats, :mass)  # the statistics are still computed in memory
+
+        # ... also at the native resolution, where representation, shape and parameters all match
+        ref_native = generate_reference_simdata(exact_advection, PARAMS_CONV, sim_base.domain, size(sim_base.u), :eulerian)
+        @test_logs (:warn, r"not saved") match_mode = :any calculate_all_stats!(ref_native, exact_advection)
+        @test load_sim_data(PARAMS_CONV).u == sim_base.u
+        # while the native dataset itself (with other statistics) is saved
+        native = load_sim_data(PARAMS_CONV)
+        calculate_all_stats!(native, exact_advection)
+        @test haskey(load_sim_data(PARAMS_CONV).stats, :l1error)
+    end
+
+    @testset "Bookkeeping entries are written atomically" begin
+        p = create_param_dict(:N => 20, :scheme => "upwind", :cfl => 0.5, :test_mode => "atomic")
+        sim = advection_solver_1d(p)
+        calculate_all_stats!(sim, exact_advection)
+        file = get_file_name(p)
+        flag() = load_sim_data(calculate_hash(get_clean_params(p))[1:12]; key = "evaluated_with_reference")
+        @test flag() == true
+        # Nothing to compute, only the flag changes: the file is replaced (new inode), not modified in place
+        inode, size0 = stat(file).inode, filesize(file)
+        calculate_all_stats!(sim)
+        @test flag() == false && stat(file).inode != inode
+        @test load_sim_data(p).u == sim.u && haskey(load_sim_data(p).stats, :l1error)
+        # Rewrites don't grow the file, and leave no temporary files behind
+        for v in (true, false, true, false)
+            PDEStudioCore._set_key!(file, "evaluated_with_reference", v)
+        end
+        @test filesize(file) <= size0 + 64
+        @test !any(f -> endswith(f, ".tmp"), readdir(dirname(file)))
+        # Unchanged entries don't touch the file at all
+        inode = stat(file).inode
+        calculate_all_stats!(sim)
+        @test stat(file).inode == inode
     end
 
     @testset "Resampling keeps non-uniform axes it does not resample" begin
