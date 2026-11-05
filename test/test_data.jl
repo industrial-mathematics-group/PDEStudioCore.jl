@@ -102,9 +102,11 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         proj = Base.active_project()
         foo_file = joinpath(mktempdir(), "foreign.jld2")
         def = "using PDEStudioCore; using PDEStudioCore.JLD2; struct ForeignEntry; a::Int; end"
-        run(`$jl --project=$proj -e "$def; jldsave(\"$foo_file\"; foo = ForeignEntry(7))"`)
+        run(`$jl --project=$proj -e "$def; jldsave($(repr(foo_file)); foo = ForeignEntry(7))"`)
         PDEStudioCore._set_key!(foo_file, "evaluated_with_reference", true)
-        @test success(`$jl --project=$proj -e "$def; x = load(\"$foo_file\", \"foo\"); exit(x isa ForeignEntry && x.a == 7 ? 0 : 1)"`)
+        @test success(`$jl --project=$proj -e "$def; x = load($(repr(foo_file)), \"foo\"); exit(x isa ForeignEntry && x.a == 7 ? 0 : 1)"`)
+        # Here the type is unknown, so rewriting the data warns about the entry
+        @test PDEStudioCore._is_reconstructed(PDEStudioCore.JLD2.load(foo_file, "foo"))
         # A symlinked data file stays a symlink, and its target is updated
         link = foo_file * ".link.jld2"
         symlink(foo_file, link)

@@ -173,8 +173,9 @@ function _write_metadata!(file, data::AbstractSimData)
     return nothing
 end
 
-# Whether JLD2 had to reconstruct a value because its type isn't loaded in this session.
-_is_reconstructed(value) = parentmodule(typeof(value)) === JLD2 && startswith(String(nameof(typeof(value))), "Reconstructed")
+# Whether JLD2 had to reconstruct a value (or a type parameter of it, e.g. the element type of a vector) because
+# its type isn't loaded in this session. Best effort: elements of untyped containers are not inspected.
+_is_reconstructed(value) = occursin(r"JLD2\.(Reconstructed|Serialized)", string(typeof(value)))
 
 # Copies an entry (recursively for groups) from one open JLD2 file to another. Entries are loaded and stored
 # again, so an entry whose type isn't loaded in this session is stored as JLD2's reconstruction (warned).
