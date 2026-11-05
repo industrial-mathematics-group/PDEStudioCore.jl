@@ -1,0 +1,33 @@
+[t[:periodic] for t = tasks] = [(0, 0), (1, 0)]
+
+tuple sweep keeps element types: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_misc.jl:8
+  Expression: all((t->begin
+            #= /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_misc.jl:8 =#
+            t[:periodic] isa Tuple{Bool, Bool}
+        end), tasks)
+   Evaluated: all(var"#5#6"(), Dict{Symbol, Any}[Dict(:periodic => (0, 0)), Dict(:periodic => (1, 0))])
+  Stacktrace:
+typeof((tasks8[1])[:Ns]) = Tuple{Int64, Int64}
+
+hash collisions between strings and numbers: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_misc.jl:14
+  Expression: calculate_hash(create_param_dict(:a => "1.0")) != calculate_hash(create_param_dict(:a => 1.0))
+   Evaluated: "3676744e9eb905234bd5cfb6872c43075db5d648b1dfd3d42b389a50e9b6ddc2" != "3676744e9eb905234bd5cfb6872c43075db5d648b1dfd3d42b389a50e9b6ddc2"
+  Stacktrace:
+
+hash collisions between strings and numbers: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_misc.jl:15
+  Expression: calculate_hash(create_param_dict(:a => ":upwind")) != calculate_hash(create_param_dict(:a => :upwind))
+   Evaluated: "4cb0a316a8d2577d47e782646c6350049aee371d302a3a03725ed5dd2972a04c" != "4cb0a316a8d2577d47e782646c6350049aee371d302a3a03725ed5dd2972a04c"
+  Stacktrace:
+c[:v] = [1.0, 2.0]
+typeof(c[:v]) = Vector{Float64}
+typeof(v) = String
+t = 0.009682432
+Test Summary:                                 | Pass  Fail  Total  Time
+probe_misc                                    |    2     3      5  1.8s
+  tuple sweep keeps element types             |          1      1  1.4s
+  hash collisions between strings and numbers |          2      2  0.1s
+  SVector parameters                          |    1            1  0.2s
+  nested big powers                           |    1            1  0.0s
+RNG of the outermost testset: Random.Xoshiro(0x73cbeca6b51e468c, 0x864d0c21625d11cc, 0x416aa08cb042d5dc, 0xe2edbe866494134b, 0x824869770d903049)
+ERROR: LoadError: Some tests did not pass: 2 passed, 3 failed, 0 errored, 0 broken.
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_misc.jl:3
