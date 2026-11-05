@@ -96,6 +96,21 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         end
         @test filesize(file) <= size0 + 4096 && load_sim_data(p).u == sim.u
         @test !any(f -> endswith(f, ".tmp"), readdir(dirname(file)))
+        # Entries of types this session doesn't know survive a bookkeeping update unchanged (another process
+        # writes and reads them back)
+        jl = Base.julia_cmd()
+        proj = Base.active_project()
+        foo_file = joinpath(mktempdir(), "foreign.jld2")
+        def = "using PDEStudioCore; using PDEStudioCore.JLD2; struct ForeignEntry; a::Int; end"
+        run(`$jl --project=$proj -e "$def; jldsave(\"$foo_file\"; foo = ForeignEntry(7))"`)
+        PDEStudioCore._set_key!(foo_file, "evaluated_with_reference", true)
+        @test success(`$jl --project=$proj -e "$def; x = load(\"$foo_file\", \"foo\"); exit(x isa ForeignEntry && x.a == 7 ? 0 : 1)"`)
+        # A symlinked data file stays a symlink, and its target is updated
+        link = foo_file * ".link.jld2"
+        symlink(foo_file, link)
+        PDEStudioCore._set_key!(link, "evaluated_with_reference", false)
+        @test islink(link) && PDEStudioCore.JLD2.load(foo_file, "evaluated_with_reference") == false
+
         # Unchanged entries don't touch the file at all
         inode = stat(file).inode
         calculate_all_stats!(sim)

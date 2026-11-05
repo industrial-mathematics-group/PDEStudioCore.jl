@@ -63,6 +63,8 @@
     @test str2val("(BigInt(3)//1)^(10^7)") isa String         # other exact types
     @test str2val("(BigInt(3) + 0im)^(10^6)") isa String
     @test str2val("1:10^9") isa String                         # hashing would write out every element
+    @test str2val("(BigInt(3)//1)^(2^62)") isa String          # the bound itself must not overflow
+    @test str2val("(" * join(fill("1:900000", 20), ", ") * ")") isa String   # the limit is for the whole value
     @test str2val("BigInt(2)^100") == big(2)^100 && str2val("2^10") == 1024 && str2val("1:10") == 1:10
 end
 

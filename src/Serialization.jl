@@ -116,13 +116,21 @@ const _BIG_LITERAL_MACROS = Dict{Any, Type}(
     GlobalRef(Core, Symbol("@big_str")) => BigInt,
 )
 
-# Size limits of literals (see `_literal_call`): bits of an exact power, elements of a range.
+# Size limits of literals: bits of an exact power (see `_literal_call`), and the number of elements of the
+# whole value (ranges are lazy, but hashing writes out every element; see `str2val`).
 const _MAX_LITERAL_BITS = 2^20
 const _MAX_LITERAL_LENGTH = 10^6
 _exact_bits(x::Integer) = ndigits(x; base = 2)
 _exact_bits(x::Rational) = max(_exact_bits(numerator(x)), _exact_bits(denominator(x)))
 _exact_bits(x::Complex) = max(_exact_bits(real(x)), _exact_bits(imag(x)))
 _exact_bits(::Number) = 0  # fixed-size (or fixed-precision) results
+
+# Number of elements of a parsed literal, counting the elements of (lazy) ranges.
+_literal_size(x::AbstractRange) = length(x)
+_literal_size(x::Union{Tuple, AbstractArray}) = isempty(x) ? 1 : sum(_literal_size, x)
+_literal_size(x::Pair) = _literal_size(x.first) + _literal_size(x.second)
+_literal_size(x::AbstractDict) = isempty(x) ? 1 : sum(_literal_size, x)
+_literal_size(::Any) = 1
 
 function _literal_call(f, values::Vector)
     if f === :(=>) && length(values) == 2
@@ -132,11 +140,12 @@ function _literal_call(f, values::Vector)
         return reshape(values[1], values[2])
     elseif f isa Symbol && haskey(_LITERAL_FUNCTIONS, f) && all(v -> v isa Number, values)
         # Exact powers and ranges grow with their arguments: a file must not be able to request huge ones.
-        f === :^ && length(values) == 2 && abs(values[2]) * _exact_bits(values[1]) > _MAX_LITERAL_BITS &&
-            throw(_NotALiteral())
-        result = _LITERAL_FUNCTIONS[f](values...)
-        f === :(:) && length(result) > _MAX_LITERAL_LENGTH && throw(_NotALiteral())
-        return result
+        # (A division, not a product: the product of the exponent and the bits overflows for huge exponents.)
+        if f === :^ && length(values) == 2
+            bits = _exact_bits(values[1])
+            bits > 0 && abs(values[2]) > _MAX_LITERAL_BITS / bits && throw(_NotALiteral())
+        end
+        return _LITERAL_FUNCTIONS[f](values...)
     end
     T = _literal_type(f)
     # Only plain dictionary types: e.g. `EnvDict()` would return the live `ENV`.
@@ -164,7 +173,9 @@ function str2val(val_str::AbstractString)
     s = strip(String(val_str))  # a plain String: the parser cannot iterate every AbstractString (e.g. lazy CSV strings)
     (s == "<empty>" || isempty(s)) && return ""
     try
-        return _literal(Meta.parse(s))
+        value = _literal(Meta.parse(s))
+        _literal_size(value) > _MAX_LITERAL_LENGTH && throw(_NotALiteral())
+        return value
     catch e
         e isa InterruptException && rethrow()
         return replace(s, r"^\"|\"$" => "")

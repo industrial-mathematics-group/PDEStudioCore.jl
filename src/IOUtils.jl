@@ -129,12 +129,13 @@ _tmp_path(path::AbstractString) =
 # which is then renamed into place, like every other writer. The other entries are not loaded and stored again
 # (that would change entries of types the session hasn't loaded). Does nothing if every entry already has the
 # given value (`only_missing = true`: if every key already exists). Replacing an entry leaves its old space in
-# the file, so a changed flag grows the file by a few hundred bytes; the data itself is never rewritten here.
+# the file, so a changed entry grows the file by about its size; the data itself is never rewritten here.
 function _update_entries!(path::AbstractString, entries::AbstractDict{String}; only_missing::Bool = false)
     pending = jldopen(path, "r") do file
         filter(((k, v),) -> !haskey(file, k) || (!only_missing && !isequal(file[k], v)), entries)
     end
     isempty(pending) && return nothing
+    path = realpath(path)  # replace the file a symlink points to, not the link
     tmp = _tmp_path(path)
     try
         cp(path, tmp)
@@ -172,9 +173,15 @@ function _write_metadata!(file, data::AbstractSimData)
     return nothing
 end
 
-# Copies an entry (recursively for groups) from one open JLD2 file to another.
+# Whether JLD2 had to reconstruct a value because its type isn't loaded in this session.
+_is_reconstructed(value) = parentmodule(typeof(value)) === JLD2 && startswith(String(nameof(typeof(value))), "Reconstructed")
+
+# Copies an entry (recursively for groups) from one open JLD2 file to another. Entries are loaded and stored
+# again, so an entry whose type isn't loaded in this session is stored as JLD2's reconstruction (warned).
 function _copy_entry!(dest, src, key::AbstractString)
     value = src[key]
+    _is_reconstructed(value) && @warn "Entry '$key' has a type that isn't loaded in this session " *
+        "($(nameof(typeof(value)))); it is kept as such. Load the package that defines it before rewriting the data."
     if value isa JLD2.Group
         for sub in keys(value)
             _copy_entry!(dest, src, string(key, "/", sub))
@@ -190,6 +197,7 @@ end
 # here (and are not stale conversion caches) are carried over.
 function _write_sim_file(path::AbstractString, data::AbstractSimData, metadata::AbstractDict,
                          previous::Union{Nothing, AbstractString})
+    path = isfile(path) ? realpath(path) : path  # replace the file a symlink points to, not the link
     tmp = _tmp_path(path)
     try
         jldopen(tmp, "w") do file
