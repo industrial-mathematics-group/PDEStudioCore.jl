@@ -149,16 +149,21 @@ function _literal_call(f, values::Vector)
         return values[1] => values[2]
     elseif f === :reshape && length(values) == 2 && values[1] isa AbstractVector &&
            values[2] isa Tuple{Vararg{Integer}}
+        # (overflow-checked: wrapped dimensions could otherwise pass for an empty array)
+        foldl(Base.checked_mul, values[2]; init = 1) > _MAX_LITERAL_LENGTH && throw(_NotALiteral())
         return reshape(values[1], values[2])
     elseif f isa Symbol && haskey(_LITERAL_FUNCTIONS, f) && all(v -> v isa Number, values)
-        # Exact powers grow with their arguments: a file must not be able to request huge ones (the element
-        # count of the whole value, ranges included, is bounded in `str2val`).
+        # Exact powers and ranges grow with their arguments: a file must not be able to request huge ones.
+        # Ranges are capped here, where they are built, because typed containers (`Vector{T}[1:n]`) collect
+        # them before `str2val` bounds the element count of the whole value.
         # (A division, not a product: the product of the exponent and the bits overflows for huge exponents.)
         if f === :^ && length(values) == 2
             bits = _exact_bits(values[1])
             bits > 0 && abs(values[2]) > _MAX_LITERAL_BITS / bits && throw(_NotALiteral())
         end
-        return _LITERAL_FUNCTIONS[f](values...)
+        result = _LITERAL_FUNCTIONS[f](values...)
+        f === :(:) && Base.checked_length(result) > _MAX_LITERAL_LENGTH && throw(_NotALiteral())
+        return result
     end
     T = _literal_type(f)
     # Only plain dictionary types: e.g. `EnvDict()` would return the live `ENV`.

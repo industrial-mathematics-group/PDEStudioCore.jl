@@ -66,6 +66,8 @@
     @test str2val("(BigInt(3)//1)^(2^62)") isa String          # the bound itself must not overflow
     @test str2val("(" * join(fill("1:900000", 20), ", ") * ")") isa String   # the limit is for the whole value
     @test @elapsed(str2val("reshape(1:2^48, (2^24, 2^24))")) < 1               # lazy arrays aren't walked
+    @test @elapsed(str2val("Vector{Float32}[1:2^34]")) < 1                     # ... nor collected by typed containers
+    @test str2val("reshape(1:0, (2^32, 2^32))") isa String                     # wrapped dimensions
     @test str2val("(1:9223372036854775807, 1:9223372036854775807)") isa String # no Int overflow in the count
     @test str2val("[1, 2, 3]") == [1, 2, 3] && str2val("Dict(:a => (1, 2))") == Dict(:a => (1, 2))
     @test str2val("BigInt(2)^100") == big(2)^100 && str2val("2^10") == 1024 && str2val("1:10") == 1:10

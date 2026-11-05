@@ -182,7 +182,7 @@ _is_reconstructed(value) = occursin(r"JLD2\.(Reconstructed|Serialized)", string(
 function _copy_entry!(dest, src, key::AbstractString)
     value = src[key]
     _is_reconstructed(value) && @warn "Entry '$key' has a type that isn't loaded in this session " *
-        "($(nameof(typeof(value)))); it is kept as such. Load the package that defines it before rewriting the data."
+        "($(typeof(value))); it is kept as such. Load the package that defines it before rewriting the data."
     if value isa JLD2.Group
         for sub in keys(value)
             _copy_entry!(dest, src, string(key, "/", sub))

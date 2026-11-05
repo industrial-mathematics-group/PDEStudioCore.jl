@@ -105,8 +105,15 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         run(`$jl --project=$proj -e "$def; jldsave($(repr(foo_file)); foo = ForeignEntry(7))"`)
         PDEStudioCore._set_key!(foo_file, "evaluated_with_reference", true)
         @test success(`$jl --project=$proj -e "$def; x = load($(repr(foo_file)), \"foo\"); exit(x isa ForeignEntry && x.a == 7 ? 0 : 1)"`)
-        # Here the type is unknown, so rewriting the data warns about the entry
+        # Here the type is unknown, so rewriting the data warns about the entry; also when the unknown type is
+        # only an element type (a type defined in an anonymous module can't be found again by JLD2)
         @test PDEStudioCore._is_reconstructed(PDEStudioCore.JLD2.load(foo_file, "foo"))
+        anon = Module()
+        Core.eval(anon, :(struct Hidden; a::Int; end))
+        hidden_file = joinpath(mktempdir(), "hidden.jld2")
+        PDEStudioCore.JLD2.jldsave(hidden_file; v = [Base.invokelatest(anon.Hidden, 1)])
+        @test PDEStudioCore._is_reconstructed(PDEStudioCore.JLD2.load(hidden_file, "v"))
+        @test !PDEStudioCore._is_reconstructed([1.0, 2.0]) && !PDEStudioCore._is_reconstructed(Dict(:a => 1))
         # A symlinked data file stays a symlink, and its target is updated
         link = foo_file * ".link.jld2"
         symlink(foo_file, link)
