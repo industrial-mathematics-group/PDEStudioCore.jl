@@ -1,0 +1,20 @@
+Test Summary:                | Pass  Total  Time
+typical literals still parse |   36     36  0.7s
+2^(10^6)             -> String
+im^(10^7)            -> String
+0:1e-6:1.5           -> String
+1:(10^6+1)           -> String
+Test Summary:            | Total  Time
+rejected (expect String) |     0  0.3s
+e * P._exact_bits(big(3)) = -9223372036854775808
+abs(e) * P._exact_bits(big(3)) > P._MAX_LITERAL_BITS = false
+e3 * P._exact_bits(big(5)) = 2
+abs(e3) * P._exact_bits(big(5)) > P._MAX_LITERAL_BITS = false
+abs(typemin(Int)) * 2 = 0
+Test Summary:                | Total  Time
+overflow in the size product |     0  0.0s
+length(s) = 160
+typeof(v) = NTuple{20, UnitRange{Int64}}
+t = 6.956818234
+Test Summary:                       | Total  Time
+tuple of ranges: per-range cap only |     0  7.0s

@@ -1,0 +1,16 @@
+### A=plain B=cache
+A saved (plain)
+┌ Warning: type Main.UserNote does not exist in workspace; reconstructing
+┌ Warning: type Main.UserNote does not exist in workspace; reconstructing
+B cached: ["conv_E_9x2", "conv_L"] size 17980 -> 37167
+C: note is UserNote OK
+### A=withstats B=stats
+A saved (withstats)
+┌ Warning: type Main.UserNote does not exist in workspace; reconstructing
+B stats pass: size 26548 -> 31113; stat keys [:Solution, :l1norm, :l2norm, :mass, :wave_height]
+C: note is UserNote OK
+### A=plain B=stats
+A saved (plain)
+┌ Warning: type Main.UserNote does not exist in workspace; reconstructing
+B stats pass: size 17980 -> 27991; stat keys [:Solution, :l1norm, :l2norm, :mass, :wave_height]
+C: note is JLD2.ReconstructedStatic{:UserNote, (:a,), Tuple{Int64}} DEGRADED
