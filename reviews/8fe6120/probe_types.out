@@ -1,0 +1,24 @@
+NTuple{2^62, Int}                                                        -> String                                   str2val 0.05 s, maxrss 0.43 GiB
+Dims{257}                                                                -> String                                   str2val 0.02 s, maxrss 0.44 GiB
+NTuple{256, Int}                                                         -> DataType                                 str2val 0.03 s, maxrss 0.43 GiB
+                                                                            hash 0.16 s, maxrss 0.45 GiB
+NTuple{-2^63, Int}                                                       -> String                                   str2val 0.05 s, maxrss 0.44 GiB
+NTuple{Int8(-128), Int}                                                  -> String                                   str2val 0.07 s, maxrss 0.44 GiB
+Array{Int, -2^63}                                                        -> DataType                                 str2val 0.06 s, maxrss 0.44 GiB
+                                                                            hash 0.16 s, maxrss 0.45 GiB
+NTuple{256, NTuple{256, Int}}                                            -> DataType                                 str2val 0.03 s, maxrss 0.43 GiB
+                                                                            hash 0.16 s, maxrss 0.45 GiB
+NTuple{256, NTuple{256, NTuple{256, NTuple{256, Int}}}}                  -> String                                   str2val 0.03 s, maxrss 0.44 GiB
+Dict{NTuple{256, Int}, Int}()                                            -> Dict{NTuple{256, Int64}, Int64}          str2val 0.12 s, maxrss 0.44 GiB
+                                                                            hash 0.3 s, maxrss 0.45 GiB
+[119103] signal 15: Terminated
+_ZN4llvm42isGuaranteedToTransferExecutionToSuccessorEPKNS_11InstructionE at /opt/julia/bin/../lib/julia/libLLVM.so.20.1jl (unknown line)
+_ZL29passingValueIsAlwaysUndefinedPN4llvm5ValueEPNS_11InstructionEb.part.0 at /opt/julia/bin/../lib/julia/libLLVM.so.20.1jl (unknown line)
+_ZN4llvm11simplifyCFGEPNS_10BasicBlockERKNS_19TargetTransformInfoEPNS_14DomTreeUpdaterERKNS_18SimplifyCFGOptionsENS_8ArrayRefINS_6WeakVHEEE at /opt/julia/bin/../lib/julia/libLLVM.so.20.1jl (unknown line)
+    [exit code 124 for: Dict{NTuple{256, NTuple{256, Int}}, Int}()]
+[119400] signal 6 (-6): Aborted
+[119400] signal 11 (1): Segmentation fault
+    [exit code 139 for: Dict{NTuple{256, NTuple{256, NTuple{256, Int}}}, Int}()]
+Dict{NTuple{256, NTuple{256, NTuple{256, NTuple{256, Int}}}}, Int}()     -> String                                   str2val 0.03 s, maxrss 0.43 GiB
+Dict{NTuple{256, NTuple{256, NTuple{256, Any}}}, Int}()                  -> Dict{NTuple{256, NTuple{256, NTuple{256, Any}}}, Int64} str2val 16.76 s, maxrss 0.44 GiB
+                                                                            hash 70.6 s, maxrss 0.46 GiB

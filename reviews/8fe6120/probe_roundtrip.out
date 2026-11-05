@@ -1,0 +1,19 @@
+ERROR: LoadError: Some tests did not pass: 31 passed, 1 failed, 0 errored, 0 broken.
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_roundtrip.jl:67
+Test Summary:       | Pass  Total  Time
+val2str round trips |  114    114  6.6s
+
+ranges on their own: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_roundtrip.jl:73
+  Expression: w isa AbstractRange && w == v
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_roundtrip.jl:73 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_roundtrip.jl:68
+Test Summary:       | Pass  Fail  Total  Time
+ranges on their own |   31     1     32  0.8s
+RNG of the outermost testset: Random.Xoshiro(0x258aa05a956a472b, 0x56c6e7e25b777031, 0x8fe334a137d70d39, 0xa27125a4b0952cdc, 0x6a6766a8931813df)

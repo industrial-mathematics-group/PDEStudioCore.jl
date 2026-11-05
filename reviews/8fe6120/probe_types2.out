@@ -1,0 +1,25 @@
+NTuple{256, NTuple{256, Int}}[]                                          -> Vector{NTuple{256, NTuple{256, Int64}}}  str2val 0.06 s, maxrss 0.44 GiB
+                                                                            hash 0.25 s, maxrss 0.45 GiB
+Val{NTuple{256, NTuple{256, NTuple{256, Int}}}}()                        -> Val{NTuple{256, NTuple{256, NTuple{256, Int64}}}} str2val 0.03 s, maxrss 0.43 GiB
+                                                                            hash 0.37 s, maxrss 0.45 GiB
+Dict{NTuple{256, NTuple{4, Int}}, Int}()                                 -> Dict{NTuple{256, NTuple{4, Int64}}, Int64} str2val 0.18 s, maxrss 0.45 GiB
+                                                                            hash 0.33 s, maxrss 0.46 GiB
+Dict{NTuple{256, NTuple{16, Int}}, Int}()                                -> Dict{NTuple{256, NTuple{16, Int64}}, Int64} str2val 1.7 s, maxrss 0.5 GiB
+                                                                            hash 0.34 s, maxrss 0.5 GiB
+Dict{Tuple{NTuple{256, Int}, NTuple{256, Int}, NTuple{256, I…(90 chars)  -> Dict{NTuple{4, NTuple{256, Int64}}, Int64} str2val 0.21 s, maxrss 0.45 GiB
+                                                                            hash 0.35 s, maxrss 0.46 GiB
+[120547] signal 6 (-6): Aborted
+[120547] signal 11 (1): Segmentation fault
+    [exit code 139 for: IdDict{NTuple{256, NTuple{256, NTuple{256, Int}}}, Int}()]
+Dict{Int, NTuple{256, NTuple{256, Int}}}()                               -> Dict{Int64, NTuple{256, NTuple{256, Int64}}} str2val 8.87 s, maxrss 0.8 GiB
+                                                                            hash 0.33 s, maxrss 0.8 GiB
+NTuple{256, NTuple{256, NTuple{256, Any}}}[]                             -> Vector{NTuple{256, NTuple{256, NTuple{256, Any}}}} str2val 4.98 s, maxrss 0.44 GiB
+                                                                            hash 30.73 s, maxrss 0.46 GiB
+Array{Int, 256}[]                                                        -> Vector{Array{Int64, 256}}                str2val 0.77 s, maxrss 0.72 GiB
+                                                                            hash 0.54 s, maxrss 0.72 GiB
+Dict{Array{Int, 256}, Int}()                                             -> Dict{Array{Int64, 256}, Int64}           str2val 0.8 s, maxrss 0.73 GiB
+                                                                            hash 4.96 s, maxrss 1.52 GiB
+Dict{CartesianIndex{256}, Int}()                                         -> Dict{CartesianIndex{256}, Int64}         str2val 0.04 s, maxrss 0.43 GiB
+                                                                            hash 0.31 s, maxrss 0.46 GiB
+Dict{Array{Int, -2^63}, Int}()                                           -> Dict{Array{Int64, -9223372036854775808}, Int64} str2val 0.07 s, maxrss 0.44 GiB
+                                                                            hash 0.19 s, maxrss 0.45 GiB
