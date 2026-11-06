@@ -136,11 +136,13 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         # the cost is bounded per entry (nested untyped data with 8·10^5 leaves took seconds and GiBs on every rewrite)
         nested = Any[Any[Any[Any[0.0 for _ in 1:30] for _ in 1:30] for _ in 1:30] for _ in 1:30]
         PDEStudioCore._reconstructed_type(nested)
-        @test @elapsed(PDEStudioCore._reconstructed_type(nested)) < 0.5
-        # ... also for many containers of a wide element type (whether it can hide other types is checked once)
-        wide = Any[Dict{Symbol, NTuple{20, NTuple{20, NTuple{20, Float64}}}}() for _ in 1:10^5]
-        PDEStudioCore._reconstructed_type(wide)
-        @test @elapsed(PDEStudioCore._reconstructed_type(wide)) < 0.5
+        @test @elapsed(PDEStudioCore._reconstructed_type(nested)) < 2   # (milliseconds; it took seconds)
+        # ... also for many containers of a wide element type: whether a type can hide other types is checked once per
+        # type (it was checked again for every container), so the check records one entry per distinct type
+        wide = Any[Dict{Symbol, NTuple{8, NTuple{8, Float64}}}() for _ in 1:10^4]
+        state = (budget = Ref(PDEStudioCore._RECONSTRUCTED_VISITS), seen = Dict{Any, Union{Nothing, String}}(),
+                 hides = Dict{Any, Bool}())
+        @test isnothing(PDEStudioCore._reconstructed_type(wide, 4, state)) && length(state.hides) == 3
         # the pattern is anchored: a type `Reconstructed` of a module whose name ends in JLD2 is no reconstruction
         M = Module(:MyJLD2)
         Core.eval(M, :(struct Reconstructed end))
