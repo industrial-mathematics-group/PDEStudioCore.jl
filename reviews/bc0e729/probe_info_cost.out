@@ -1,0 +1,7 @@
+[ Info: Module save root path set to: /tmp/jl_GT5p20
+new file: 0.167 ms, 0.0263 MiB
+old file, call 1: 15.7 ms, 7.9 MiB; dim_keys written back: false
+old file, call 2: 1.25 ms, 7.9 MiB; dim_keys written back: false
+old file, call 3: 0.839 ms, 7.9 MiB; dim_keys written back: false
+info params given as a plain Dict with unnormalised values: 500
+file without native/shape: ArgumentError: 2026-11-06_11-42-13_154_90dd256c37bab25313f13f24c0e54c13c7f844fbf5f7e7282526fe0dc38d108f.jld2 was written by an older PDEStudioCore version (no "native"/"shape" metadata). Run its configuration again (`run_all_simulations` recomputes outdated files) or delete it.

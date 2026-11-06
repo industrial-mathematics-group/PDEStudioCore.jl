@@ -1,0 +1,3 @@
+PDEStudioCore at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2b/probes/repo64/src/PDEStudioCore.jl
+Any[10^5 x Vector{NTuple{10,NTuple{10,NTuple{10,Float64}}}}()]          1870.0 ms, 701.0 MiB
+Any[10^5 x Dict{Symbol,NTuple{20,NTuple{20,NTuple{20,Float64}}}}()]     1010.0 ms, 633.0 MiB

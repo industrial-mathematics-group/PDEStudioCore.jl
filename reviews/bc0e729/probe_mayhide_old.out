@@ -1,0 +1,4 @@
+PDEStudioCore at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2b/probes/repo64/src/PDEStudioCore.jl
+Any[10^4 x [NTuple{100,Float64}]]                                       1720.0 ms, 696.0 MiB
+Any[10^4 x [NamedTuple with 50 Float64 fields]]                         2890.0 ms, 1410.0 MiB
+Any[10^4 x Vector{NTuple{10,NTuple{10,NTuple{10,Float64}}}}()]          1860.0 ms, 701.0 MiB

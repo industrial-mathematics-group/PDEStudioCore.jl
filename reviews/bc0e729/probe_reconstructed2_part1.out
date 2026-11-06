@@ -1,0 +1,517 @@
+== false positives (should all be nothing)
+Dict{Symbol,Any} mixed                                            nothing
+nested Any vectors                                                nothing
+String with JLD2.ReconstructedMutable                             nothing
+Any[String/Symbol with JLD2.UnknownType]                          nothing
+Types as values                                                   nothing
+Vector{Union{Missing,Float64}} 10^7                               nothing
+tuple / NamedTuple / Pair                                         nothing
+Set{Any}, Dict{Any,Any} keys                                      nothing
+after roundtrip: Dict{Symbol,Any}                                 nothing
+after roundtrip: nested NamedTuples                               nothing
+after roundtrip: Vector{Vector{Any}}                              nothing
+MyJLD2.Reconstructed() (was a false positive)                     nothing
+Any[MyJLD2.Reconstructed]                                         nothing
+== true positives after a JLD2 round trip (should name Hidden)
+Hidden                                                            "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+type Hidden                                                       "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+Any[1, Hidden]                                                    "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Dict{Symbol,Any}(:h => type)                                      "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+Any[Any[(1, type)]]                                               "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+Vector{Type}[type]                                                "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+depth 4: Any[Any[Any[Any[h]]]]                                    "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Vector{Hidden}                                                    "Vector{JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}}"
+Union{Nothing,Hidden}[]                                           "Vector{Union{Nothing, JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}}}"
+== previous false negatives (finding 1)
+Vector{Vector{Any}}: [Any[h]]                                     "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Dict{String, Dict{Symbol,Any}}                                    "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+Dict{Symbol, Vector{Any}}                                         "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+NamedTuple (a = Any[h],)                                          "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Pair :a => Any[h]                                                 "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Set{Any}                                                          nothing
+depth 5: Any[Any[Any[Any[Any[h]]]]]                               nothing
+Any vector, h at index 10^4+1                                     "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Dict{Symbol,Any} with 10^4+ keys, one value Hidden                "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Dict{Symbol,Any} with 6000 keys, one value Hidden                 "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+== new cut-offs and remaining gaps
+Any vector, h at index 10^5+1                                     nothing
+Any vector of 10^5 Float64 with h at 2                            "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Dict{Symbol,Any} 2*10^5 keys, 100 values Hidden                   "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Dict{Any,Any} keys Hidden                                         "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Set{Any} in Dict{Symbol,Any}                                      nothing
+loaded struct Box(v = h)                                          "JLD2.ReconstructedMutable{:Box, (:v,), Tuple{Any}}"
+Any[Box(type)]                                                    "JLD2.ReconstructedMutable{:Box, (:v,), Tuple{Any}}"
+Vector^5{Any}: [[[[[Any[h]]]]]]                                   nothing
+Vector^6{Any}                                                     nothing
+NamedTuple nested 5 deep                                          "JLD2.ReconstructedStatic{Symbol(\"NamedTuple{(:a,),Tuple}\"), (:a,), Tuple{JLD2.ReconstructedStatic{Symbol(\"NamedTuple{(:b,),Tuple}\"), (:b,), Tuple{JLD2.ReconstructedStatic{Symbol(\"NamedTuple{(:c,),Tuple}\"), (:c,), Tuple{JLD2.ReconstructedStatic{Symbol(\"NamedTuple{(:d,),Tuple}\"), (:d,), Tuple{JLD2.ReconstructedStatic{Symbol(\"NamedTuple{(:e,),Tuple}\"), (:e,), Tuple{JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}}}}}}}}}}}"
+budget used up by an earlier entry of a tuple                     nothing
+Any[] of 10^5 tiny Any[], h in the last                           nothing
+== cost (warm; each case twice, second timed)
+Any[Float64 x 10^6]                                               1.9 ms, 3.12 MiB
+Vector{Union{Missing,Float64}} 10^7                               1.2 ms, 0.196 MiB
+Vector{Union{Missing,Float64}} 10^7 after roundtrip               1.19 ms, 0.196 MiB
+Any[1000 x Any[1000 Float64]]                                     1.82 ms, 3.12 MiB
+Any[100 x Any[100 x Any[100]]]                                    1.83 ms, 3.12 MiB
+Any[30 x ... x Any[30]] depth 4 (8.1e5 leaves)                    2.07 ms, 3.12 MiB
+Dict{Symbol,Any} 10^6 entries                                     2.64 ms, 3.12 MiB
+Dict{Any,Any} 10^6 entries                                        4.54 ms, 5.4 MiB
+Vector{Float64} 10^8 (concrete)                                   0.204 ms, 0.0699 MiB
+
+[46739] signal 15: Terminated
+in expression starting at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2b/probes/probe_reconstructed2.jl:95
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+jl_parallel_gc_threadfun at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gc-stock.c:3729
+unknown function (ip: 0x7f92b09658ba) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09e3537) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+wait_forever at ./task.jl:1196
+jfptr_wait_forever_31691.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+unknown function (ip: 0x7f92b096d72c) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b0962387) at /lib/x86_64-linux-gnu/libc.so.6
+unknown function (ip: 0x7f92b09629ab) at /lib/x86_64-linux-gnu/libc.so.6
+pthread_cond_wait at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+uv_cond_wait at /workspace/srcdir/libuv/src/unix/thread.c:822
+ijl_task_get_next at /cache/build/builder-amdci4-1/julialang/julia-ci/src/scheduler.c:614
+wait at ./task.jl:1297
+#wait#392 at ./condition.jl:141
+wait at ./condition.jl:136 [inlined]
+_trywait at ./asyncevent.jl:186
+profile_printing_listener at ./Base.jl:335
+#start_profile_listener##0 at ./Base.jl:355
+jfptr_YY.start_profile_listenerYY.YY.0_18296.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+start_task at /cache/build/builder-amdci4-1/julialang/julia-ci/src/task.c:1287
+unknown function (ip: (nil)) at (unknown file)
+compare_svec at /cache/build/builder-amdci4-1/julialang/julia-ci/src/builtins.c:92
+jl_egal__unboxed_ at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:1819 [inlined]
+jl_egal_ at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:1829 [inlined]
+literal_val_id at /cache/build/builder-amdci4-1/julialang/julia-ci/src/ircode.c:144 [inlined]
+jl_encode_as_indexed_root at /cache/build/builder-amdci4-1/julialang/julia-ci/src/ircode.c:176
+jl_encode_value_ at /cache/build/builder-amdci4-1/julialang/julia-ci/src/ircode.c:546
+jl_encode_value_ at /cache/build/builder-amdci4-1/julialang/julia-ci/src/ircode.c:211 [inlined]
+jl_encode_memory_slice at /cache/build/builder-amdci4-1/julialang/julia-ci/src/ircode.c:213
+jl_encode_value_ at /cache/build/builder-amdci4-1/julialang/julia-ci/src/ircode.c:493
+jl_encode_value_ at /cache/build/builder-amdci4-1/julialang/julia-ci/src/ircode.c:1032 [inlined]
+ijl_compress_ir at /cache/build/builder-amdci4-1/julialang/julia-ci/src/ircode.c:1072
+maybe_compress_codeinfo at ./../usr/share/julia/Compiler/src/typeinfer.jl:455 [inlined]
+finish! at ./../usr/share/julia/Compiler/src/typeinfer.jl:147
+jfptr_finishNOT._85139.1 at /opt/julia/lib/julia/sys.so (unknown line)
+finish_nocycle at ./../usr/share/julia/Compiler/src/typeinfer.jl:235
+jfptr_finish_nocycle_87975.1 at /opt/julia/lib/julia/sys.so (unknown line)
+typeinf at ./../usr/share/julia/Compiler/src/abstractinterpretation.jl:4642
+typeinf_ext at ./../usr/share/julia/Compiler/src/typeinfer.jl:1397
+typeinf_ext_toplevel at ./../usr/share/julia/Compiler/src/typeinfer.jl:1624 [inlined]
+typeinf_ext_toplevel at ./../usr/share/julia/Compiler/src/typeinfer.jl:1633
+jfptr_typeinf_ext_toplevel_85526.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+jl_type_infer at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gf.c:480
+jl_compile_method_internal at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gf.c:3727
+_jl_invoke at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gf.c:4201 [inlined]
+ijl_apply_generic at /cache/build/builder-amdci4-1/julialang/julia-ci/src/gf.c:4410
+_reconstructed_type at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2b/repo/src/IOUtils.jl:206
+_reconstructed_type at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2b/repo/src/IOUtils.jl:191 [inlined]
+time_rt at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2b/probes/probe_reconstructed2.jl:82
+unknown function (ip: 0x7f91ec1e2782) at (unknown file)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+do_call at /cache/build/builder-amdci4-1/julialang/julia-ci/src/interpreter.c:123
+eval_value at /cache/build/builder-amdci4-1/julialang/julia-ci/src/interpreter.c:243
+eval_stmt_value at /cache/build/builder-amdci4-1/julialang/julia-ci/src/interpreter.c:194 [inlined]
+eval_body at /cache/build/builder-amdci4-1/julialang/julia-ci/src/interpreter.c:679
+jl_interpret_toplevel_thunk at /cache/build/builder-amdci4-1/julialang/julia-ci/src/interpreter.c:884
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-1/julialang/julia-ci/src/toplevel.c:742
+jl_eval_toplevel_stmts at /cache/build/builder-amdci4-1/julialang/julia-ci/src/toplevel.c:585
+jl_toplevel_eval_flex at /cache/build/builder-amdci4-1/julialang/julia-ci/src/toplevel.c:683
+ijl_toplevel_eval at /cache/build/builder-amdci4-1/julialang/julia-ci/src/toplevel.c:754
+ijl_toplevel_eval_in at /cache/build/builder-amdci4-1/julialang/julia-ci/src/toplevel.c:799
+eval at ./boot.jl:489
+include_string at ./loading.jl:3064
+_include at ./loading.jl:3124
+include at ./Base.jl:309
+exec_options at ./client.jl:344
+_start at ./client.jl:577
+jfptr__start_57951.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+true_main at /cache/build/builder-amdci4-1/julialang/julia-ci/src/jlapi.c:985
+jl_repl_entrypoint at /cache/build/builder-amdci4-1/julialang/julia-ci/src/jlapi.c:1152
+main at julia (unknown line)
+unknown function (ip: 0x7f92b08fcca7) at /lib/x86_64-linux-gnu/libc.so.6
+__libc_start_main at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+unknown function (ip: 0x4010b8) at julia
+unknown function (ip: (nil)) at (unknown file)
+Allocations: 2918060487 (Pool: 2918059966; Big: 521); GC: 849
+[ Info: Module save root path set to: /tmp/jl_YcQOJN
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: some parameters could not be resolved for type JLD2.InlineUnionEl{Nothing,JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}}; reading as JLD2.InlineUnionEl{Nothing, JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}}
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:580
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Box does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Box does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type parameters for NamedTuple{(:e,),Tuple} do not match type NamedTuple in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:574
+┌ Warning: type parameters for NamedTuple{(:d,),Tuple} do not match type NamedTuple in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:574
+┌ Warning: type parameters for NamedTuple{(:c,),Tuple} do not match type NamedTuple in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:574
+┌ Warning: type parameters for NamedTuple{(:b,),Tuple} do not match type NamedTuple in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:574
+┌ Warning: type parameters for NamedTuple{(:a,),Tuple} do not match type NamedTuple in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:574
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+(stopped during the Val{i} case: constructing 10^5 distinct types took > 10 min; the rest is in probe_reconstructed3.jl)
