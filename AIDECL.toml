@@ -58,3 +58,14 @@ AI-Review = "A2"
 Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
 AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
 Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+
+# Changed on claude/review-minors by Claude (open minor findings of reviews/2cef67f.md, reviews/dfdcbac.md and the
+# stored-data accessor PDEStudio asked for in its reviews/03e98ab.md; reviewed in reviews/).
+[[annotations]]
+path = ["docs/src/data.md", "src/DataManagement.jl", "src/IOUtils.jl", "src/PDEStudioCore.jl", "test/test_data.jl"]
+AI-Generation = "G3"
+Human-Review = "H0"
+AI-Review = "A2"
+Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]

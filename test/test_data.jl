@@ -114,6 +114,15 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         PDEStudioCore.JLD2.jldsave(hidden_file; v = [Base.invokelatest(anon.Hidden, 1)])
         @test PDEStudioCore._is_reconstructed(PDEStudioCore.JLD2.load(hidden_file, "v"))
         @test !PDEStudioCore._is_reconstructed([1.0, 2.0]) && !PDEStudioCore._is_reconstructed(Dict(:a => 1))
+        # ... also a type stored as a value (JLD2.UnknownType) and values inside untyped containers, named in the warning
+        PDEStudioCore.JLD2.jldsave(hidden_file; t = anon.Hidden, anyv = Any[1, Base.invokelatest(anon.Hidden, 2)],
+                                   d = Dict{Symbol, Any}(:h => anon.Hidden), nested = Any[Any[(1, anon.Hidden)]])
+        for k in ("t", "anyv", "d", "nested")
+            found = PDEStudioCore._reconstructed_type(PDEStudioCore.JLD2.load(hidden_file, k))
+            @test found !== nothing && occursin("Hidden", found)
+        end
+        @test !PDEStudioCore._is_reconstructed(Any[1, "a", (2, :b), Float64]) &&
+              !PDEStudioCore._is_reconstructed(Dict{Symbol, Any}(:a => [1.0], :T => Float32))
         # A symlinked data file stays a symlink, and its target is updated
         link = foo_file * ".link.jld2"
         symlink(foo_file, link)
@@ -215,6 +224,53 @@ end
     @test does_sim_data_exist(params_new)
     sim_rehashed = load_sim_data(params_new)
     @test !haskey(sim_rehashed.params, :obsolete) && sim_rehashed.params[:target] == true
+
+    # A symlinked file whose hash changes: the rehashed data is a regular file, the link is removed with a warning,
+    # and its target (which may be shared) is kept
+    p_link = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :obsolete => "x", :test_mode => "link")
+    save_sim_data(advection_solver_1d(p_link); overwrite = true)
+    linked = get_file_name(p_link)
+    target = joinpath(mktempdir(), basename(linked))
+    mv(linked, target)
+    symlink(target, linked)
+    @test_logs (:warn, r"is a symlink.*is kept"s) match_mode = :any rehash_sim_data(linked; remove_keys = [:obsolete])
+    @test isfile(target) && !ispath(linked)
+    p_new = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :test_mode => "link")
+    @test does_sim_data_exist(p_new) && !islink(get_file_name(p_new))
+end
+
+@testset "Stored data info without loading" begin
+    sim = load_sim_data(PARAMS_CONV)
+    info = get_sim_data_info(PARAMS_CONV)
+    @test info.kind === :eulerian && info.shape == size(sim.u) && info.dim_keys == sim.domain.dim_keys
+    @test info.time_dim === :t && info.n_steps == length(sim.axes[end]) && info.path == get_file_name(PARAMS_CONV)
+    # particles: shape (time steps, particles)
+    pl = create_param_dict(:N => 5, :test_mode => "info_lagrangian")
+    t = [0.0, 0.5, 1.0]
+    save_sim_data(create_sim_data([[SVector(i + ti) for i in 1.0:5.0] for ti in t], [[SVector(1.0) for _ in 1:5] for _ in t],
+                                  t, pl); overwrite = true)
+    li = get_sim_data_info(pl)
+    @test li.kind === :lagrangian && li.shape == (3, 15) && li.time_dim === :t && li.n_steps == 3
+    # static grid data
+    ps = create_param_dict(:N => 4, :test_mode => "info_static")
+    save_sim_data(create_sim_data(collect(0.0:0.25:0.75), [SVector(1.0) for _ in 1:4], ps); overwrite = true)
+    si = get_sim_data_info(ps)
+    @test si.kind === :eulerian && si.time_dim === nothing && si.n_steps == 0 && si.dim_keys == (:x,)
+    # files written before the axes were part of the metadata: read from the data
+    JLD2 = PDEStudioCore.JLD2
+    for p in (PARAMS_CONV, pl)
+        path = get_file_name(p)
+        entries = JLD2.jldopen(f -> Dict(k => f[k] for k in keys(f) if !(k in ("dim_keys", "time_dim"))), path, "r")
+        rm(path)
+        JLD2.jldopen(path, "w") do f
+            for (k, v) in entries
+                f[k] = v
+            end
+        end
+        @test !JLD2.jldopen(f -> haskey(f, "dim_keys"), path, "r")
+    end
+    @test get_sim_data_info(PARAMS_CONV) == info && get_sim_data_info(pl) == li
+    @test_throws SimFileNotFoundError get_sim_data_info(create_param_dict(:N => 1, :test_mode => "info_missing"))
 end
 
 @testset "Output formatting & manual loading" begin
