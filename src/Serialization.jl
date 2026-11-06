@@ -52,8 +52,14 @@ function val2str(v; top_level::Bool = true)
 end
 
 # ------------------------------------------------------------------------------
-# Safe literal evaluation (str2val never executes arbitrary code)
+# Safe literal parsing (str2val never executes code)
 # ------------------------------------------------------------------------------
+# `str2val` reads values from files (CSV configs, presets) and the editors, so it must neither run code nor let a
+# short text cost unbounded time or memory. It evaluates a fixed grammar: the literals `val2str` writes, plus
+# arithmetic on numbers ("2π", "1/3", "1e-3") and ranges as whole values ("1:10"). Types come from an allowlist
+# (the types `val2str` writes for parameters), and everything it builds is bounded: the number of type parameters
+# (nested ones multiply, and compiling for a huge type can crash Julia), the bits of exact numbers and the exponent
+# of BigFloats, the dimensions of arrays and the number of elements of the whole value.
 
 struct _NotALiteral <: Exception end
 
@@ -70,21 +76,84 @@ const _LITERAL_FUNCTIONS = Dict{Symbol, Function}(
     :sqrt => sqrt, :exp => exp, :log => log, :log2 => log2, :log10 => log10,
     :sin => sin, :cos => cos, :tan => tan, :abs => abs,
 )
+# ... of which these are only applied to fixed-size numbers: their cost grows with the size of a BigFloat/BigInt
+# argument (e.g. the argument reduction of `sin` needs a precision of about the exponent).
+const _FIXED_SIZE_FUNCTIONS = (:sqrt, :exp, :log, :log2, :log10, :sin, :cos, :tan)
 
-function _literal_type(sym::Symbol)
-    for mod in (Core, Base, @__MODULE__)
-        if isdefined(mod, sym)
-            T = getglobal(mod, sym)
-            T isa Type && return T
-        end
+# The types a literal may name, build or contain: numbers, text, the containers `val2str` writes and the static
+# arrays of StaticArrays. Anything else (e.g. `EnvDict`, `OneTo`, types of other packages) is not a literal.
+const _LITERAL_TYPES = Dict{Symbol, Any}(
+    :Bool => Bool, :Int8 => Int8, :Int16 => Int16, :Int32 => Int32, :Int64 => Int64, :Int128 => Int128,
+    :UInt8 => UInt8, :UInt16 => UInt16, :UInt32 => UInt32, :UInt64 => UInt64, :UInt128 => UInt128,
+    :BigInt => BigInt, :Int => Int, :UInt => UInt, :Float16 => Float16, :Float32 => Float32, :Float64 => Float64,
+    :BigFloat => BigFloat, :Rational => Rational, :Complex => Complex, :ComplexF16 => ComplexF16,
+    :ComplexF32 => ComplexF32, :ComplexF64 => ComplexF64, :Irrational => Irrational, :Number => Number,
+    :Real => Real, :AbstractFloat => AbstractFloat, :Integer => Integer, :Signed => Signed, :Unsigned => Unsigned,
+    :AbstractIrrational => AbstractIrrational, :Char => Char, :AbstractChar => AbstractChar, :String => String,
+    :AbstractString => AbstractString, :Symbol => Symbol, :Any => Any, :Nothing => Nothing, :Missing => Missing,
+    :Union => Union, :Type => Type, :DataType => DataType, :UnionAll => UnionAll,
+    :Function => Function, :Tuple => Tuple, :NTuple => NTuple, :Pair => Pair, :Val => Val,
+    :Vector => Vector, :Matrix => Matrix, :Array => Array, :AbstractVector => AbstractVector,
+    :AbstractMatrix => AbstractMatrix, :AbstractArray => AbstractArray, :Dict => Dict,
+    :AbstractDict => AbstractDict, :IdDict => IdDict, :SVector => SVector, :SMatrix => SMatrix, :SArray => SArray,
+    :MVector => MVector, :MMatrix => MMatrix, :MArray => MArray, :StaticVector => StaticVector,
+    :StaticMatrix => StaticMatrix, :StaticArray => StaticArray, :SA => SA,
+)
+
+const _MAX_LITERAL_BITS = 2^20     # bits of an exact number (Integer, Rational, Complex) and BigFloat exponents
+const _MAX_LITERAL_LENGTH = 10^6   # elements of the whole value (ranges included: hashing writes every element)
+const _MAX_TYPE_SIZE = 1024        # parameters of a type, nested ones counted (e.g. NTuple{1000, Float64})
+const _MAX_DIMS = 16               # dimensions of arrays and array types
+
+_exact_bits(x::Integer) = ndigits(x; base = 2)
+_exact_bits(x::Rational) = max(_exact_bits(numerator(x)), _exact_bits(denominator(x)))
+_exact_bits(x::Complex) = max(_exact_bits(real(x)), _exact_bits(imag(x)))
+_exact_bits(x::BigFloat) = isfinite(x) && !iszero(x) ? abs(exponent(x)) : 0   # converting it exactly costs that
+_exact_bits(::Number) = 0  # fixed-size results
+
+# A parsed or computed number within the size limits
+_checked_number(x::Number) = _exact_bits(x) <= _MAX_LITERAL_BITS ? x : throw(_NotALiteral())
+
+_is_fixed_size(x::Union{BigInt, BigFloat}) = false
+_is_fixed_size(x::Union{Rational, Complex}) = _is_fixed_size(real(x)) && _is_fixed_size(imag(x)) &&
+                                             (!(x isa Rational) || _is_fixed_size(numerator(x)))
+_is_fixed_size(::Number) = true
+
+# The number of parameters of a type, nested ones included; stops counting at `limit + 1`.
+function _type_size(T, limit::Integer = _MAX_TYPE_SIZE)
+    T isa Union && return _type_size(T.a, limit) + _type_size(T.b, limit)
+    T isa UnionAll && return _type_size(Base.unwrap_unionall(T), limit)
+    T isa DataType || return 1
+    total = 1
+    for p in T.parameters
+        total += _type_size(p, limit - total)
+        total > limit && return limit + 1
     end
-    throw(_NotALiteral())
+    return total
 end
 
+# A type that may be named or built: bounded size, and arrays with at most `_MAX_DIMS` dimensions.
+function _checked_type(T)
+    _type_size(T) <= _MAX_TYPE_SIZE || throw(_NotALiteral())
+    if T isa DataType && T <: AbstractArray
+        N = _array_ndims(T)
+        N isa Integer && !(0 <= N <= _MAX_DIMS) && throw(_NotALiteral())
+    end
+    return T
+end
+_array_ndims(::Type{<:AbstractArray{<:Any, N}}) where {N} = N
+_array_ndims(::Type) = nothing
+
+function _literal_type(sym::Symbol)
+    T = get(_LITERAL_TYPES, sym, nothing)
+    T === nothing && throw(_NotALiteral())
+    return T
+end
 _literal_type(ex::Expr) = (T = _literal(ex); T isa Type ? T : throw(_NotALiteral()))
 _literal_type(::Any) = throw(_NotALiteral())
 
-_literal(x::Union{Number, AbstractString, AbstractChar}) = x
+_literal(x::Number) = _checked_number(x)
+_literal(x::Union{AbstractString, AbstractChar}) = x
 _literal(q::QuoteNode) = q.value isa Symbol ? q.value : throw(_NotALiteral())
 _literal(sym::Symbol) = haskey(_LITERAL_CONSTANTS, sym) ? _LITERAL_CONSTANTS[sym] : _literal_type(sym)
 _literal(::Any) = throw(_NotALiteral())
@@ -106,19 +175,20 @@ function _literal(ex::Expr)
         any(a -> a isa Expr && a.head in (:(=), :kw, :parameters), args) && throw(_NotALiteral())
         return tuple(_literal_parts(args)...)
     elseif head === :ref
-        return getindex(_literal_type(args[1]), _literal_parts(args[2:end])...)
+        T = _checked_type(_literal_type(args[1]))
+        return getindex(T, _literal_parts(args[2:end])...)
     elseif head === :curly
         T = _literal_type(args[1])
         params = _literal_parts(args[2:end])
-        # Integer type parameters size types (`NTuple{N, T}`, `Array{T, N}`): huge ones crash the compiler.
-        T === Val || all(p -> !(p isa Integer) || abs(p) <= _MAX_TYPE_PARAMETER, params) || throw(_NotALiteral())
-        return Core.apply_type(T, params...)
+        # Integer parameters size types (`NTuple{N, T}`): bound them before the type is built (`Val` is inert).
+        T === Val || all(p -> !(p isa Integer) || abs(p) <= _MAX_TYPE_SIZE, params) || throw(_NotALiteral())
+        return _checked_type(Core.apply_type(T, params...))
     elseif head === :call
         return _literal_call(args[1], _literal_parts(args[2:end]))
     elseif head === :macrocall && length(args) == 3 && args[3] isa String
         # Integer literals too large for Int64/UInt64 are parsed as `@int128_str "..."` etc.
         T = get(_BIG_LITERAL_MACROS, args[1], nothing)
-        T === nothing || return parse(T, args[3])
+        T === nothing || return _checked_number(parse(T, args[3]))
     end
     throw(_NotALiteral())
 end
@@ -128,17 +198,6 @@ const _BIG_LITERAL_MACROS = Dict{Any, Type}(
     GlobalRef(Core, Symbol("@uint128_str")) => UInt128,
     GlobalRef(Core, Symbol("@big_str")) => BigInt,
 )
-
-# Size limits of literals: bits of an exact power (see `_literal_call`), and the number of elements of the
-# whole value (ranges are lazy, but hashing writes out every element; see `str2val`).
-const _MAX_LITERAL_BITS = 2^20
-const _MAX_LITERAL_LENGTH = 10^6
-const _MAX_TYPE_PARAMETER = 256  # integer type parameters (except in `Val`)
-const _MAX_DIMS = 16             # dimensions of `reshape`
-_exact_bits(x::Integer) = ndigits(x; base = 2)
-_exact_bits(x::Rational) = max(_exact_bits(numerator(x)), _exact_bits(denominator(x)))
-_exact_bits(x::Complex) = max(_exact_bits(real(x)), _exact_bits(imag(x)))
-_exact_bits(::Number) = 0  # fixed-size (or fixed-precision) results
 
 # Number of elements of a parsed literal, counting the elements of (lazy) ranges.
 # Lazy arrays (ranges, reshaped ranges) are counted by `length` before anything is iterated, and the sum stops as
@@ -159,6 +218,10 @@ function _sum_sizes(items, limit::Integer)
     return total
 end
 
+# The length of a range without overflow (`checked_length` has no method for Rational steps).
+_range_length(r::AbstractRange{<:Rational}) = length(r)
+_range_length(r::AbstractRange) = Base.checked_length(r)
+
 function _literal_call(f, values::Vector)
     if f === :(=>) && length(values) == 2
         return values[1] => values[2]
@@ -170,27 +233,30 @@ function _literal_call(f, values::Vector)
          foldl(Base.checked_mul, dims; init = 1) <= _MAX_LITERAL_LENGTH) || throw(_NotALiteral())
         return reshape(values[1], values[2])
     elseif f isa Symbol && haskey(_LITERAL_FUNCTIONS, f) && all(v -> v isa Number, values)
-        # Exact powers and ranges grow with their arguments: a file must not be able to request huge ones.
-        # Ranges are capped here, where they are built (they are only literals on their own, see `_literal_parts`).
+        f in _FIXED_SIZE_FUNCTIONS && !all(_is_fixed_size, values) && throw(_NotALiteral())
+        # Exact powers grow with their arguments: bound them before computing (the result is checked as well).
         # (A division, not a product: the product of the exponent and the bits overflows for huge exponents.)
         if f === :^ && length(values) == 2
             bits = _exact_bits(values[1])
             bits > 0 && abs(values[2]) > _MAX_LITERAL_BITS / bits && throw(_NotALiteral())
         end
         result = _LITERAL_FUNCTIONS[f](values...)
-        f === :(:) && Base.checked_length(result) > _MAX_LITERAL_LENGTH && throw(_NotALiteral())
-        return result
+        # Ranges are capped where they are built (they are only literals on their own, see `_literal_parts`).
+        f === :(:) && return _range_length(result) <= _MAX_LITERAL_LENGTH ? result : throw(_NotALiteral())
+        return _checked_number(result)
     end
     T = _literal_type(f)
-    # Only plain dictionary types: e.g. `EnvDict()` would return the live `ENV`.
     if (T <: Dict || T <: IdDict) && all(v -> v isa Pair, values)
+        # Building a dictionary compiles for its key and value types: bound them (also for untyped `Dict(…)`).
+        all(p -> _type_size(typeof(p.first)) <= _MAX_TYPE_SIZE && _type_size(typeof(p.second)) <= _MAX_TYPE_SIZE,
+            values) || throw(_NotALiteral())
         return T(values...)
     elseif T <: Val && isempty(values)
         return T()
     elseif T === Symbol && length(values) == 1 && values[1] isa AbstractString
         return Symbol(values[1])
     elseif T <: Number && length(values) == 1 && values[1] isa Number
-        return T(values[1])
+        return _checked_number(T(values[1]))
     end
     throw(_NotALiteral())
 end
@@ -198,11 +264,17 @@ end
 """
     str2val(val_str::AbstractString)
 
-Inverse of [`val2str`](@ref): parses literals (numbers, strings, symbols, types, tuples, typed or
-untyped vectors, `reshape(T[...], dims)`, `Dict{K, V}(...)`, `Val{...}()`, and arithmetic on numbers
-such as `2π` or `1/3`).
-Anything else is returned as a (cleaned) string. Arbitrary code is never evaluated, and values beyond the size
-limits (exact powers above 2^20 bits, more than 10^6 elements in total, ranges included) are returned as strings.
+Inverse of [`val2str`](@ref): parses literals and returns anything else as a (cleaned) string. Arbitrary code is
+never evaluated. Accepted are the values `val2str` writes: numbers, strings, symbols, characters, `nothing`,
+`missing`, types, tuples, typed or untyped vectors, `reshape(T[...], dims)`, `Dict{K, V}(...)`, `Val{...}()` and
+static arrays (`SA{T}[...]`); arithmetic on numbers such as `2π`, `1/3` or `sqrt(2)`; and a range as the whole
+value (`1:10`, `0:0.1:1`).
+
+Types come from an allowlist (numbers, text, `Tuple`/`NTuple`, `Vector`/`Matrix`/`Array`, `Dict`, `Pair`, `Val`,
+`Union`, `Nothing`, `Missing`, `Any`, `DataType` and the static arrays of StaticArrays); other names stay strings. Values beyond
+the size limits are returned as strings too: more than 10^6 elements in total, exact numbers with more than 2^20
+bits (BigFloats: exponents), types with more than 1024 parameters (nested ones counted), more than 16 array
+dimensions, and functions such as `sin` or `sqrt` of a BigInt or BigFloat.
 """
 function str2val(val_str::AbstractString)
     s = strip(String(val_str))  # a plain String: the parser cannot iterate every AbstractString (e.g. lazy CSV strings)
