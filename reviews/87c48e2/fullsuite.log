@@ -1,0 +1,160 @@
+[ Info: Registered statistic :pointwise_diff keeping dimensions: all
+[ Info: Registered statistic :slice_count keeping dimensions: time
+[ Info: Registered statistic :mass keeping dimensions: time
+[ Info: Registered statistic :l1norm keeping dimensions: time
+[ Info: Registered statistic :l2norm keeping dimensions: time
+[ Info: Registered statistic :wave_height keeping dimensions: time
+[ Info: Registered statistic :l1error keeping dimensions: time
+[ Info: Registered statistic :l2error keeping dimensions: time
+[ Info: Registered statistic :relative_l2error keeping dimensions: time
+[ Info: Registered statistic :relative_l1error keeping dimensions: time
+[ Info: Registered statistic :relative_mass keeping dimensions: time
+[ Info: Registered statistic :spacetime_relative_mass keeping dimensions: Symbol[]
+[ Info: Registered statistic :mass_error keeping dimensions: time
+[ Info: Registered statistic :mass_signed_error keeping dimensions: time
+[ Info: Successfully loaded stat preset: hyperbolic
+[ Info: Module save root path set to: /tmp/jl_q98HT6
+[ Info: Added custom stat 'tag' keeping dimensions: all
+[ Info: Registered statistic :total keeping dimensions: time
+[ Info: Registered statistic :total keeping dimensions: all
+[ Info: Registered statistic :total keeping dimensions: x
+[ Info: Registered statistic :total keeping dimensions: [:t, :x]
+[ Info: Added custom stat 'runtime' keeping dimensions: Symbol[]
+[ Info: Added custom stat 'series' keeping dimensions: time
+[ Info: Added custom stat 'execution_time' keeping dimensions: Symbol[]
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 4 simulation task(s) (parallel: false)...
+Running simulations...  50%|██████████████              |  ETA: 0:00:00[KRunning simulations... 100%|████████████████████████████| Time: 0:00:00[K
+[ Info: Pass 1 finished: 4 run, 0 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+Calculating stats...  50%|███████████████               |  ETA: 0:00:01[KCalculating stats... 100%|██████████████████████████████| Time: 0:00:00[K
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 4 simulation task(s) (parallel: false)...
+[ Info: Pass 1 finished: 0 run, 4 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 4 simulation task(s) (parallel: false)...
+Running simulations...  50%|██████████████              |  ETA: 0:00:00[KRunning simulations... 100%|████████████████████████████| Time: 0:00:00[K
+[ Info: Pass 1 finished: 4 run, 0 cached, 0 without output, 0 failed.
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 1 simulation task(s) (parallel: false)...
+[ Info: Pass 1 finished: 1 run, 0 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+[ Info: Batch simulation run complete!
+[ Info: Manual load: 1 matching file(s); loading index 1: 2026-11-06_11-07-06_649_be27d161c0e09b5433da2b27a2cb847c27e506c1fc59899f46b1f5972a0341a4.jld2
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 1 simulation task(s) (parallel: false)...
+[ Info: Pass 1 finished: 0 run, 1 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 1 simulation task(s) (parallel: false)...
+[ Info: Pass 1 finished: 0 run, 1 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 1 simulation task(s) (parallel: false)...
+[ Info: Pass 1 finished: 0 run, 1 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 1 simulation task(s) (parallel: false)...
+[ Info: Pass 1 finished: 1 run, 0 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+[ Info: Pass 3: custom post-processing...
+[ Info: Batch simulation run complete!
+[ Info: Manual load: 1 matching file(s); loading index 1: 2026-11-06_11-07-07_370_7479e0c0c37cc6009ccb03cc855ddd6494259185dc5af3550bd2a018b5519eb1.jld2
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 1 simulation task(s) (parallel: false)...
+[ Info: Pass 1 finished: 1 run, 0 cached, 0 without output, 0 failed.
+[ Info: Batch simulation run complete!
+[ Info: Manual load: 1 matching file(s); loading index 1: 2026-11-06_11-07-07_581_cff882e46682ab458c5a531da1ebe76fe04727801888e41762e3272aa60b803a.jld2
+[ Info: Added custom stat 'u_copy' keeping dimensions: all
+[ Info: Added custom stat 'profile' keeping dimensions: x
+[ Info: Saved simulation data to 2026-11-06_11-07-07_907_9652a840709e10211fe2969ed76c241515a4c581d20ecd5bdda0ddc4d6358886.jld2
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Eulerian representation conv_E_20x30 not cached; generating it on the fly...
+[ Info: Resampling Eulerian data from (40, 27) to (20, 30) (linear in space, nearest in time)...
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Eulerian representation conv_E_25x30 not cached; generating it on the fly...
+[ Info: Resampling Eulerian data from (40, 27) to (25, 30) (linear in space, nearest in time)...
+[ Info: Saved simulation data to 2026-11-06_11-07-07_907_9652a840709e10211fe2969ed76c241515a4c581d20ecd5bdda0ddc4d6358886.jld2 (replaced; conversion caches cleared)
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Manual load: 1 matching file(s); loading index 1: 2026-11-06_11-07-09_196_711ecd89a707aa797088c092336b0477372a1413d6876b81a476af3051a46af5.jld2
+[ Info: Manual load: 1 matching file(s); loading index 1: 2026-11-06_11-07-09_196_711ecd89a707aa797088c092336b0477372a1413d6876b81a476af3051a46af5.jld2
+┌ Warning: type Main.ForeignEntry does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.ForeignEntry does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.ForeignEntry does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+[ Info: Added custom stat 'series' keeping dimensions: time
+[ Info: Resampling Eulerian data from (11, 5) to (21, 5) (linear in space, nearest in time)...
+[ Info: Resampling Eulerian data from (11, 5) to (11, 3) (linear in space, nearest in time)...
+[ Info: Resampling Eulerian data from (6, 5) to (11, 9) (linear in space, nearest in time)...
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Saved simulation data to 2026-11-06_11-07-14_869_61c3b0a062ff0c4955b39d199e561f44923b95e35af53e75f19495de1970cca4.jld2
+[ Info: Saved simulation data to 2026-11-06_11-07-14_883_fc9caf75d255bb44a691a8c8c88f36852d090b5fc588b22ec4e0a06adfda02bd.jld2
+[ Info: Would delete 2026-11-06_11-07-14_869_61c3b0a062ff0c4955b39d199e561f44923b95e35af53e75f19495de1970cca4.jld2
+┌ Warning: Deleting file matching criteria: 2026-11-06_11-07-14_869_61c3b0a062ff0c4955b39d199e561f44923b95e35af53e75f19495de1970cca4.jld2
+└ @ PDEStudioCore ~/.claude/jobs/d2d299f1/tmp/review-psc/repo/src/DataManagement.jl:133
+[ Info: Saved simulation data to 2026-11-06_11-07-15_969_8a839fde5d137276948ca31a8590ea13be9e49512e52b9e0fb46bf9de0bd2f12.jld2
+[ Info: Saved simulation data to 2026-11-06_11-07-15_983_744fcd9c31d4afc71352324f0025de660f44b1de61a3f412b29005c24d95246a.jld2
+[ Info: Processing matched file: 2026-11-06_11-07-15_969_8a839fde5d137276948ca31a8590ea13be9e49512e52b9e0fb46bf9de0bd2f12.jld2
+[ Info:   Removed key :obsolete
+[ Info: Rehashed and renamed: 2026-11-06_11-07-15_969_8a839fde5d137276948ca31a8590ea13be9e49512e52b9e0fb46bf9de0bd2f12.jld2 -> 2026-11-06_11-07-15_969_f3a2a8fba419a4377c7334f27ce7f92996fc00e563e971e98757f2dc7e8a5cff.jld2
+[ Info: Saved simulation data to 2026-11-06_11-07-16_326_7f82ef09594e89178b7cf56eea595d4c28c9da06e046474bea900d5c8a2f93e6.jld2
+[ Info: Manual load: 1 matching file(s); loading index 1: 2026-11-06_11-07-16_326_7f82ef09594e89178b7cf56eea595d4c28c9da06e046474bea900d5c8a2f93e6.jld2
+[ Info: Manual load: 1 matching file(s); loading index 1: 2026-11-06_11-07-16_326_7f82ef09594e89178b7cf56eea595d4c28c9da06e046474bea900d5c8a2f93e6.jld2
+[ Info: Saved simulation data to 2026-11-06_11-07-16_326_7f82ef09594e89178b7cf56eea595d4c28c9da06e046474bea900d5c8a2f93e6.jld2 (replaced; conversion caches cleared)
+[ Info: Manual load: 1 matching file(s); loading index 1: 2026-11-06_11-07-16_326_7f82ef09594e89178b7cf56eea595d4c28c9da06e046474bea900d5c8a2f93e6.jld2
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 12 simulation task(s) (parallel: true)...
+Running simulations...  17%|████▋                       |  ETA: 0:00:01[KRunning simulations... 100%|████████████████████████████| Time: 0:00:00[K
+[ Info: Pass 1 finished: 12 run, 0 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+Calculating stats...  17%|█████                         |  ETA: 0:00:01[KCalculating stats...  83%|█████████████████████████     |  ETA: 0:00:00[KCalculating stats... 100%|██████████████████████████████| Time: 0:00:00[K
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 9 simulation task(s) (parallel: true)...
+[ Info: Pass 1 finished: 9 run, 0 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+Calculating stats...  67%|████████████████████          |  ETA: 0:00:00[KCalculating stats... 100%|██████████████████████████████| Time: 0:00:00[K
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 12 simulation task(s) (parallel: true)...
+Running simulations...  17%|████▋                       |  ETA: 0:00:01[KRunning simulations... 100%|████████████████████████████| Time: 0:00:00[K
+[ Info: Pass 1 finished: 12 run, 0 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+Calculating stats...  17%|█████                         |  ETA: 0:00:01[KCalculating stats...  75%|██████████████████████▌       |  ETA: 0:00:00[KCalculating stats... 100%|██████████████████████████████| Time: 0:00:00[K
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 6 simulation task(s) (parallel: true)...
+Running simulations...  33%|█████████▍                  |  ETA: 0:00:01[KRunning simulations... 100%|████████████████████████████| Time: 0:00:00[K
+[ Info: Pass 1 finished: 6 run, 0 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+Calculating stats...  33%|██████████                    |  ETA: 0:00:06[KCalculating stats...  83%|█████████████████████████     |  ETA: 0:00:01[KCalculating stats... 100%|██████████████████████████████| Time: 0:00:03[K
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 6 simulation task(s) (parallel: true)...
+[ Info: Pass 1 finished: 6 run, 0 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+Calculating stats...  33%|██████████                    |  ETA: 0:00:00[KCalculating stats... 100%|██████████████████████████████| Time: 0:00:00[K
+[ Info: Batch simulation run complete!
+[ Info: Started simulation pipeline.
+[ Info: Pass 1: executing 9 simulation task(s) (parallel: true)...
+Running simulations...  22%|██████▎                     |  ETA: 0:00:01[KRunning simulations... 100%|████████████████████████████| Time: 0:00:00[K
+[ Info: Pass 1 finished: 9 run, 0 cached, 0 without output, 0 failed.
+[ Info: Pass 2: calculating statistics...
+Calculating stats...  22%|██████▋                       |  ETA: 0:00:08[KCalculating stats... 100%|██████████████████████████████| Time: 0:00:02[K
+[ Info: Batch simulation run complete!
+Test Summary:    | Pass  Total   Time
+PDEStudioCore.jl |  874    874  55.4s
+flock /tmp/julia-suite.lock timeout 60m julia -t 8 --project=test   82.53s user 0.93s system 148% cpu 56.371 total
+exit 0

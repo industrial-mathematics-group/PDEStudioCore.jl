@@ -1,0 +1,54 @@
+BigInt(BigFloat(2)^1048575):BigInt(BigFloat(2)^1048575)+9                -> UnitRange{BigInt}                        str2val 0.26 s, maxrss 0.49 GiB
+                                                                            hash 0.26 s, maxrss 0.51 GiB
+   [exit 0, wall 1416 ms] BigInt(BigFloat(2)^1048575):BigInt(BigFloat(2)^1048575)+9
+BigInt(BigFloat(2)^1048575):BigInt(BigFloat(2)^1048575)+99               -> UnitRange{BigInt}                        str2val 0.27 s, maxrss 0.49 GiB
+                                                                            hash 1.24 s, maxrss 0.63 GiB
+   [exit 0, wall 2391 ms] BigInt(BigFloat(2)^1048575):BigInt(BigFloat(2)^1048575)+99
+BigInt(BigFloat(2)^1048575):BigInt(BigFloat(2)^1048575)+999              -> UnitRange{BigInt}                        str2val 0.31 s, maxrss 0.53 GiB
+                                                                            hash 10.53 s, maxrss 1.86 GiB
+   [exit 0, wall 11687 ms] BigInt(BigFloat(2)^1048575):BigInt(BigFloat(2)^1048575)+999
+unknown function (ip: 0x7f7b8fce103e) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7f7b8fe8e47d) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7f7b905fdc71) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7f7b8fa88cf3) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7f7ba0bcfc3d) at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13
+jl_repl_entrypoint at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)
+main at julia (unknown line)
+unknown function (ip: 0x7f7ba14d4ca7) at /lib/x86_64-linux-gnu/libc.so.6
+__libc_start_main at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+unknown function (ip: 0x4010b8) at julia
+Allocations: 6992597 (Pool: 6985923; Big: 6674); GC: 3996
+timeout: the monitored command dumped core
+./run.sh: line 6: 20758 Aborted                 timeout $T julia --project=$P/../repo/test $P/one.jl "$1" 2>&1
+     20759 Done                    | tail -n 12
+   [exit 134, wall 71255 ms] BigInt(BigFloat(2)^1048575):BigInt(BigFloat(2)^1048575)+999999
+unknown function (ip: 0x7ff8a94e103e) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7ff8a968e47d) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7ff8a9dfdc71) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7ff8a9288cf3) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7ff8ba39cc3d) at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13
+jl_repl_entrypoint at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)
+main at julia (unknown line)
+unknown function (ip: 0x7ff8baca1ca7) at /lib/x86_64-linux-gnu/libc.so.6
+__libc_start_main at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+unknown function (ip: 0x4010b8) at julia
+Allocations: 7064809 (Pool: 7051657; Big: 13152); GC: 1869
+timeout: the monitored command dumped core
+./run.sh: line 6: 21906 Aborted                 timeout $T julia --project=$P/../repo/test $P/one.jl "$1" 2>&1
+     21907 Done                    | tail -n 12
+   [exit 134, wall 52824 ms] BigInt(2)^524288:BigInt(2)^524288+999999
+unknown function (ip: 0x7f98e48e103e) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7f98e4a8e47d) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7f98e51fdc71) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7f98e4688cf3) at /opt/julia/lib/julia/sys.so
+unknown function (ip: 0x7f98f585dc3d) at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13
+jl_repl_entrypoint at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)
+main at julia (unknown line)
+unknown function (ip: 0x7f98f6162ca7) at /lib/x86_64-linux-gnu/libc.so.6
+__libc_start_main at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+unknown function (ip: 0x4010b8) at julia
+Allocations: 16992855 (Pool: 16985305; Big: 7550); GC: 6739
+timeout: the monitored command dumped core
+./run.sh: line 6: 22658 Aborted                 timeout $T julia --project=$P/../repo/test $P/one.jl "$1" 2>&1
+     22659 Done                    | tail -n 12
+   [exit 134, wall 51665 ms] Rational{BigInt}(BigFloat(2)^1048575):Rational{BigInt}(BigFloat(2)^1048575)+9999

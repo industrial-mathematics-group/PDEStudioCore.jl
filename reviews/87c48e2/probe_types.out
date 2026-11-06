@@ -1,0 +1,258 @@
+Union{}                                                                  -> Core.TypeofBottom                        str2val 0.01 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.49 GiB
+   [exit 0, wall 990 ms] Union{}
+Union{}[]                                                                -> Vector{Union{}}                          str2val 0.01 s, maxrss 0.48 GiB
+                                                                            hash 0.14 s, maxrss 0.48 GiB
+   [exit 0, wall 1009 ms] Union{}[]
+Union[]                                                                  -> Vector{Union}                            str2val 0.01 s, maxrss 0.48 GiB
+                                                                            hash 0.15 s, maxrss 0.49 GiB
+   [exit 0, wall 1016 ms] Union[]
+Union[Int]                                                               -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 881 ms] Union[Int]
+Type[]                                                                   -> Vector{Type}                             str2val 0.03 s, maxrss 0.49 GiB
+                                                                            hash 0.15 s, maxrss 0.49 GiB
+   [exit 0, wall 1029 ms] Type[]
+Type{Union{}}                                                            -> DataType                                 str2val 0.04 s, maxrss 0.48 GiB
+                                                                            hash 0.14 s, maxrss 0.48 GiB
+   [exit 0, wall 1042 ms] Type{Union{}}
+Type{Int}[Int]                                                           -> Vector{Type{Int64}}                      str2val 0.01 s, maxrss 0.49 GiB
+                                                                            hash 0.15 s, maxrss 0.49 GiB
+   [exit 0, wall 1038 ms] Type{Int}[Int]
+UnionAll[Vector]                                                         -> Vector{UnionAll}                         str2val 0.05 s, maxrss 0.48 GiB
+                                                                            hash 0.16 s, maxrss 0.48 GiB
+   [exit 0, wall 1097 ms] UnionAll[Vector]
+DataType[Int, Float64]                                                   -> Vector{DataType}                         str2val 0.01 s, maxrss 0.49 GiB
+                                                                            hash 0.15 s, maxrss 0.49 GiB
+   [exit 0, wall 1040 ms] DataType[Int, Float64]
+Val{(1, 2)}                                                              -> DataType                                 str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.48 GiB
+   [exit 0, wall 1031 ms] Val{(1, 2)}
+Val{(1, 2)}()                                                            -> Val{(1, 2)}                              str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.48 GiB
+   [exit 0, wall 1033 ms] Val{(1, 2)}()
+Val{Val{Val{1}}}()                                                       -> Val{Val{Val{1}}}                         str2val 0.01 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.48 GiB
+   [exit 0, wall 1010 ms] Val{Val{Val{1}}}()
+Val{1.5}()                                                               -> Val{1.5}                                 str2val 0.0 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.49 GiB
+   [exit 0, wall 1021 ms] Val{1.5}()
+Val{'c'}()                                                               -> Val{'c'}                                 str2val 0.02 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.48 GiB
+   [exit 0, wall 1036 ms] Val{'c'}()
+Val{"s"}()                                                               -> String                                   str2val 0.02 s, maxrss 0.48 GiB
+   [exit 0, wall 911 ms] Val{"s"}()
+Val{(2^62, 2^62)}()                                                      -> Val{(4611686018427387904, 4611686018427387904)} str2val 0.04 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.48 GiB
+   [exit 0, wall 1063 ms] Val{(2^62, 2^62)}()
+Val{NTuple{1000, Int}}()                                                 -> Val{NTuple{1000, Int64}}                 str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.14 s, maxrss 0.48 GiB
+   [exit 0, wall 1067 ms] Val{NTuple{1000, Int}}()
+Val{BigInt(2)}()                                                         -> String                                   str2val 0.05 s, maxrss 0.47 GiB
+   [exit 0, wall 928 ms] Val{BigInt(2)}()
+Irrational{:x}                                                           -> DataType                                 str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.48 GiB
+   [exit 0, wall 1047 ms] Irrational{:x}
+Irrational{:x}[]                                                         -> Vector{Irrational{:x}}                   str2val 0.04 s, maxrss 0.48 GiB
+                                                                            hash 0.15 s, maxrss 0.48 GiB
+   [exit 0, wall 1091 ms] Irrational{:x}[]
+Irrational{:π}[π]                                                        -> Vector{Irrational{:π}}                   str2val 0.06 s, maxrss 0.49 GiB
+                                                                            hash 0.15 s, maxrss 0.49 GiB
+   [exit 0, wall 1128 ms] Irrational{:π}[π]
+Irrational{1}                                                            -> DataType                                 str2val 0.02 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.48 GiB
+   [exit 0, wall 1033 ms] Irrational{1}
+Float64(Irrational{:x})                                                  -> String                                   str2val 0.05 s, maxrss 0.49 GiB
+   [exit 0, wall 935 ms] Float64(Irrational{:x})
+Complex{BigFloat}                                                        -> DataType                                 str2val 0.0 s, maxrss 0.49 GiB
+                                                                            hash 0.14 s, maxrss 0.49 GiB
+   [exit 0, wall 1022 ms] Complex{BigFloat}
+Complex{BigFloat}(1)                                                     -> Complex{BigFloat}                        str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.16 s, maxrss 0.49 GiB
+   [exit 0, wall 1156 ms] Complex{BigFloat}(1)
+Complex{String}                                                          -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 900 ms] Complex{String}
+Rational{String}                                                         -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 879 ms] Rational{String}
+Rational{BigFloat}                                                       -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 879 ms] Rational{BigFloat}
+Array{Int, 1024}                                                         -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 950 ms] Array{Int, 1024}
+Array{Int, -1}                                                           -> String                                   str2val 0.03 s, maxrss 0.49 GiB
+   [exit 0, wall 917 ms] Array{Int, -1}
+Array{Int, typemin(Int)}                                                 -> String                                   str2val 0.02 s, maxrss 0.48 GiB
+   [exit 0, wall 925 ms] Array{Int, typemin(Int)}
+AbstractArray{Int, 1000}                                                 -> String                                   str2val 0.03 s, maxrss 0.49 GiB
+   [exit 0, wall 900 ms] AbstractArray{Int, 1000}
+Array{Array{Int, 17}, 1}                                                 -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 923 ms] Array{Array{Int, 17}, 1}
+Tuple{Int, Vararg{Int}}                                                  -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 869 ms] Tuple{Int, Vararg{Int}}
+NTuple{1024, Any}[]                                                      -> String                                   str2val 0.03 s, maxrss 0.49 GiB
+   [exit 0, wall 900 ms] NTuple{1024, Any}[]
+NTuple{1000, Union{Int, Nothing}}[]                                      -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 882 ms] NTuple{1000, Union{Int, Nothing}}[]
+Number(1)                                                                -> Int64                                    str2val 0.03 s, maxrss 0.49 GiB
+                                                                            hash 0.09 s, maxrss 0.49 GiB
+   [exit 0, wall 988 ms] Number(1)
+Real(BigFloat(2)^1048575)                                                -> BigFloat                                 str2val 0.14 s, maxrss 0.49 GiB
+                                                                            hash 0.13 s, maxrss 0.5 GiB
+   [exit 0, wall 1125 ms] Real(BigFloat(2)^1048575)
+AbstractFloat(BigInt(2)^524288)                                          -> BigFloat                                 str2val 0.13 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.5 GiB
+   [exit 0, wall 1134 ms] AbstractFloat(BigInt(2)^524288)
+Integer(1.0)                                                             -> Int64                                    str2val 0.02 s, maxrss 0.48 GiB
+                                                                            hash 0.09 s, maxrss 0.49 GiB
+   [exit 0, wall 965 ms] Integer(1.0)
+Signed(UInt8(3))                                                         -> Int8                                     str2val 0.06 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.49 GiB
+   [exit 0, wall 1046 ms] Signed(UInt8(3))
+Unsigned(-1)                                                             -> String                                   str2val 0.03 s, maxrss 0.49 GiB
+   [exit 0, wall 884 ms] Unsigned(-1)
+Bool(2)                                                                  -> String                                   str2val 0.03 s, maxrss 0.49 GiB
+   [exit 0, wall 875 ms] Bool(2)
+Char(65)                                                                 -> String                                   str2val 0.02 s, maxrss 0.48 GiB
+   [exit 0, wall 880 ms] Char(65)
+Rational(1.5)                                                            -> Rational{Int64}                          str2val 0.02 s, maxrss 0.48 GiB
+                                                                            hash 0.14 s, maxrss 0.48 GiB
+   [exit 0, wall 1007 ms] Rational(1.5)
+Rational{BigInt}(1e308)                                                  -> Rational{BigInt}                         str2val 0.02 s, maxrss 0.49 GiB
+                                                                            hash 0.14 s, maxrss 0.49 GiB
+   [exit 0, wall 1008 ms] Rational{BigInt}(1e308)
+Int8(1000)                                                               -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 879 ms] Int8(1000)
+Complex{Int}(1.5)                                                        -> String                                   str2val 0.01 s, maxrss 0.48 GiB
+   [exit 0, wall 871 ms] Complex{Int}(1.5)
+Float16(1e10)                                                            -> Float16                                  str2val 0.02 s, maxrss 0.48 GiB
+                                                                            hash 0.14 s, maxrss 0.48 GiB
+   [exit 0, wall 1028 ms] Float16(1e10)
+BigFloat(1e308)^4000                                                     -> String                                   str2val 0.1 s, maxrss 0.49 GiB
+   [exit 0, wall 955 ms] BigFloat(1e308)^4000
+Function[]                                                               -> Vector{Function}                         str2val 0.01 s, maxrss 0.48 GiB
+                                                                            hash 0.15 s, maxrss 0.48 GiB
+   [exit 0, wall 1035 ms] Function[]
+Any[Any[], Any[Any[]]]                                                   -> Vector{Any}                              str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.19 s, maxrss 0.49 GiB
+   [exit 0, wall 1130 ms] Any[Any[], Any[Any[]]]
+Pair{Int, Int}[1 => 2]                                                   -> Vector{Pair{Int64, Int64}}               str2val 0.05 s, maxrss 0.49 GiB
+                                                                            hash 0.17 s, maxrss 0.5 GiB
+   [exit 0, wall 1105 ms] Pair{Int, Int}[1 => 2]
+Pair{Int}[1 => 2]                                                        -> Vector{Pair{Int64}}                      str2val 0.06 s, maxrss 0.49 GiB
+                                                                            hash 0.21 s, maxrss 0.5 GiB
+   [exit 0, wall 1171 ms] Pair{Int}[1 => 2]
+Pair[1 => 2, :a => "b"]                                                  -> Vector{Pair}                             str2val 0.15 s, maxrss 0.49 GiB
+                                                                            hash 0.22 s, maxrss 0.51 GiB
+   [exit 0, wall 1235 ms] Pair[1 => 2, :a => "b"]
+in expression starting at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc/probes/one.jl:11
+   [exit 1, wall 1872 ms] IdDict(1 => 2)
+in expression starting at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc/probes/one.jl:11
+   [exit 1, wall 1868 ms] IdDict{Any, Any}(1 => 2)
+Dict{Any, Any}(1 => 2, 1 => 3)                                           -> Dict{Any, Any}                           str2val 0.09 s, maxrss 0.49 GiB
+                                                                            hash 0.27 s, maxrss 0.5 GiB
+   [exit 0, wall 1252 ms] Dict{Any, Any}(1 => 2, 1 => 3)
+Dict{Int, Int}(1 => 2.5)                                                 -> String                                   str2val 0.1 s, maxrss 0.49 GiB
+   [exit 0, wall 1008 ms] Dict{Int, Int}(1 => 2.5)
+Dict{Union{}, Int}()                                                     -> Dict{Union{}, Int64}                     str2val 0.09 s, maxrss 0.48 GiB
+                                                                            hash 0.17 s, maxrss 0.5 GiB
+   [exit 0, wall 1166 ms] Dict{Union{}, Int}()
+Dict{Int}()                                                              -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 907 ms] Dict{Int}()
+AbstractDict{Int, Int}()                                                 -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 893 ms] AbstractDict{Int, Int}()
+Dict(1 => 2)[1]                                                          -> String                                   str2val 0.06 s, maxrss 0.49 GiB
+   [exit 0, wall 956 ms] Dict(1 => 2)[1]
+Symbol[:a]                                                               -> Vector{Symbol}                           str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.15 s, maxrss 0.49 GiB
+   [exit 0, wall 1053 ms] Symbol[:a]
+Symbol("")                                                               -> Symbol                                   str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.09 s, maxrss 0.48 GiB
+   [exit 0, wall 992 ms] Symbol("")
+Symbol("a\0b")                                                           -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 902 ms] Symbol("a\0b")
+String["a"]                                                              -> Vector{String}                           str2val 0.03 s, maxrss 0.49 GiB
+                                                                            hash 0.14 s, maxrss 0.49 GiB
+   [exit 0, wall 1026 ms] String["a"]
+AbstractString["a"]                                                      -> Vector{AbstractString}                   str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.16 s, maxrss 0.48 GiB
+   [exit 0, wall 1039 ms] AbstractString["a"]
+Char['a', 'b']                                                           -> Vector{Char}                             str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.15 s, maxrss 0.48 GiB
+   [exit 0, wall 1045 ms] Char['a', 'b']
+Missing[missing]                                                         -> Vector{Missing}                          str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.15 s, maxrss 0.48 GiB
+   [exit 0, wall 1042 ms] Missing[missing]
+Nothing[nothing]                                                         -> Vector{Nothing}                          str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.15 s, maxrss 0.48 GiB
+   [exit 0, wall 1025 ms] Nothing[nothing]
+SA[]                                                                     -> StaticArraysCore.SVector{0, Union{}}     str2val 0.01 s, maxrss 0.48 GiB
+                                                                            hash 0.14 s, maxrss 0.48 GiB
+   [exit 0, wall 1015 ms] SA[]
+SA{Any}[]                                                                -> StaticArraysCore.SVector{0, Any}         str2val 0.01 s, maxrss 0.49 GiB
+                                                                            hash 0.14 s, maxrss 0.49 GiB
+   [exit 0, wall 1004 ms] SA{Any}[]
+SA{Union{}}[]                                                            -> StaticArraysCore.SVector{0, Union{}}     str2val 0.04 s, maxrss 0.49 GiB
+                                                                            hash 0.14 s, maxrss 0.49 GiB
+   [exit 0, wall 1081 ms] SA{Union{}}[]
+SVector{0, Int}[]                                                        -> Vector{StaticArraysCore.SVector{0, Int64}} str2val 0.04 s, maxrss 0.48 GiB
+                                                                            hash 0.16 s, maxrss 0.49 GiB
+   [exit 0, wall 1059 ms] SVector{0, Int}[]
+SVector{-1, Int}                                                         -> DataType                                 str2val 0.03 s, maxrss 0.49 GiB
+                                                                            hash 0.14 s, maxrss 0.49 GiB
+   [exit 0, wall 1030 ms] SVector{-1, Int}
+SVector{3, Int}[(1, 2, 3)]                                               -> Vector{StaticArraysCore.SVector{3, Int64}} str2val 0.06 s, maxrss 0.48 GiB
+                                                                            hash 0.17 s, maxrss 0.49 GiB
+   [exit 0, wall 1102 ms] SVector{3, Int}[(1, 2, 3)]
+SVector{2, Float64}[Float64[1.0, 2.0]]                                   -> Vector{StaticArraysCore.SVector{2, Float64}} str2val 0.09 s, maxrss 0.48 GiB
+                                                                            hash 0.17 s, maxrss 0.49 GiB
+   [exit 0, wall 1116 ms] SVector{2, Float64}[Float64[1.0, 2.0]]
+MVector{2, Float64}[Float64[1.0, 2.0]]                                   -> Vector{StaticArraysCore.MVector{2, Float64}} str2val 0.09 s, maxrss 0.48 GiB
+                                                                            hash 0.17 s, maxrss 0.49 GiB
+   [exit 0, wall 1138 ms] MVector{2, Float64}[Float64[1.0, 2.0]]
+MMatrix{2, 2}[[1 2; 3 4]]                                                -> String                                   str2val 0.02 s, maxrss 0.48 GiB
+   [exit 0, wall 900 ms] MMatrix{2, 2}[[1 2; 3 4]]
+StaticArray[]                                                            -> Vector{StaticArraysCore.StaticArray}     str2val 0.01 s, maxrss 0.48 GiB
+                                                                            hash 0.18 s, maxrss 0.5 GiB
+   [exit 0, wall 1062 ms] StaticArray[]
+SArray{Tuple{2}, Int, 1, 3}                                              -> DataType                                 str2val 0.05 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.49 GiB
+   [exit 0, wall 1086 ms] SArray{Tuple{2}, Int, 1, 3}
+SArray{Tuple{2}, Int, 1, 3}[(1, 2)]                                      -> String                                   str2val 0.08 s, maxrss 0.48 GiB
+   [exit 0, wall 931 ms] SArray{Tuple{2}, Int, 1, 3}[(1, 2)]
+SArray{Int}                                                              -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 861 ms] SArray{Int}
+SArray{Tuple{-1}}[[1]]                                                   -> String                                   str2val 0.07 s, maxrss 0.48 GiB
+   [exit 0, wall 929 ms] SArray{Tuple{-1}}[[1]]
+SArray{Tuple{1000, 1000, 1000}}[]                                        -> Vector{StaticArraysCore.SArray{Tuple{1000, 1000, 1000}}} str2val 0.04 s, maxrss 0.48 GiB
+                                                                            hash 0.24 s, maxrss 0.5 GiB
+   [exit 0, wall 1139 ms] SArray{Tuple{1000, 1000, 1000}}[]
+uv_run at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)
+ijl_atexit_hook at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)
+ijl_exit at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)
+ijl_no_exc_handler at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)
+jl_repl_entrypoint at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)
+main at julia (unknown line)
+__libc_start_main at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+   [exit 1, wall 1960 ms] SArray{Tuple{256, 256, 256}}[[1.0]]
+jl_repl_entrypoint at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)
+main at julia (unknown line)
+__libc_start_main at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+SArray{Tuple{100, 100, 10}}[[1.0]]                                       -> String                                   str2val 4.85 s, maxrss 2.34 GiB
+   [exit 0, wall 5717 ms] SArray{Tuple{100, 100, 10}}[[1.0]]
+SMatrix{1000, 1000}[[1.0]]                                               -> String                                   str2val 0.98 s, maxrss 1.66 GiB
+   [exit 0, wall 1836 ms] SMatrix{1000, 1000}[[1.0]]
+reshape([1, 2, 3, 4], (2, 2))                                            -> Matrix{Int64}                            str2val 0.09 s, maxrss 0.49 GiB
+                                                                            hash 0.16 s, maxrss 0.5 GiB
+   [exit 0, wall 1081 ms] reshape([1, 2, 3, 4], (2, 2))
+reshape([1, 2, 3, 4], (4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…(71 chars)  -> Array{Int64, 16}                         str2val 0.11 s, maxrss 0.49 GiB
+                                                                            hash 0.18 s, maxrss 0.5 GiB
+   [exit 0, wall 1154 ms] reshape([1, 2, 3, 4], (4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1))
+reshape([1], ())                                                         -> Array{Int64, 0}                          str2val 0.09 s, maxrss 0.48 GiB
+                                                                            hash 0.16 s, maxrss 0.49 GiB
+   [exit 0, wall 1088 ms] reshape([1], ())
+reshape(Int[], (0, 1000000))                                             -> Matrix{Int64}                            str2val 0.09 s, maxrss 0.49 GiB
+                                                                            hash 0.16 s, maxrss 0.49 GiB
+   [exit 0, wall 1095 ms] reshape(Int[], (0, 1000000))
+reshape(Int[], (1000000, 1000000))                                       -> String                                   str2val 0.08 s, maxrss 0.49 GiB
+   [exit 0, wall 938 ms] reshape(Int[], (1000000, 1000000))
+reshape([1, 2], (2,))                                                    -> Vector{Int64}                            str2val 0.08 s, maxrss 0.49 GiB
+                                                                            hash 0.1 s, maxrss 0.49 GiB
+   [exit 0, wall 1048 ms] reshape([1, 2], (2,))

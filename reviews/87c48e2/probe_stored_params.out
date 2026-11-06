@@ -1,0 +1,86 @@
+4340 files
+values: 149850, unreadable files: 0, hash-text differences: 0
+parse differences (old type, new type) by text: 0
+stored (key, type) kinds: 82
+  Adapt_enabled               Bool                                                                    242
+  Flux_name                   Symbol                                                                  4340
+  Grid_Ns                     Tuple{Int64, Int64}                                                     1110
+  Grid_Ns                     Tuple{Int64}                                                            3230
+  Grid_bc                     Dict{Int64, Symbol}                                                     2397
+  Grid_bc                     String                                                                  242
+  Grid_bc_map                 String                                                                  340
+  Grid_domain                 Symbol                                                                  4340
+  Grid_maxs                   Tuple{Float64, Float64}                                                 1110
+  Grid_maxs                   Tuple{Float64}                                                          3230
+  Grid_mins                   Tuple{Float64, Float64}                                                 1110
+  Grid_mins                   Tuple{Float64}                                                          3230
+  Grid_mover                  Symbol                                                                  4340
+  Grid_periodic               Bool                                                                    4317
+  Grid_randomness_factor      Tuple{Float64, Float64}                                                 1110
+  Grid_randomness_factor      Tuple{Float64}                                                          3230
+  Grid_remove_ghosts          Bool                                                                    3628
+  Grid_seed                   Int64                                                                   4340
+  Grid_volumes                Symbol                                                                  242
+  Grid_volumes_degree         Int64                                                                   242
+  IC_E0                       Float64                                                                 12
+  IC_a                        Tuple{Float64}                                                          1234
+  IC_b                        Tuple{Float64, Float64}                                                 772
+  IC_b                        Tuple{Float64}                                                          462
+  IC_c                        Float64                                                                 12
+  IC_gamma                    Float64                                                                 78
+  IC_inner                    NTuple{4, Float64}                                                      12
+  IC_mach                     Float64                                                                 12
+  IC_maxs                     Tuple{Float64, Float64}                                                 55
+  IC_mins                     Tuple{Float64, Float64}                                                 55
+  IC_n                        Tuple{Float64, Float64}                                                 19
+  IC_n                        Tuple{Float64}                                                          374
+  IC_n0                       Tuple{Float64}                                                          2394
+  IC_name                     Symbol                                                                  4340
+  IC_outer                    NTuple{4, Float64}                                                      12
+  IC_p0                       Float64                                                                 42
+  IC_p0                       Tuple{Float64, Float64}                                                 102
+  IC_p0                       Tuple{Float64}                                                          2768
+  IC_p_ambient                Float64                                                                 12
+  IC_r0                       Float64                                                                 12
+  IC_states                   NTuple{4, NTuple{4, Float64}}                                           83
+  IC_uL                       Tuple{Float64}                                                          2394
+  IC_uL                       Vector{Float64}                                                         393
+  IC_uR                       Tuple{Float64}                                                          2394
+  IC_uR                       Vector{Float64}                                                         393
+  IC_u_bg                     NTuple{4, Float64}                                                      36
+  IC_u_bg                     Vector{Float64}                                                         19
+  IC_u_box                    NTuple{4, Float64}                                                      36
+  IC_u_box                    Vector{Float64}                                                         19
+  IC_width                    Float64                                                                 1234
+  Limiter_mode                Symbol                                                                  4178
+  Limiter_name                Symbol                                                                  4340
+  MOOD_criterion              Symbol                                                                  4340
+  MOOD_delta_relax            Float64                                                                 2493
+  MOOD_strategy               Symbol                                                                  4260
+  PDE_D                       Int64                                                                   4340
+  PDE_Nv                      Int64                                                                   242
+  PDE_gamma                   Float64                                                                 712
+  PDE_name                    Symbol                                                                  4340
+  PDE_tau                     Float64                                                                 242
+  PDE_velocities              Tuple{Tuple{Float64}, Tuple{Float64}}                                   224
+  PDE_velocities              Tuple{Tuple{Float64}}                                                   462
+  PDE_velocity_grid           Symbol                                                                  242
+  PDE_vmax                    Float64                                                                 242
+  Scheme_MLS_order            Int64                                                                   4328
+  Scheme_name                 Symbol                                                                  4340
+  Scheme_order                Int64                                                                   4340
+  Scheme_upwind_alg_nd        Symbol                                                                  1
+  T                           DataType                                                                4340
+  Time_CFL                    Float64                                                                 4340
+  Time_stepper                Symbol                                                                  4340
+  Weight_alpha                Float64                                                                 4340
+  Weight_name                 Symbol                                                                  4340
+  Weight_range                Float64                                                                 4340
+  merge_factor                Float64                                                                 23
+  relax_epsilon               Float64                                                                 317
+  relax_indices               Vector{Int64}                                                           317
+  relax_velocities            Tuple{NTuple{16, Float64}, NTuple{16, Float64}}                         23
+  relax_velocities            Tuple{Tuple{Float64, Float64}}                                          294
+  sim_func_name               Symbol                                                                  4340
+  snapshots                   Int64                                                                   4340
+  tmax                        Float64                                                                 4340
