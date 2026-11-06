@@ -167,6 +167,20 @@ end
     @test str2val("Dict(SA[" * join(fill("1", 2000), ", ") * "] => 1)") isa String
     @test str2val("SVector{300, Float64}[]") == SVector{300, Float64}[]
     @test str2val("Dict(SA[1, 2] => 1)") == Dict(SA[1, 2] => 1)
+    # ... also through the length parameter of SArray/MArray, which sets the layout where it disagrees with the size
+    @test str2val("Dict{SArray{Tuple{}, SArray{Tuple{}, SArray{Tuple{}, Int, 0, 64}, 0, 64}, 0, 64}, Int}()") isa String
+    @test str2val("Dict{SArray{Tuple{0}, SArray{Tuple{0}, Int, 1, 256}, 1, 256}, Int}()") isa String
+    @test str2val("SMatrix{2, 2, Float64, 4}") === SMatrix{2, 2, Float64, 4}
+    # the text scanner (`Meta.parse` overflows its stack on deep nesting): Char literals and comments, nesting
+    # without brackets, chains across lines
+    T = PDEStudioCore._too_nested
+    @test T("('\"', " * "["^2000 * "1" * "]"^2000 * ")") && T("1 # \"\n" * "["^40 * "1" * "]"^40)
+    @test T("1" * "'"^2000) && T("\$"^2000 * "1") && T("begin "^2000 * "1" * " end"^2000) && T("a" * ".a"^2000)
+    @test T("1-\n"^2000 * "1") && T("±"^2000 * "1") && T("1 → "^2000 * "1")
+    @test !T(val2str(Any['"', "("^40])) && !T(val2str(Dict(Symbol("k", i) => -i for i in 1:5000)))
+    @test str2val(val2str(Any['"', "("^40])) == Any['"', "("^40]
+    @test str2val(val2str(('"', "-"^1100))) == ('"', "-"^1100)
+    @test str2val(val2str(Any['\'', '\\', 'é', "a'b"])) == Any['\'', '\\', 'é', "a'b"]
     # ranges of big numbers: elements × bits bounded (hashing writes every element)
     @test str2val("BigInt(2)^524288:BigInt(2)^524288+999") isa String
     @test str2val("BigInt(1):BigInt(5)") == BigInt(1):BigInt(5)
