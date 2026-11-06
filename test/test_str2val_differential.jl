@@ -185,6 +185,12 @@ end
     @test !T("[:begin, :end, :if]") && !T("var\"#a\"") && !T(val2str(Any['\'', '"', "\$x", "a'b"]))
     @test str2val("1 # c") === 1 && str2val("[:begin, :end]") == [:begin, :end]
     @test str2val(val2str(Symbol("x" * "′"^1100))) == Symbol("x" * "′"^1100)
+    # ... chains spread over bracket levels (each level below the limit), and what nests through commas
+    levels(L, head, tail = "") = foldl((inner, _) -> "(" * head * inner * tail * ")", 1:L; init = "1")
+    @test T(levels(16, "1^"^511)) && T(levels(31, "", "'"^1022)) && T(levels(31, "- "^1022))
+    @test T("x = 1, "^2000 * "1") && T("x ~ 1, "^2000 * "1") && T("[" * "@a 1, "^2000 * "1]")
+    nested = foldl((inner, _) -> "Any[" * join(fill("1", 100), ", ") * ", " * inner * "]", 1:30; init = "1")
+    @test !T(nested) && str2val(nested) isa Vector{Any}
     @test !T(val2str(Any['"', "("^40])) && !T(val2str(Dict(Symbol("k", i) => -i for i in 1:5000)))
     @test str2val(val2str(Any['"', "("^40])) == Any['"', "("^40]
     @test str2val(val2str(('"', "-"^1100))) == ('"', "-"^1100)

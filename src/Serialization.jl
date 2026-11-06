@@ -266,31 +266,43 @@ end
 
 # Whether the text nests too deep for `Meta.parse` (which can overflow the stack on deep nesting), judged from the
 # tokens of Julia's own (iterative) lexer, so Char and string literals, interpolation and comments are read exactly:
-# brackets nested more than `_MAX_DEPTH` levels, more than `_MAX_TERMS` tokens between two separators (`,`, `;`) of
-# one bracket level (`1-1-1…`, `- - -1`, `1''…`, `(1)^(1)^…`; a bracketed part counts as one token of its level), or
-# a block keyword (`begin`, `if`, …; `val2str` writes none outside of Symbols such as `:begin`). `val2str` writes
-# elements separated by commas, each of a few tokens.
+# brackets nested more than `_MAX_DEPTH` levels; more than `_MAX_TERMS` tokens along the open brackets, counting
+# those since the last separator (`,`, `;`) of each level, a closed group with its tokens since its last separator
+# (`1-1-1…`, `- - -1`, `1''…`, `(1)^(1)^…`, also spread over levels); keywords (`begin`, `if`, …; `val2str` writes none outside of Symbols such as `:begin`); and what
+# nests through commas: macro calls (`@a 1, @a 1, …`) and assignment operators (`x = 1, x = 1, …`, `~`, `:=`), which
+# `val2str` writes only in texts that are no literals (structs, NamedTuples). `val2str` writes elements separated by
+# commas, each of a few tokens.
+# (`Base.JuliaSyntax.Tokenize` is internal to Julia; it is used as in Julia 1.12 and 1.13.)
 const _JS = Base.JuliaSyntax
 function _too_nested(s::AbstractString)
-    terms, outer = 0, Int[]   # tokens of the current level, and of the enclosing levels
+    terms, outer, open = 0, Int[], 0   # tokens of the current level, of each enclosing level, and their sum
     previous = _JS.K"Whitespace"
     for token in _JS.Tokenize.tokenize(s)   # (the lexer only: `_JS.tokenize` parses too)
         k = _JS.kind(token)
         (_JS.is_whitespace(k) || k in (_JS.K"Comment", _JS.K"EndMarker")) && continue
         if k in (_JS.K"(", _JS.K"[", _JS.K"{")
             push!(outer, terms)
+            open += terms
             length(outer) > _MAX_DEPTH && return true
             terms = 0
         elseif k in (_JS.K")", _JS.K"]", _JS.K"}")
-            terms = isempty(outer) ? 0 : pop!(outer) + 1
+            # a closed group continues the chain of its level with its tokens since its last separator
+            if isempty(outer)
+                terms = 0
+            else
+                enclosing = pop!(outer)
+                open -= enclosing
+                terms = enclosing + max(terms, 1)
+            end
         elseif k in (_JS.K",", _JS.K";")
             terms = 0
-        elseif _JS.is_keyword(k) && k != _JS.K"var" && previous != _JS.K":"
+        elseif (_JS.is_keyword(k) && k != _JS.K"var" && previous != _JS.K":") || k == _JS.K"@" ||
+               _JS.is_prec_assignment(k)
             return true
         else
             terms += 1
         end
-        terms > _MAX_TERMS && return true
+        open + terms > _MAX_TERMS && return true
         previous = k
     end
     return false
@@ -349,9 +361,10 @@ text, `Tuple`/`NTuple`, `Vector`/`Matrix`/`Array`, `Dict`, `Pair`, `Val`, `Union
 `Function`, `Nothing`, `Missing`, `Any` and the static arrays of StaticArrays); other names stay strings. Values
 beyond the size limits are returned as strings too: more than 10^6 elements in total, exact numbers with more than
 2^20 bits (BigFloats: exponents), types of a size above 1024 (parameters, nested ones and static array elements
-counted), more than 16 array dimensions, more than 32 levels of nesting, more than 1024 tokens between two commas,
-block keywords (`begin`, `if`, …), ranges of BigInts or BigFloats with more than 2^24 bits in total, and functions
-such as `sin` or `sqrt` of a BigInt, BigFloat or `Rational{BigInt}`.
+counted), more than 16 array dimensions, more than 32 levels of nesting, more than 1024 tokens between separators
+(`,`, `;`) along the open brackets, keywords (`begin`, `if`, …), macro calls, assignments, ranges of BigInts or
+BigFloats with more than 2^24 bits in total, and functions such as `sin` or `sqrt` of a BigInt, BigFloat or
+`Rational{BigInt}`.
 """
 function str2val(val_str::AbstractString)
     s = strip(String(val_str))  # a plain String: the parser cannot iterate every AbstractString (e.g. lazy CSV strings)
