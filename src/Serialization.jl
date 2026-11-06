@@ -266,44 +266,50 @@ end
 
 # Whether the text nests too deep for `Meta.parse` (which can overflow the stack on deep nesting), judged from the
 # tokens of Julia's own (iterative) lexer, so Char and string literals, interpolation and comments are read exactly:
-# brackets nested more than `_MAX_DEPTH` levels; more than `_MAX_TERMS` tokens along the open brackets, counting
-# those since the last separator (`,`, `;`) of each level, a closed group with its tokens since its last separator
-# (`1-1-1…`, `- - -1`, `1''…`, `(1)^(1)^…`, also spread over levels); keywords (`begin`, `if`, …; `val2str` writes none outside of Symbols such as `:begin`); and what
-# nests through commas: macro calls (`@a 1, @a 1, …`) and assignment operators (`x = 1, x = 1, …`, `~`, `:=`), which
-# `val2str` writes only in texts that are no literals (structs, NamedTuples). `val2str` writes elements separated by
-# commas, each of a few tokens.
+# - brackets nested more than `_MAX_DEPTH` levels;
+# - more than `_MAX_TERMS` tokens in a chain along the open brackets: the tokens since the last separator (`,`, `;`)
+#   of each open level, where a closed group counts with its longest element (`1-1-1…`, `- - -1`, `1''…`,
+#   `(1)^(1)^…`, `((1)'…, 1)'…`, also spread over levels);
+# - keywords (`begin`, `if`, …), macro calls (`@a 1, @a 1, …`) and assignment operators (`x = 1, x = 1, …`, `~`,
+#   `:=`), which nest through commas; outside of Symbols such as `:begin`, `:~` or `:(=)`, the only form in which
+#   `val2str` writes them in literals.
+# `val2str` writes elements separated by commas, each of a few tokens.
 # (`Base.JuliaSyntax.Tokenize` is internal to Julia; it is used as in Julia 1.12 and 1.13.)
 const _JS = Base.JuliaSyntax
 function _too_nested(s::AbstractString)
-    terms, outer, open = 0, Int[], 0   # tokens of the current level, of each enclosing level, and their sum
-    previous = _JS.K"Whitespace"
+    # tokens since the last separator of the current level, its longest element so far, the same of each enclosing
+    # level, and the sum of their current chains
+    terms, longest, outer, open = 0, 0, Tuple{Int, Int}[], 0
+    previous, before = _JS.K"Whitespace", _JS.K"Whitespace"   # the last two tokens
     for token in _JS.Tokenize.tokenize(s)   # (the lexer only: `_JS.tokenize` parses too)
         k = _JS.kind(token)
         (_JS.is_whitespace(k) || k in (_JS.K"Comment", _JS.K"EndMarker")) && continue
+        quoted = previous == _JS.K":" || (previous == _JS.K"(" && before == _JS.K":")   # `:begin`, `:(=)`
         if k in (_JS.K"(", _JS.K"[", _JS.K"{")
-            push!(outer, terms)
+            push!(outer, (terms, longest))
             open += terms
             length(outer) > _MAX_DEPTH && return true
-            terms = 0
+            terms = longest = 0
         elseif k in (_JS.K")", _JS.K"]", _JS.K"}")
-            # a closed group continues the chain of its level with its tokens since its last separator
+            # a closed group continues the chain of its level with its longest element
             if isempty(outer)
-                terms = 0
+                terms = longest = 0
             else
-                enclosing = pop!(outer)
+                inner = max(longest, terms, 1)
+                enclosing, longest = pop!(outer)
                 open -= enclosing
-                terms = enclosing + max(terms, 1)
+                terms = enclosing + inner
             end
         elseif k in (_JS.K",", _JS.K";")
+            longest = max(longest, terms)
             terms = 0
-        elseif (_JS.is_keyword(k) && k != _JS.K"var" && previous != _JS.K":") || k == _JS.K"@" ||
-               _JS.is_prec_assignment(k)
+        elseif ((_JS.is_keyword(k) && k != _JS.K"var") || k == _JS.K"@" || _JS.is_prec_assignment(k)) && !quoted
             return true
         else
             terms += 1
         end
         open + terms > _MAX_TERMS && return true
-        previous = k
+        before, previous = previous, k
     end
     return false
 end

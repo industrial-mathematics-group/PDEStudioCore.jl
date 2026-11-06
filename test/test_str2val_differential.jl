@@ -191,6 +191,14 @@ end
     @test T("x = 1, "^2000 * "1") && T("x ~ 1, "^2000 * "1") && T("[" * "@a 1, "^2000 * "1]")
     nested = foldl((inner, _) -> "Any[" * join(fill("1", 100), ", ") * ", " * inner * "]", 1:30; init = "1")
     @test !T(nested) && str2val(nested) isa Vector{Any}
+    # ... also when the chain inside a group is followed by further elements (a group counts with its longest one)
+    lv(L, chain; sep = ", ") = foldl((inner, _) -> "(" * inner * chain * sep * "1)", 1:L; init = "1")
+    @test T(lv(8, "'"^1022)) && T(lv(16, "-1"^511)) && T(lv(16, "-1"^511; sep = "; "))
+    nestfirst(n, k) = foldl((inner, _) -> Any[inner, collect(1:k)...], 1:n; init = Any[1])
+    @test !T(val2str(nestfirst(30, 100))) && str2val(val2str(nestfirst(30, 100))) == nestfirst(30, 100)
+    # operator Symbols are literals (only assignments outside of Symbols nest through commas)
+    @test str2val(val2str(:~)) === :~ && str2val(val2str(Val(:~))) === Val(:~) && str2val("(:+=, 1)") == (:+=, 1)
+    @test str2val(val2str(Symbol("="))) === Symbol("=") && str2val(val2str(Dict(:~ => 1))) == Dict(:~ => 1)
     @test !T(val2str(Any['"', "("^40])) && !T(val2str(Dict(Symbol("k", i) => -i for i in 1:5000)))
     @test str2val(val2str(Any['"', "("^40])) == Any['"', "("^40]
     @test str2val(val2str(('"', "-"^1100))) == ('"', "-"^1100)
