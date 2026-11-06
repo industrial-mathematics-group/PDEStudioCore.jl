@@ -107,7 +107,7 @@ const _MAX_RANGE_BITS = 2^24       # elements × bits of a range of BigInts/BigF
 const _MAX_TYPE_SIZE = 1024        # size of a type: parameters, nested ones and static array elements counted
 const _MAX_DIMS = 16               # dimensions of arrays and array types
 const _MAX_DEPTH = 32              # nesting of brackets in the text and of expressions in the parsed literal
-const _MAX_OPERATORS = 1024        # terms between two separators of the text (see `_too_nested`)
+const _MAX_TERMS = 1024            # tokens between two separators of the text (see `_too_nested`)
 
 _exact_bits(x::Integer) = ndigits(x; base = 2)
 _exact_bits(x::Rational) = max(_exact_bits(numerator(x)), _exact_bits(denominator(x)))
@@ -125,7 +125,8 @@ _is_fixed_size(::Number) = true
 
 # The size of a type: its parameters, nested ones included, and the elements of static arrays, whose number is a
 # value parameter (`SVector{64, SVector{64, Int}}` holds 4096 numbers, and compiling for it costs that much). Also for
-# static array types with a free element type (`SArray{Tuple{1000, 1000}}`). Returns at most `limit + 1`.
+# static array types with a free element type (`SArray{Tuple{1000, 1000}}`), and the length parameter `L` of
+# `SArray`/`MArray` (it sets their layout). Returns at most `limit + 1`.
 function _type_size(T, limit::Integer = _MAX_TYPE_SIZE)
     if T isa Union
         a = _type_size(T.a, limit)
@@ -263,67 +264,36 @@ function _checked_range(r::AbstractRange, values)
     return r
 end
 
-# Whether the text nests too deep for `Meta.parse` (which can overflow the stack on deep nesting): brackets nested
-# more than `_MAX_DEPTH` levels, or more than `_MAX_OPERATORS` terms between two separators (`,`, `;`, brackets):
-# operators (`1-1-1…`, `- - -1`, `1''…`, `$$1`, `a.a.a`, also non-ASCII ones such as `±` or `→`) and words
-# (`begin begin …`). Outside of string and Char literals; comments are refused (`val2str` writes none). `val2str`
-# writes elements separated by commas, each with a few terms.
+# Whether the text nests too deep for `Meta.parse` (which can overflow the stack on deep nesting), judged from the
+# tokens of Julia's own (iterative) lexer, so Char and string literals, interpolation and comments are read exactly:
+# brackets nested more than `_MAX_DEPTH` levels, more than `_MAX_TERMS` tokens between two separators (`,`, `;`) of
+# one bracket level (`1-1-1…`, `- - -1`, `1''…`, `(1)^(1)^…`; a bracketed part counts as one token of its level), or
+# a block keyword (`begin`, `if`, …; `val2str` writes none outside of Symbols such as `:begin`). `val2str` writes
+# elements separated by commas, each of a few tokens.
+const _JS = Base.JuliaSyntax
 function _too_nested(s::AbstractString)
-    depth, terms, quoted, escaped = 0, 0, false, false
-    before = ' '   # the character before `c`
-    i = firstindex(s)
-    while i <= lastindex(s)
-        c = s[i]
-        if quoted
-            escaped ? (escaped = false) : c == '\\' ? (escaped = true) : c == '"' && (quoted = false)
-        elseif c == '"'
-            quoted = true
-        elseif c == '#'
+    terms, outer = 0, Int[]   # tokens of the current level, and of the enclosing levels
+    previous = _JS.K"Whitespace"
+    for token in _JS.Tokenize.tokenize(s)   # (the lexer only: `_JS.tokenize` parses too)
+        k = _JS.kind(token)
+        (_JS.is_whitespace(k) || k in (_JS.K"Comment", _JS.K"EndMarker")) && continue
+        if k in (_JS.K"(", _JS.K"[", _JS.K"{")
+            push!(outer, terms)
+            length(outer) > _MAX_DEPTH && return true
+            terms = 0
+        elseif k in (_JS.K")", _JS.K"]", _JS.K"}")
+            terms = isempty(outer) ? 0 : pop!(outer) + 1
+        elseif k in (_JS.K",", _JS.K";")
+            terms = 0
+        elseif _JS.is_keyword(k) && k != _JS.K"var" && previous != _JS.K":"
             return true
-        elseif c == '\''
-            j = _char_literal_end(s, i)
-            if isnothing(j)
-                terms += 1   # an adjoint
-            else
-                i = j        # a Char literal (`'"'`, `'\''`, `'é'`): skipped
-            end
-        elseif c in ('(', '[', '{')
-            depth += 1
-            depth > _MAX_DEPTH && return true
-            terms = 0
-        elseif c in (')', ']', '}', ',', ';')
-            c in (')', ']', '}') && (depth -= 1)
-            terms = 0
-        elseif (isletter(c) || c == '_') && !(isletter(before) || isdigit(before) || before in ('_', '!'))
-            terms += 1       # a word
-        elseif c in _OPERATOR_CHARS || (c == '.' && i < lastindex(s) && isletter(s[nextind(s, i)])) ||
-               (!isascii(c) && !isletter(c) && !isdigit(c) && !isspace(c))
+        else
             terms += 1
         end
-        terms > _MAX_OPERATORS && return true
-        before = c
-        i = nextind(s, i)
+        terms > _MAX_TERMS && return true
+        previous = k
     end
     return false
-end
-const _OPERATOR_CHARS = Set("+-*/\\^%<>=!~&|:?\$")
-
-# The index of the closing quote of a Char literal starting at `i` (`'x'`, or an escape `'\n'`, `'é'`), or
-# `nothing` if the `'` at `i` doesn't start one (an adjoint).
-function _char_literal_end(s::AbstractString, i::Int)
-    j = nextind(s, i)
-    (j <= lastindex(s) && s[j] != '\'') || return nothing
-    if s[j] == '\\'
-        k = j
-        for _ in 1:11   # the longest escape: `\U0010ffff`
-            k = nextind(s, k)
-            k <= lastindex(s) || return nothing
-            s[k] == '\'' && return k
-        end
-        return nothing
-    end
-    k = nextind(s, j)
-    return k <= lastindex(s) && s[k] == '\'' ? k : nothing
 end
 
 function _literal_call(f, values::Vector, depth::Int = 0)
@@ -379,9 +349,9 @@ text, `Tuple`/`NTuple`, `Vector`/`Matrix`/`Array`, `Dict`, `Pair`, `Val`, `Union
 `Function`, `Nothing`, `Missing`, `Any` and the static arrays of StaticArrays); other names stay strings. Values
 beyond the size limits are returned as strings too: more than 10^6 elements in total, exact numbers with more than
 2^20 bits (BigFloats: exponents), types of a size above 1024 (parameters, nested ones and static array elements
-counted), more than 16 array dimensions, more than 32 levels of nesting, long chains of operators or words,
-comments, ranges of BigInts or BigFloats with more than 2^24 bits in total, and functions such as `sin` or `sqrt` of
-a BigInt, BigFloat or `Rational{BigInt}`.
+counted), more than 16 array dimensions, more than 32 levels of nesting, more than 1024 tokens between two commas,
+block keywords (`begin`, `if`, …), ranges of BigInts or BigFloats with more than 2^24 bits in total, and functions
+such as `sin` or `sqrt` of a BigInt, BigFloat or `Rational{BigInt}`.
 """
 function str2val(val_str::AbstractString)
     s = strip(String(val_str))  # a plain String: the parser cannot iterate every AbstractString (e.g. lazy CSV strings)

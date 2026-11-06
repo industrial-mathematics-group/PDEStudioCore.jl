@@ -177,6 +177,14 @@ end
     @test T("('\"', " * "["^2000 * "1" * "]"^2000 * ")") && T("1 # \"\n" * "["^40 * "1" * "]"^40)
     @test T("1" * "'"^2000) && T("\$"^2000 * "1") && T("begin "^2000 * "1" * " end"^2000) && T("a" * ".a"^2000)
     @test T("1-\n"^2000 * "1") && T("±"^2000 * "1") && T("1 → "^2000 * "1")
+    # ... read with Julia's lexer: escaped and odd Chars, triple quotes, interpolation, bracketed chains, blocks
+    deep = "["^2000 * "1" * "]"^2000
+    @test T("('\\'','\"', $deep)") && T("(''','\"', $deep)") && T("('\\xf0\\x80\\x80\\x80','\"', $deep)")
+    @test T("(\"\"\" \" \"\"\", $deep)") && T("\"\$($deep)\"")
+    @test T("(1)^"^2000 * "1") && T("(a)->"^2000 * "1") && T("begin; "^20 * "1" * "; end"^20)
+    @test !T("[:begin, :end, :if]") && !T("var\"#a\"") && !T(val2str(Any['\'', '"', "\$x", "a'b"]))
+    @test str2val("1 # c") === 1 && str2val("[:begin, :end]") == [:begin, :end]
+    @test str2val(val2str(Symbol("x" * "′"^1100))) == Symbol("x" * "′"^1100)
     @test !T(val2str(Any['"', "("^40])) && !T(val2str(Dict(Symbol("k", i) => -i for i in 1:5000)))
     @test str2val(val2str(Any['"', "("^40])) == Any['"', "("^40]
     @test str2val(val2str(('"', "-"^1100))) == ('"', "-"^1100)
