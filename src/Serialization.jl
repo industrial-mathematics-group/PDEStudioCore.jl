@@ -107,7 +107,7 @@ const _MAX_RANGE_BITS = 2^24       # elements × bits of a range of BigInts/BigF
 const _MAX_TYPE_SIZE = 1024        # size of a type: parameters, nested ones and static array elements counted
 const _MAX_DIMS = 16               # dimensions of arrays and array types
 const _MAX_DEPTH = 32              # nesting of brackets in the text and of expressions in the parsed literal
-const _MAX_TERMS = 1024            # tokens between two separators of the text (see `_too_nested`)
+const _MAX_TERMS = 1024            # tokens in a chain of the text (see `_too_nested`)
 
 _exact_bits(x::Integer) = ndigits(x; base = 2)
 _exact_bits(x::Rational) = max(_exact_bits(numerator(x)), _exact_bits(denominator(x)))
@@ -270,28 +270,39 @@ end
 # - more than `_MAX_TERMS` tokens in a chain along the open brackets: the tokens since the last separator (`,`, `;`)
 #   of each open level, where a closed group counts with its longest element (`1-1-1…`, `- - -1`, `1''…`,
 #   `(1)^(1)^…`, `((1)'…, 1)'…`, also spread over levels);
-# - keywords (`begin`, `if`, …), macro calls (`@a 1, @a 1, …`) and assignment operators (`x = 1, x = 1, …`, `~`,
-#   `:=`), which nest through commas; outside of Symbols such as `:begin`, `:~` or `:(=)`, the only form in which
-#   `val2str` writes them in literals.
+# - macro calls (`@a 1, @a 1, …`), keywords (`begin`, `return`, …) and assignment operators (`x = 1, x = 1, …`, `~`,
+#   `:=`), which nest through commas or `;`. Keywords and assignment operators are let through in Symbols only, the
+#   one form in which `val2str` writes them in literals: right after a quoting `:` (one in prefix position: at the
+#   start, after a bracket, a separator or `=>`, without whitespace), as in `:begin`, `:~`, `:(=)` and `:.=`.
 # `val2str` writes elements separated by commas, each of a few tokens.
 # (`Base.JuliaSyntax.Tokenize` is internal to Julia; it is used as in Julia 1.12 and 1.13.)
 const _JS = Base.JuliaSyntax
+_quote_position(k) = k in (_JS.K"Whitespace", _JS.K"(", _JS.K"[", _JS.K"{", _JS.K",", _JS.K";", _JS.K"=>")
 function _too_nested(s::AbstractString)
     # tokens since the last separator of the current level, its longest element so far, the same of each enclosing
     # level, and the sum of their current chains
     terms, longest, outer, open = 0, 0, Tuple{Int, Int}[], 0
-    previous, before = _JS.K"Whitespace", _JS.K"Whitespace"   # the last two tokens
+    # the last three tokens (`K"Whitespace"`: the start of the text), and whether whitespace followed the last two
+    p1, p2, p3 = _JS.K"Whitespace", _JS.K"Whitespace", _JS.K"Whitespace"
+    space1, space2 = false, false
     for token in _JS.Tokenize.tokenize(s)   # (the lexer only: `_JS.tokenize` parses too)
         k = _JS.kind(token)
-        (_JS.is_whitespace(k) || k in (_JS.K"Comment", _JS.K"EndMarker")) && continue
-        quoted = previous == _JS.K":" || (previous == _JS.K"(" && before == _JS.K":")   # `:begin`, `:(=)`
+        if _JS.is_whitespace(k) || k == _JS.K"Comment"
+            space1 = true
+            continue
+        end
+        k == _JS.K"EndMarker" && continue
+        # right after a quoting `:` (`:begin`), or after `:(` or `:.` (`:(=)`, `:.=`)
+        quoted = (p1 == _JS.K":" && !space1 && _quote_position(p2)) ||
+                 (p1 in (_JS.K"(", _JS.K".") && p2 == _JS.K":" && !space1 && !space2 && _quote_position(p3))
         if k in (_JS.K"(", _JS.K"[", _JS.K"{")
             push!(outer, (terms, longest))
             open += terms
             length(outer) > _MAX_DEPTH && return true
             terms = longest = 0
         elseif k in (_JS.K")", _JS.K"]", _JS.K"}")
-            # a closed group continues the chain of its level with its longest element
+            # a closed group continues the chain of its level with its longest element (an unmatched closer
+            # starts over: the parser stops there)
             if isempty(outer)
                 terms = longest = 0
             else
@@ -303,13 +314,14 @@ function _too_nested(s::AbstractString)
         elseif k in (_JS.K",", _JS.K";")
             longest = max(longest, terms)
             terms = 0
-        elseif ((_JS.is_keyword(k) && k != _JS.K"var") || k == _JS.K"@" || _JS.is_prec_assignment(k)) && !quoted
+        elseif k == _JS.K"@" || (((_JS.is_keyword(k) && k != _JS.K"var") || _JS.is_prec_assignment(k)) && !quoted)
             return true
         else
             terms += 1
         end
         open + terms > _MAX_TERMS && return true
-        before, previous = previous, k
+        p3, p2, p1 = p2, p1, k
+        space2, space1 = space1, false
     end
     return false
 end

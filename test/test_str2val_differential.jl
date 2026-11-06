@@ -199,6 +199,11 @@ end
     # operator Symbols are literals (only assignments outside of Symbols nest through commas)
     @test str2val(val2str(:~)) === :~ && str2val(val2str(Val(:~))) === Val(:~) && str2val("(:+=, 1)") == (:+=, 1)
     @test str2val(val2str(Symbol("="))) === Symbol("=") && str2val(val2str(Dict(:~ => 1))) == Dict(:~ => 1)
+    @test str2val(val2str(Symbol(".="))) === Symbol(".=") && str2val(val2str([:.~, :begin])) == [:.~, :begin]
+    # ... but only after a quoting `:` (not a range or ternary `:`), and never macro calls
+    @test T(":@a 1, "^2000 * "1") && T("1:@a 1, "^2000 * "1")
+    @test T("x : return 1, "^2000 * "1") && T("1:local x, "^2000 * "1") && T("x : begin 1; "^2000 * "1")
+    @test !T("[:begin, :end, :~, :(=)]") && !T(val2str(Dict(:~ => 1)))
     @test !T(val2str(Any['"', "("^40])) && !T(val2str(Dict(Symbol("k", i) => -i for i in 1:5000)))
     @test str2val(val2str(Any['"', "("^40])) == Any['"', "("^40]
     @test str2val(val2str(('"', "-"^1100))) == ('"', "-"^1100)
