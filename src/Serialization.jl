@@ -271,9 +271,11 @@ end
 #   of each open level, where a closed group counts with its longest element (`1-1-1…`, `- - -1`, `1''…`,
 #   `(1)^(1)^…`, `((1)'…, 1)'…`, also spread over levels);
 # - macro calls (`@a 1, @a 1, …`), keywords (`begin`, `return`, …) and assignment operators (`x = 1, x = 1, …`, `~`,
-#   `:=`), which nest through commas or `;`. Keywords and assignment operators are let through in Symbols only, the
-#   one form in which `val2str` writes them in literals: right after a quoting `:` (one in prefix position: at the
-#   start, after a bracket, a separator or `=>`, without whitespace), as in `:begin`, `:~`, `:(=)` and `:.=`.
+#   `:=`), which nest through commas or `;`. Keywords and assignment operators are let through right after a quoting
+#   `:` (one in prefix position: at the start, after an opening bracket, a separator or `=>`; no whitespace between
+#   the `:` and the token), as in the Symbols `:begin` and `:~`, the one form in which `val2str` writes them in
+#   literals; also right after `:(` (`:(=)`; a quoted expression there costs a bracket level) and assignment
+#   operators after `:.` (`:.=`).
 # `val2str` writes elements separated by commas, each of a few tokens.
 # (`Base.JuliaSyntax.Tokenize` is internal to Julia; it is used as in Julia 1.12 and 1.13.)
 const _JS = Base.JuliaSyntax
@@ -294,7 +296,8 @@ function _too_nested(s::AbstractString)
         k == _JS.K"EndMarker" && continue
         # right after a quoting `:` (`:begin`), or after `:(` or `:.` (`:(=)`, `:.=`)
         quoted = (p1 == _JS.K":" && !space1 && _quote_position(p2)) ||
-                 (p1 in (_JS.K"(", _JS.K".") && p2 == _JS.K":" && !space1 && !space2 && _quote_position(p3))
+                 ((p1 == _JS.K"(" || (p1 == _JS.K"." && _JS.is_prec_assignment(k))) && p2 == _JS.K":" && !space1 &&
+                  !space2 && _quote_position(p3))
         if k in (_JS.K"(", _JS.K"[", _JS.K"{")
             push!(outer, (terms, longest))
             open += terms
@@ -380,9 +383,9 @@ text, `Tuple`/`NTuple`, `Vector`/`Matrix`/`Array`, `Dict`, `Pair`, `Val`, `Union
 beyond the size limits are returned as strings too: more than 10^6 elements in total, exact numbers with more than
 2^20 bits (BigFloats: exponents), types of a size above 1024 (parameters, nested ones and static array elements
 counted), more than 16 array dimensions, more than 32 levels of nesting, more than 1024 tokens between separators
-(`,`, `;`) along the open brackets, keywords (`begin`, `if`, …), macro calls, assignments, ranges of BigInts or
-BigFloats with more than 2^24 bits in total, and functions such as `sin` or `sqrt` of a BigInt, BigFloat or
-`Rational{BigInt}`.
+(`,`, `;`) along the open brackets, keywords (`begin`, `if`, …) and assignments outside of Symbols such as `:begin`
+or `:~`, macro calls, ranges of BigInts or BigFloats with more than 2^24 bits in total, and functions such as `sin`
+or `sqrt` of a BigInt, BigFloat or `Rational{BigInt}`.
 """
 function str2val(val_str::AbstractString)
     s = strip(String(val_str))  # a plain String: the parser cannot iterate every AbstractString (e.g. lazy CSV strings)

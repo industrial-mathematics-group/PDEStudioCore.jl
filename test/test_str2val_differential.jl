@@ -204,6 +204,8 @@ end
     @test T(":@a 1, "^2000 * "1") && T("1:@a 1, "^2000 * "1")
     @test T("x : return 1, "^2000 * "1") && T("1:local x, "^2000 * "1") && T("x : begin 1; "^2000 * "1")
     @test !T("[:begin, :end, :~, :(=)]") && !T(val2str(Dict(:~ => 1)))
+    @test T(": begin 1; "^2000 * "1") && T(":#=c=#begin 1; "^2000 * "1") && T(":.begin") && !T(":.=")
+    @test !T(val2str(Val(:begin))) && !T(val2str(Dict(:a => :begin))) && !T("(:a; :begin)")
     @test !T(val2str(Any['"', "("^40])) && !T(val2str(Dict(Symbol("k", i) => -i for i in 1:5000)))
     @test str2val(val2str(Any['"', "("^40])) == Any['"', "("^40]
     @test str2val(val2str(('"', "-"^1100))) == ('"', "-"^1100)
