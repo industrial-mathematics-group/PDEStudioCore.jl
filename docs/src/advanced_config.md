@@ -70,7 +70,7 @@ config = SimulationConfig(shared, methods, [:upwind]; postprocess = :add_maximum
 
 ## 4. Source Files
 
-`sources` lists files that are included into the target module at the start of [`run_all_simulations`](@ref), so your solvers and reference functions are always defined and up to date. For reproducibility, the SHA-256 digest of every source file is stored in each newly written data file (entry `"sources"`, mapping the absolute path to its digest).
+`sources` lists files that are included into the target module at the start of [`run_all_simulations`](@ref), so your solvers and reference functions are always defined and up to date (`load_sources = false` skips that, for a caller that includes them itself). For reproducibility, the SHA-256 digest of every source file is stored in each newly written data file (entry `"sources"`, mapping the absolute path to its digest).
 
 ```julia
 config = SimulationConfig(shared, methods, [:upwind];

@@ -60,9 +60,10 @@ AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generat
 Reviewed-by = ["blhackslash <dev@blackslash.win>"]
 
 # Changed on claude/review-minors by Claude (open minor findings of reviews/2cef67f.md, reviews/dfdcbac.md and the
-# stored-data accessor PDEStudio asked for in its reviews/03e98ab.md; reviewed in reviews/).
+# stored-data accessor PDEStudio asked for in its reviews/03e98ab.md, `load_sources` for its bundled sources;
+# reviewed in reviews/).
 [[annotations]]
-path = ["docs/src/data.md", "src/DataManagement.jl", "src/IOUtils.jl", "src/PDEStudioCore.jl", "test/test_data.jl"]
+path = ["docs/src/advanced_config.md", "docs/src/data.md", "src/DataManagement.jl", "src/IOUtils.jl", "src/PDEStudioCore.jl", "src/Simulations.jl", "test/test_data.jl", "test/test_pipeline.jl"]
 AI-Generation = "G3"
 Human-Review = "H0"
 AI-Review = "A2"
