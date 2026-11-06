@@ -1,0 +1,6 @@
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+String
+Dict(:a => [1, 2]) e5fbf9e911ec36cd0edd4dc0777a07270b36d5b2df14fae8dde690988d3dea62
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+String
+1 + 2 [1.0, 2.0]

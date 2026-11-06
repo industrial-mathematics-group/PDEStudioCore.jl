@@ -1,0 +1,2 @@
+semi_chain_curly: exit=0 wall=2418ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.51 s, maxrss 0.76 GiB
+semi_chain_dict: exit=0 wall=2471ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.48 s, maxrss 0.72 GiB

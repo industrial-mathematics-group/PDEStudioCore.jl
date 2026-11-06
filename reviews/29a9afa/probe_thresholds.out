@@ -1,0 +1,4 @@
+beginsc_1000 (12001 bytes): overflow=0 -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+sc_1500 (18001 bytes): overflow=0 -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+powbr_5000 (20001 bytes): overflow=0 -> String                                   str2val 0.02 s, maxrss 0.49 GiB
+interp_1500 (3006 bytes): overflow=0 -> String                                   str2val 0.0 s, maxrss 0.49 GiB

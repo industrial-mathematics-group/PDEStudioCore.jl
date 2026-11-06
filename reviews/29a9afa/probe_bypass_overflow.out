@@ -1,0 +1,9 @@
+charq_esc_2000: overflow-warnings=1 StackOverflowError=1 lines=284 | -> String                                   str2val 1.35 s, maxrss 0.62 GiB
+interp_2000: overflow-warnings=1 StackOverflowError=1 lines=286 | -> String                                   str2val 1.33 s, maxrss 0.62 GiB
+triple_2000: overflow-warnings=1 StackOverflowError=1 lines=213 | -> String                                   str2val 1.31 s, maxrss 0.62 GiB
+triplech_2000: overflow-warnings=1 StackOverflowError=1 lines=274 | -> String                                   str2val 1.31 s, maxrss 0.63 GiB
+beginsc_2000: overflow-warnings=1 StackOverflowError=1 lines=210 | -> String                                   str2val 1.36 s, maxrss 0.62 GiB
+ifsc_2000: overflow-warnings=1 StackOverflowError=1 lines=219 | -> String                                   str2val 1.33 s, maxrss 0.63 GiB
+powbr_10000: overflow-warnings=1 StackOverflowError=1 lines=155 | -> String                                   str2val 1.2 s, maxrss 0.62 GiB
+arrowbr_10000: overflow-warnings=1 StackOverflowError=1 lines=215 | ->1"
+-> String                                   str2val 1.36 s, maxrss 0.64 GiB

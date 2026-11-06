@@ -1,0 +1,4 @@
+random ASCII   10000000 chars: _too_nested=true, 0.0 s, 0.0 MiB
+random ASCII   str2val -> String, 0.002 s, 9.5 MiB
+token soup     4350333 chars: _too_nested=false, 0.019 s, 0.0 MiB
+token soup     str2val -> String, 0.043 s, 4.2 MiB

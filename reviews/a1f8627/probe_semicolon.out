@@ -1,0 +1,16 @@
+"f(1; 1; …)"             depth 51
+"(1; 1; …)"              depth 1
+"[1; 1; …]"              depth 1
+"a[1; 1; …]"             depth 1
+"T{1; 1; …}"             depth 51
+"{1; 1; …}"              depth 1
+"f.(1; 1; …)"            depth 52
+"(1,1; 1; …)"            depth 51
+"Dict(1; 1; …)"          depth 51
+"SA[1; 1; …]"            depth 1
+"Int[1; 1; …]"           depth 1
+(:call, :f, (:parameters, (:parameters, 3), 2), 1)nothing
+semi_call_2000: exit=0 wall=1931ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+semi_call_5000: exit=0 wall=1914ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+semi_call_10000: exit=0 wall=1924ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.01 s, maxrss 0.52 GiB
+semi_call_100000: exit=0 wall=1971ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.05 s, maxrss 0.52 GiB

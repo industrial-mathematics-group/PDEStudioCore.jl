@@ -1,0 +1,5 @@
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+│       [64092] parse_brackets(after_parse::Base.JuliaSyntax.var"#parse_string##0#parse_string##1", ps::Base.JuliaSyntax.ParseState, closing_kind::Base.JuliaSyntax.Kind, generator_is_last::Bool)
+│             @ Main ~/.claude/jobs/d2d299f1/tmp/review-psc1c/probes/after_overflow_task.jl:4
+task result: String
+after: Dict(:a => [1, 2])  hash 6877c06c78c7

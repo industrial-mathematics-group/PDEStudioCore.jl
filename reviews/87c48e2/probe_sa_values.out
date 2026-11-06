@@ -1,0 +1,18 @@
+Dict(SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…(3013 chars) -> Dict{StaticArraysCore.SVector{1000, Int64}, Int64} str2val 0.64 s, maxrss 0.5 GiB
+                                                                            hash 0.35 s, maxrss 0.5 GiB
+   [exit 0, wall 1926 ms] @lit/sa_key1000.txt
+Dict(1 => SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…(3013 chars) -> Dict{Int64, StaticArraysCore.SVector{1000, Int64}} str2val 0.17 s, maxrss 0.49 GiB
+                                                                            hash 0.26 s, maxrss 0.5 GiB
+   [exit 0, wall 1401 ms] @lit/sa_val1000.txt
+[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…(3004 chars) -> Vector{StaticArraysCore.SVector{1000, Int64}} str2val 0.06 s, maxrss 0.48 GiB
+                                                                            hash 0.18 s, maxrss 0.49 GiB
+   [exit 0, wall 1164 ms] @lit/sa_vec1000.txt
+SA[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, …(3006 chars) -> StaticArraysCore.SVector{1, StaticArraysCore.SVector{1000, I str2val 0.05 s, maxrss 0.48 GiB
+                                                                            hash 0.18 s, maxrss 0.49 GiB
+   [exit 0, wall 1175 ms] @lit/sa_sa1000.txt
+Dict(SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…(30013 chars) -> Dict{StaticArraysCore.SVector{10000, Int64}, Int64} str2val 56.67 s, maxrss 0.68 GiB
+                                                                            hash 0.35 s, maxrss 0.68 GiB
+   [exit 0, wall 57965 ms] @lit/sa_key10000.txt
+[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…(30004 chars) -> Vector{StaticArraysCore.SVector{10000, Int64}} str2val 0.06 s, maxrss 0.48 GiB
+                                                                            hash 0.17 s, maxrss 0.5 GiB
+   [exit 0, wall 1148 ms] @lit/sa_vec10000.txt

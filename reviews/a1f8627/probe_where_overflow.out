@@ -1,0 +1,12 @@
+== comma_assign_10000
+_too_nested = false
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+Meta.parse returned
+== lvl_pow_16
+_too_nested = false
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+Meta.parse returned
+== lvl_where_31
+_too_nested = false
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+Meta.parse returned

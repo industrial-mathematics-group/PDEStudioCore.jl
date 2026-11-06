@@ -1,0 +1,42 @@
+SMatrix{1000}[[1.0]]                                                     -> String                                   str2val 0.07 s, maxrss 0.48 GiB
+   [exit 0, wall 1005 ms] SMatrix{1000}[[1.0]]
+SMatrix{1018}[[1.0]]                                                     -> String                                   str2val 0.07 s, maxrss 0.49 GiB
+   [exit 0, wall 996 ms] SMatrix{1018}[[1.0]]
+SMatrix{1000}[reshape([1.0], (1, 1))]                                    -> String                                   str2val 0.17 s, maxrss 0.48 GiB
+   [exit 0, wall 1083 ms] SMatrix{1000}[reshape([1.0], (1, 1))]
+Dict{SMatrix{1000}, Int}()                                               -> Dict{StaticArraysCore.SMatrix{1000}, Int64} str2val 0.11 s, maxrss 0.49 GiB
+                                                                            hash 0.3 s, maxrss 0.52 GiB
+   [exit 0, wall 1332 ms] Dict{SMatrix{1000}, Int}()
+SMatrix{1000}[]                                                          -> Vector{StaticArraysCore.SMatrix{1000}}   str2val 0.04 s, maxrss 0.48 GiB
+                                                                            hash 0.18 s, maxrss 0.5 GiB
+   [exit 0, wall 1160 ms] SMatrix{1000}[]
+Dict{SVector{1000}, Int}()                                               -> Dict{StaticArraysCore.SVector{1000}, Int64} str2val 0.11 s, maxrss 0.49 GiB
+                                                                            hash 0.32 s, maxrss 0.52 GiB
+   [exit 0, wall 1364 ms] Dict{SVector{1000}, Int}()
+SVector{1000}[[1.0]]                                                     -> String                                   str2val 0.45 s, maxrss 0.54 GiB
+   [exit 0, wall 1380 ms] SVector{1000}[[1.0]]
+Dict{Tuple{SVector{1000, Int}}, Int}()                                   -> Dict{Tuple{StaticArraysCore.SVector{1000, Int64}}, Int64} str2val 0.46 s, maxrss 0.5 GiB
+                                                                            hash 0.34 s, maxrss 0.51 GiB
+   [exit 0, wall 1749 ms] Dict{Tuple{SVector{1000, Int}}, Int}()
+SArray{Tuple{}, Int, 0, 1}[[1]]                                          -> Vector{StaticArraysCore.SArray{Tuple{}, Int64, 0, 1}} str2val 0.1 s, maxrss 0.48 GiB
+                                                                            hash 0.18 s, maxrss 0.49 GiB
+   [exit 0, wall 1217 ms] SArray{Tuple{}, Int, 0, 1}[[1]]
+SArray{Tuple{}, Int, 0, 1000}                                            -> DataType                                 str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.49 GiB
+   [exit 0, wall 1094 ms] SArray{Tuple{}, Int, 0, 1000}
+SArray{NTuple{3, 1000}}                                                  -> String                                   str2val 0.02 s, maxrss 0.49 GiB
+   [exit 0, wall 937 ms] SArray{NTuple{3, 1000}}
+SArray{Tuple{1000, Int}}[[1.0]]                                          -> String                                   str2val 0.06 s, maxrss 0.48 GiB
+   [exit 0, wall 977 ms] SArray{Tuple{1000, Int}}[[1.0]]
+SVector{1000, Int}                                                       -> DataType                                 str2val 0.03 s, maxrss 0.49 GiB
+                                                                            hash 0.13 s, maxrss 0.49 GiB
+   [exit 0, wall 1087 ms] SVector{1000, Int}
+Dict{SVector{1000, Int}, SVector{1000, Int}}()                           -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 940 ms] Dict{SVector{1000, Int}, SVector{1000, Int}}()
+Union{SVector{1000, Int}, SVector{1000, Float64}}[]                      -> String                                   str2val 0.03 s, maxrss 0.49 GiB
+   [exit 0, wall 958 ms] Union{SVector{1000, Int}, SVector{1000, Float64}}[]
+Vector{SVector{1000, Int}}[]                                             -> Vector{Vector{StaticArraysCore.SVector{1000, Int64}}} str2val 0.05 s, maxrss 0.48 GiB
+                                                                            hash 0.18 s, maxrss 0.49 GiB
+   [exit 0, wall 1155 ms] Vector{SVector{1000, Int}}[]
+Dict{Union{SVector{600, Int}, SVector{600, Float64}}, Int}()             -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 950 ms] Dict{Union{SVector{600, Int}, SVector{600, Float64}}, Int}()

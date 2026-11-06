@@ -1,0 +1,4 @@
+@test str2val(val2str(Symbol(".="))) === Symbol(".=") && str2val(val2str([:.~, :begin])) == [:.~, :begin]
+@test T(":@a 1, "^2000 * "1") && T("1:@a 1, "^2000 * "1")
+@test T("x : return 1, "^2000 * "1") && T("1:local x, "^2000 * "1") && T("x : begin 1; "^2000 * "1")
+@test !T("[:begin, :end, :~, :(=)]") && !T(val2str(Dict(:~ => 1)))

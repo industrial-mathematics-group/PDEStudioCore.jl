@@ -1,0 +1,18 @@
+tuple, left -          T(full 31×511) = false  size 31838    depth(3×20) = 63
+tuple, postfix '       T(full 31×511) = false  size 31838    depth(3×20) = 123
+tuple, ::T             T(full 31×511) = false  size 47679    depth(3×20) = 63
+tuple, where T         T(full 31×511) = false  size 126884   depth(3×20) = 63
+tuple, .a              T(full 31×511) = false  size 31838    depth(3×20) = ERR
+tuple, [1] index       T(full 31×511) = false  size 95202    depth(3×20) = 123
+tuple, (1) call        T(full 31×511) = false  size 95202    depth(3×20) = 84
+tuple, trailing ,      T(full 31×511) = false  size 31807    depth(3×20) = 63
+block ;                T(full 31×511) = false  size 31838    depth(3×20) = 63
+vect ,                 T(full 31×511) = false  size 31838    depth(3×20) = 63
+vcat ;                 T(full 31×511) = false  size 31807    depth(3×20) = 63
+braces ,               T(full 31×511) = false  size 31838    depth(3×20) = 63
+call f( ;              T(full 31×511) = true   size 31869    depth(3×20) = 63
+curly T{ ,             T(full 31×511) = true   size 31869    depth(3×20) = 63
+tuple, left *          T(full 31×511) = false  size 31838    depth(3×20) = 6
+tuple, left //         T(full 31×511) = false  size 47679    depth(3×20) = 63
+tuple, |>              T(full 31×511) = false  size 47679    depth(3×20) = 63
+tuple, ...             T(full 31×511) = false  size 95202    depth(3×20) = ERR

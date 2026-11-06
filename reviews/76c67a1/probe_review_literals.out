@@ -1,0 +1,88 @@
+Dict{SVector{64, SVector{64, SVector{64, Int}}}, Int}()                  -> String                                   str2val 0.05 s, maxrss 0.49 GiB
+   [exit 0, wall 3236 ms] Dict{SVector{64, SVector{64, SVector{64, Int}}}, Int}()
+Dict{SVector{256, SVector{256, SVector{256, Int}}}, Int}()               -> String                                   str2val 0.04 s, maxrss 0.49 GiB
+   [exit 0, wall 1485 ms] Dict{SVector{256, SVector{256, SVector{256, Int}}}, Int}()
+IdDict{SVector{64, SVector{64, SVector{64, Int}}}, Int}()                -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 2119 ms] IdDict{SVector{64, SVector{64, SVector{64, Int}}}, Int}()
+Pair{SVector{64, SVector{64, SVector{64, Int}}}, Int}[]                  -> String                                   str2val 0.04 s, maxrss 0.49 GiB
+   [exit 0, wall 2089 ms] Pair{SVector{64, SVector{64, SVector{64, Int}}}, Int}[]
+Dict{SVector{256, SVector{256, Int}}, Int}()                             -> String                                   str2val 0.07 s, maxrss 0.49 GiB
+   [exit 0, wall 1464 ms] Dict{SVector{256, SVector{256, Int}}, Int}()
+Dict{Int, SVector{256, SVector{256, Int}}}()                             -> String                                   str2val 0.04 s, maxrss 0.49 GiB
+   [exit 0, wall 1424 ms] Dict{Int, SVector{256, SVector{256, Int}}}()
+SVector{1000, SVector{1000, Int}}[]                                      -> String                                   str2val 0.06 s, maxrss 0.49 GiB
+   [exit 0, wall 1528 ms] SVector{1000, SVector{1000, Int}}[]
+SArray{Tuple{1000, 1000, 1000}}[[1.0]]                                   -> String                                   str2val 0.02 s, maxrss 0.49 GiB
+   [exit 0, wall 1208 ms] SArray{Tuple{1000, 1000, 1000}}[[1.0]]
+SArray{Tuple{256, 256, 256}}[[1.0]]                                      -> String                                   str2val 0.02 s, maxrss 0.49 GiB
+   [exit 0, wall 1598 ms] SArray{Tuple{256, 256, 256}}[[1.0]]
+SArray{Tuple{100, 100, 10}}[[1.0]]                                       -> String                                   str2val 0.02 s, maxrss 0.49 GiB
+   [exit 0, wall 1220 ms] SArray{Tuple{100, 100, 10}}[[1.0]]
+SMatrix{1000, 1000}[[1.0]]                                               -> String                                   str2val 0.03 s, maxrss 0.49 GiB
+   [exit 0, wall 1701 ms] SMatrix{1000, 1000}[[1.0]]
+BigInt(2)^524288:BigInt(2)^524288+999999                                 -> String                                   str2val 0.21 s, maxrss 0.49 GiB
+   [exit 0, wall 1423 ms] BigInt(2)^524288:BigInt(2)^524288+999999
+BigInt(2)^524288:BigInt(2)^524288+999                                    -> String                                   str2val 0.2 s, maxrss 0.49 GiB
+   [exit 0, wall 1351 ms] BigInt(2)^524288:BigInt(2)^524288+999
+BigInt(1)//3:BigInt(10)^6                                                -> String                                   str2val 0.3 s, maxrss 0.5 GiB
+   [exit 0, wall 1786 ms] BigInt(1)//3:BigInt(10)^6
+sqrt(1//4)                                                               -> Float64                                  str2val 0.1 s, maxrss 0.48 GiB
+                                                                            hash 0.15 s, maxrss 0.49 GiB
+   [exit 0, wall 1379 ms] sqrt(1//4)
+exp(1//2)                                                                -> Float64                                  str2val 0.09 s, maxrss 0.49 GiB
+                                                                            hash 0.15 s, maxrss 0.49 GiB
+   [exit 0, wall 1577 ms] exp(1//2)
+sin(1//2)                                                                -> Float64                                  str2val 0.09 s, maxrss 0.49 GiB
+                                                                            hash 0.15 s, maxrss 0.49 GiB
+   [exit 0, wall 1397 ms] sin(1//2)
+log(3//2)                                                                -> Float64                                  str2val 0.11 s, maxrss 0.48 GiB
+                                                                            hash 0.19 s, maxrss 0.49 GiB
+   [exit 0, wall 1480 ms] log(3//2)
+sqrt(1//4 + 0im)                                                         -> ComplexF64                               str2val 0.29 s, maxrss 0.5 GiB
+                                                                            hash 0.19 s, maxrss 0.5 GiB
+   [exit 0, wall 1743 ms] sqrt(1//4 + 0im)
+IdDict(1 => 2)                                                           -> String                                   str2val 0.1 s, maxrss 0.49 GiB
+   [exit 0, wall 1798 ms] IdDict(1 => 2)
+SA_F64[1, 2]                                                             -> StaticArraysCore.SVector{2, Float64}     str2val 0.02 s, maxrss 0.49 GiB
+                                                                            hash 0.19 s, maxrss 0.5 GiB
+   [exit 0, wall 1552 ms] SA_F64[1, 2]
+SA_F32[1, 2]                                                             -> StaticArraysCore.SVector{2, Float32}     str2val 0.02 s, maxrss 0.47 GiB
+                                                                            hash 0.2 s, maxrss 0.48 GiB
+   [exit 0, wall 1693 ms] SA_F32[1, 2]
+SubString{String}["a"]                                                   -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 1274 ms] SubString{String}["a"]
+BitVector                                                                -> String                                   str2val 0.0 s, maxrss 0.5 GiB
+   [exit 0, wall 1236 ms] BitVector
+Colon                                                                    -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1532 ms] Colon
+Size                                                                     -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1616 ms] Size
+SVector{-1, Int}                                                         -> DataType                                 str2val 0.04 s, maxrss 0.49 GiB
+                                                                            hash 0.2 s, maxrss 0.49 GiB
+   [exit 0, wall 1740 ms] SVector{-1, Int}
+Irrational{1}                                                            -> DataType                                 str2val 0.02 s, maxrss 0.49 GiB
+                                                                            hash 0.17 s, maxrss 0.49 GiB
+   [exit 0, wall 1569 ms] Irrational{1}
+Dict{Union{}, Int}()                                                     -> Dict{Union{}, Int64}                     str2val 0.15 s, maxrss 0.49 GiB
+                                                                            hash 0.27 s, maxrss 0.51 GiB
+   [exit 0, wall 1739 ms] Dict{Union{}, Int}()
+SArray{Tuple{2}, Int, 1000}                                              -> UnionAll                                 str2val 0.09 s, maxrss 0.49 GiB
+                                                                            hash 0.21 s, maxrss 0.5 GiB
+   [exit 0, wall 1745 ms] SArray{Tuple{2}, Int, 1000}
+BigInt(2)^524289                                                         -> String                                   str2val 0.16 s, maxrss 0.5 GiB
+   [exit 0, wall 1582 ms] BigInt(2)^524289
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(201 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1535 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/nest200.txt
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]          -> Vector{Vector{Vector{Vector{Vector{Vector{Vector{Vector{Vect str2val 1.19 s, maxrss 0.5 GiB
+                                                                            hash 1.0 s, maxrss 0.53 GiB
+   [exit 0, wall 3527 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/nest32.txt
+Dict(1 => Dict(1 => Dict(1 => Dict(1 => Dict(1 => Dict(1 => …(364 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 1391 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/nest_dict.txt
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((…(200001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1488 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/paren1e5.txt
+------------------------------------------------------------…(100001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 987 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/minus1e5.txt
+Dict(SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…(30013 chars) -> String                                   str2val 0.13 s, maxrss 0.49 GiB
+   [exit 0, wall 1082 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/sa1e4.txt
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((…(3001 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 915 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/tuple1000.txt

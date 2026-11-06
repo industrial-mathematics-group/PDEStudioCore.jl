@@ -1,0 +1,16 @@
+comma_assign_3000: exit=0 wall=1956ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.51 GiB
+comma_assign_4000: exit=0 wall=1949ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+comma_assign_5000: exit=0 wall=1911ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.01 s, maxrss 0.52 GiB
+comma_assign_7000: exit=0 wall=1895ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.01 s, maxrss 0.52 GiB
+lvl_pow_9: exit=0 wall=1945ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.02 s, maxrss 0.52 GiB
+lvl_pow_10: exit=0 wall=1904ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.02 s, maxrss 0.52 GiB
+lvl_pow_11: exit=0 wall=1912ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.02 s, maxrss 0.52 GiB
+lvl_pow_12: exit=0 wall=1914ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.02 s, maxrss 0.51 GiB
+lvl_pow_14: exit=0 wall=1922ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.02 s, maxrss 0.52 GiB
+lvl_comma_assign_16: exit=0 wall=1913ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+--- in a task (Threads.@spawn)
+task_comma_assign_2000: exit=0 wall=1957ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.02 s, maxrss 0.53 GiB
+task_comma_assign_3000: exit=0 wall=1996ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.02 s, maxrss 0.53 GiB
+task_comma_assign_5000: exit=0 wall=1957ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.03 s, maxrss 0.53 GiB
+task_lvl_pow_8: exit=0 wall=1951ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.04 s, maxrss 0.53 GiB
+task_lvl_pow_10: exit=0 wall=1984ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.04 s, maxrss 0.53 GiB

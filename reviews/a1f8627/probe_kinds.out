@@ -1,0 +1,71 @@
+true        Bool           is_keyword=false  T("[true]")=false  str2val("[true]") isa String: false
+false       Bool           is_keyword=false  T("[false]")=false  str2val("[false]") isa String: false
+nothing     Identifier     is_keyword=false  T("[nothing]")=false  str2val("[nothing]") isa String: false
+missing     Identifier     is_keyword=false  T("[missing]")=false  str2val("[missing]") isa String: false
+in          in             is_keyword=false  T("[in]")=false  str2val("[in]") isa String: true
+isa         isa            is_keyword=false  T("[isa]")=false  str2val("[isa]") isa String: true
+where       where          is_keyword=false  T("[where]")=false  str2val("[where]") isa String: true
+var         var            is_keyword=true  T("[var]")=false  str2val("[var]") isa String: true
+abstract    abstract       is_keyword=true  T("[abstract]")=true  str2val("[abstract]") isa String: true
+mutable     mutable        is_keyword=true  T("[mutable]")=true  str2val("[mutable]") isa String: true
+primitive   primitive      is_keyword=true  T("[primitive]")=true  str2val("[primitive]") isa String: true
+type        type           is_keyword=true  T("[type]")=true  str2val("[type]") isa String: true
+outer       outer          is_keyword=true  T("[outer]")=true  str2val("[outer]") isa String: true
+as          as             is_keyword=true  T("[as]")=true  str2val("[as]") isa String: true
+doc         doc            is_keyword=true  T("[doc]")=true  str2val("[doc]") isa String: true
+public      public         is_keyword=true  T("[public]")=true  str2val("[public]") isa String: true
+begin       begin          is_keyword=true  T("[begin]")=true  str2val("[begin]") isa String: true
+end         end            is_keyword=true  T("[end]")=true  str2val("[end]") isa String: true
+do          do             is_keyword=true  T("[do]")=true  str2val("[do]") isa String: true
+let         let            is_keyword=true  T("[let]")=true  str2val("[let]") isa String: true
+local       local          is_keyword=true  T("[local]")=true  str2val("[local]") isa String: true
+global      global         is_keyword=true  T("[global]")=true  str2val("[global]") isa String: true
+const       const          is_keyword=true  T("[const]")=true  str2val("[const]") isa String: true
+struct      struct         is_keyword=true  T("[struct]")=true  str2val("[struct]") isa String: true
+module      module         is_keyword=true  T("[module]")=true  str2val("[module]") isa String: true
+baremodule  baremodule     is_keyword=true  T("[baremodule]")=true  str2val("[baremodule]") isa String: true
+quote       quote          is_keyword=true  T("[quote]")=true  str2val("[quote]") isa String: true
+return      return         is_keyword=true  T("[return]")=true  str2val("[return]") isa String: true
+break       break          is_keyword=true  T("[break]")=true  str2val("[break]") isa String: true
+continue    continue       is_keyword=true  T("[continue]")=true  str2val("[continue]") isa String: true
+macro       macro          is_keyword=true  T("[macro]")=true  str2val("[macro]") isa String: true
+function    function       is_keyword=true  T("[function]")=true  str2val("[function]") isa String: true
+import      import         is_keyword=true  T("[import]")=true  str2val("[import]") isa String: true
+using       using          is_keyword=true  T("[using]")=true  str2val("[using]") isa String: true
+export      export         is_keyword=true  T("[export]")=true  str2val("[export]") isa String: true
+try         try            is_keyword=true  T("[try]")=true  str2val("[try]") isa String: true
+catch       catch          is_keyword=true  T("[catch]")=true  str2val("[catch]") isa String: true
+finally     finally        is_keyword=true  T("[finally]")=true  str2val("[finally]") isa String: true
+else        else           is_keyword=true  T("[else]")=true  str2val("[else]") isa String: true
+elseif      elseif         is_keyword=true  T("[elseif]")=true  str2val("[elseif]") isa String: true
+for         for            is_keyword=true  T("[for]")=true  str2val("[for]") isa String: true
+while       while          is_keyword=true  T("[while]")=true  str2val("[while]") isa String: true
+if          if             is_keyword=true  T("[if]")=true  str2val("[if]") isa String: true
+Inf         Identifier     is_keyword=false  T("[Inf]")=false  str2val("[Inf]") isa String: false
+NaN         Identifier     is_keyword=false  T("[NaN]")=false  str2val("[NaN]") isa String: false
+π           Identifier     is_keyword=false  T("[π]")=false  str2val("[π]") isa String: false
+im          Identifier     is_keyword=false  T("[im]")=false  str2val("[im]") isa String: false
+"a = b, c = d"         -> (:(=), :a, (:(=), (:tuple, :b, :c), :d))   kinds=["Identifier", "Whitespace", "=", "Whitespace", "Identifier", ",", "Whitespace", "Identifier", "Whitespace", "=", "Whitespace", "Identifier", "EndMarker"]
+"a -> b, c -> d"       -> (:tuple, (:->, :a, (:block,
+      :(#= none:1 =#),
+      :b
+    )), (:->, :c, (:block,
+      :(#= none:1 =#),
+      :d
+    )))   kinds=["Identifier", "Whitespace", "->", "Whitespace", "Identifier", ",", "Whitespace", "Identifier", "Whitespace", "->", "Whitespace", "Identifier", "EndMarker"]
+"a ? b : c, d"         -> (:tuple, (:if, :a, :b, :c), :d)   kinds=["Identifier", "Whitespace", "?", "Whitespace", "Identifier", "Whitespace", ":", "Whitespace", "Identifier", ",", "Whitespace", "Identifier", "EndMarker"]
+"a += b, c += d"       -> (:+=, :a, (:+=, (:tuple, :b, :c), :d))   kinds=["Identifier", "Whitespace", "op=", "Whitespace", "Identifier", ",", "Whitespace", "Identifier", "Whitespace", "op=", "Whitespace", "Identifier", "EndMarker"]
+"a := b, c := d"       -> (:(:=), :a, (:(:=), (:tuple, :b, :c), :d))   kinds=["Identifier", "Whitespace", ":=", "Whitespace", "Identifier", ",", "Whitespace", "Identifier", "Whitespace", ":=", "Whitespace", "Identifier", "EndMarker"]
+"a ~ b, c ~ d"         -> (:call, :~, :a, (:call, :~, (:tuple, :b, :c), :d))   kinds=["Identifier", "Whitespace", "~", "Whitespace", "Identifier", ",", "Whitespace", "Identifier", "Whitespace", "~", "Whitespace", "Identifier", "EndMarker"]
+"a where b, c where d" -> (:tuple, (:where, :a, :b), (:where, :c, :d))   kinds=["Identifier", "Whitespace", "where", "Whitespace", "Identifier", ",", "Whitespace", "Identifier", "Whitespace", "where", "Whitespace", "Identifier", "EndMarker"]
+"a => b, c => d"       -> (:tuple, (:call, :(=>), :a, :b), (:call, :(=>), :c, :d))   kinds=["Identifier", "Whitespace", "=>", "Whitespace", "Identifier", ",", "Whitespace", "Identifier", "Whitespace", "=>", "Whitespace", "Identifier", "EndMarker"]
+"1:begin 2 :end"       -> ERR: ParseError:
+# Error @ none:1:12
+1:begin 2 :end
+#          └ ── missing las   kinds=["Integer", ":", "begin", "Whitespace", "Integer", "Whitespace", ":", "end", "EndMarker"]
+"x[:end]"              -> (:ref, :x, (:quote, #QuoteNode
+    :end
+  ))   kinds=["Identifier", "[", ":", "end", "]", "EndMarker"]
+";;"                   -> (:toplevel,)   kinds=[";", ";", "EndMarker"]
+"[1;;2]"               -> (:ncat, 2, 1, 2)   kinds=["[", "Integer", ";", ";", "Integer", "]", "EndMarker"]
+"1 ; 2"                -> (:toplevel, 1, 2)   kinds=["Integer", "Whitespace", ";", "Whitespace", "Integer", "EndMarker"]

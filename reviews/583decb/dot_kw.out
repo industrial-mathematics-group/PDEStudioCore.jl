@@ -1,0 +1,18 @@
+"[:.begin 1]"                  T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:4\n[:.begin 1]\n#  └ ── Expected `]`", Base.JuliaSyntax.ParseError(Base.Jul
+"(:.begin 1)"                  T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:4\n(:.begin 1)\n#  └ ── Expected `)` or `,`", Base.JuliaSyntax.ParseError(B
+"[:.return 1, 2]"              T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:4\n[:.return 1, 2]\n#  └ ── Expected `]`", Base.JuliaSyntax.ParseError(Base
+"(:.return 1, 2)"              T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:4\n(:.return 1, 2)\n#  └ ── Expected `)` or `,`", Base.JuliaSyntax.ParseErr
+"f(:.return 1, 2)"             T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:5\nf(:.return 1, 2)\n#   └ ── Expected `)` or `,`", Base.JuliaSyntax.ParseE
+"[:.=1]"                       T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:5\n[:.=1]\n#   └ ── Expected `]`", Base.JuliaSyntax.ParseError(Base.JuliaSy
+"(:.= 1, 2)"                   T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:5\n(:.= 1, 2)\n#   └ ── Expected `)` or `,`", Base.JuliaSyntax.ParseError(B
+"[:.begin 1; :.begin 1; 1]"    T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:4\n[:.begin 1; :.begin 1; 1]\n#  └ ── Expected `]`", Base.JuliaSyntax.Parse
+"(:.let x; :.let x; 1)"        T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:4\n(:.let x; :.let x; 1)\n#  └ ── Expected `)` or `,`", Base.JuliaSyntax.Pa
+"[:.begin\n1]"                 T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:4\n[:.begin\n#  └ ── Expected `]`", Base.JuliaSyntax.ParseError(Base.JuliaS
+"[:.begin 1; "           T(2000)=false  overflow(1 MB)=false
+"(:.begin 1; "           T(2000)=false  overflow(1 MB)=false
+"[:.return 1, "          T(2000)=false  overflow(1 MB)=false
+"(:.return 1, "          T(2000)=false  overflow(1 MB)=false
+":.return 1, "           T(2000)=false  overflow(1 MB)=false
+"[:.let x; "             T(2000)=false  overflow(1 MB)=false
+"[:.begin 1\n"           T(2000)=true   overflow(1 MB)=false
+"{:.begin 1; "           T(2000)=false  overflow(1 MB)=false

@@ -70,3 +70,13 @@ AI-Review = "A2"
 Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
 AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
 Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+
+# Changed on claude/str2val-whitelist by Claude (the allowlist parser for str2val; reviewed in reviews/).
+[[annotations]]
+path = ["docs/src/data.md", "src/Serialization.jl", "test/reference_str2val.jl", "test/runtests.jl", "test/test_roundtrip.jl", "test/test_str2val_differential.jl"]
+AI-Generation = "G3"
+Human-Review = "H0"
+AI-Review = "A2"
+Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]

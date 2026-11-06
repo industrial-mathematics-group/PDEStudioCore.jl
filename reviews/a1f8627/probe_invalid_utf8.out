@@ -1,0 +1,135 @@
+┌ Error: JuliaSyntax parser failed — falling back to flisp!
+│ This is not your fault. Please submit a bug report to https://github.com/JuliaLang/JuliaSyntax.jl/issues
+│   exception =
+│    Base.InvalidCharError{Char}('\xc0\x8f')
+│    Stacktrace:
+│       [1] throw_invalid_char(c::Char)
+│         @ Base ./char.jl:95
+│       [2] UInt32
+│         @ ./char.jl:142 [inlined]
+│       [3] convert
+│         @ ./char.jl:194 [inlined]
+│       [4] cconvert
+│         @ ./essentials.jl:737 [inlined]
+│       [5] isgraphemebreak!
+│         @ ./strings/unicode.jl:813 [inlined]
+│       [6] lex_identifier(l::Base.JuliaSyntax.Tokenize.Lexer{IOBuffer}, c::Char)
+│         @ Base.JuliaSyntax.Tokenize /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/julia/tokenize.jl:1223
+│       [7] _next_token(l::Base.JuliaSyntax.Tokenize.Lexer{IOBuffer}, c::Char)
+│         @ Base.JuliaSyntax.Tokenize /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/julia/tokenize.jl:533
+│       [8] next_token(l::Base.JuliaSyntax.Tokenize.Lexer{IOBuffer}, start::Bool)
+│         @ Base.JuliaSyntax.Tokenize /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/julia/tokenize.jl:455
+│       [9] next_token
+│         @ /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/julia/tokenize.jl:451 [inlined]
+│      [10] _buffer_lookahead_tokens(lexer::Base.JuliaSyntax.Tokenize.Lexer{IOBuffer}, lookahead::Vector{Base.JuliaSyntax.SyntaxToken})
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:374
+│      [11] __lookahead_index(stream::Base.JuliaSyntax.ParseStream, n::Int64, skip_newlines::Bool)
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:448
+│      [12] _lookahead_index
+│         @ /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:435 [inlined]
+│      [13] #bump_trivia#30
+│         @ /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:736 [inlined]
+│     ┌[14] bump_trivia
+│     │   @ /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:733 [inlined]
+│     ╰──── repeated 2 times
+│      [16] core_parser_hook(code::SubString{String}, filename::String, lineno::Int64, offset::Int64, options::Symbol)
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/integration/hooks.jl:192
+│      [17] (::Base.JuliaSyntax.var"#invoke_fixedworld#fix_world_age##2"{Base.JuliaSyntax.var"#invoke_fixedworld#95#fix_world_age##3"{typeof(Base.JuliaSyntax.core_parser_hook), UInt64}})(::SubString{String}, ::Vararg{Any}; kws::@Kwargs{})
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/integration/hooks.jl:143
+│      [18] (::Base.JuliaSyntax.var"#invoke_fixedworld#fix_world_age##2"{Base.JuliaSyntax.var"#invoke_fixedworld#95#fix_world_age##3"{typeof(Base.JuliaSyntax.core_parser_hook), UInt64}})(::SubString{String}, ::Vararg{Any})
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/integration/hooks.jl:142
+│      [19] _parse_string(text::SubString{String}, filename::String, lineno::Int64, index::Int64, options::Symbol)
+│         @ Base.Meta ./meta.jl:312
+│      [20] #parse#2
+│         @ ./meta.jl:350 [inlined]
+│      [21] parse
+│         @ ./meta.jl:348 [inlined]
+│      [22] parse(str::SubString{String}; filename::String, raise::Bool, depwarn::Bool)
+│         @ Base.Meta ./meta.jl:390
+│      [23] parse
+│         @ ./meta.jl:388 [inlined]
+│      [24] str2val(val_str::String)
+│         @ Main.OldStr2Val ~/.claude/jobs/d2d299f1/tmp/review-psc1d/repo/test/reference_str2val.jl:159
+│      [25] top-level scope
+│         @ ~/.claude/jobs/d2d299f1/tmp/review-psc1d/probes/probe_invalid_utf8.jl:7
+│      [26] include(mod::Module, _path::String)
+│         @ Base ./Base.jl:309
+│      [27] exec_options(opts::Base.JLOptions)
+│         @ Base ./client.jl:344
+│      [28] _start()
+│         @ Base ./client.jl:577
+│   offset = 0
+│   code = "x\xc0\x8f"
+└ @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/integration/hooks.jl:291
+"x\xc0\x8f"            _too_nested: throws Base.InvalidCharError{Char} new: "x\xc0\x8f"            old: "x\xc0\x8f"           
+"\xc0\x8f"             _too_nested: false                              new: "\xc0\x8f"             old: "\xc0\x8f"            
+┌ Error: JuliaSyntax parser failed — falling back to flisp!
+│ This is not your fault. Please submit a bug report to https://github.com/JuliaLang/JuliaSyntax.jl/issues
+│   exception =
+│    Base.InvalidCharError{Char}('\xc0\x8f')
+│    Stacktrace:
+│       [1] throw_invalid_char(c::Char)
+│         @ Base ./char.jl:95
+│       [2] UInt32
+│         @ ./char.jl:142 [inlined]
+│       [3] convert
+│         @ ./char.jl:194 [inlined]
+│       [4] cconvert
+│         @ ./essentials.jl:737 [inlined]
+│       [5] isgraphemebreak!
+│         @ ./strings/unicode.jl:813 [inlined]
+│       [6] lex_identifier(l::Base.JuliaSyntax.Tokenize.Lexer{IOBuffer}, c::Char)
+│         @ Base.JuliaSyntax.Tokenize /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/julia/tokenize.jl:1223
+│       [7] _next_token(l::Base.JuliaSyntax.Tokenize.Lexer{IOBuffer}, c::Char)
+│         @ Base.JuliaSyntax.Tokenize /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/julia/tokenize.jl:533
+│       [8] next_token(l::Base.JuliaSyntax.Tokenize.Lexer{IOBuffer}, start::Bool)
+│         @ Base.JuliaSyntax.Tokenize /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/julia/tokenize.jl:455
+│       [9] next_token
+│         @ /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/julia/tokenize.jl:451 [inlined]
+│      [10] _buffer_lookahead_tokens(lexer::Base.JuliaSyntax.Tokenize.Lexer{IOBuffer}, lookahead::Vector{Base.JuliaSyntax.SyntaxToken})
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:374
+│      [11] __lookahead_index(stream::Base.JuliaSyntax.ParseStream, n::Int64, skip_newlines::Bool)
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:448
+│      [12] _lookahead_index
+│         @ /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:435 [inlined]
+│      [13] #bump_trivia#30
+│         @ /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:736 [inlined]
+│     ┌[14] bump_trivia
+│     │   @ /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/core/parse_stream.jl:733 [inlined]
+│     ╰──── repeated 2 times
+│      [16] core_parser_hook(code::SubString{String}, filename::String, lineno::Int64, offset::Int64, options::Symbol)
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/integration/hooks.jl:192
+│      [17] (::Base.JuliaSyntax.var"#invoke_fixedworld#fix_world_age##2"{Base.JuliaSyntax.var"#invoke_fixedworld#95#fix_world_age##3"{typeof(Base.JuliaSyntax.core_parser_hook), UInt64}})(::SubString{String}, ::Vararg{Any}; kws::@Kwargs{})
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/integration/hooks.jl:143
+│      [18] (::Base.JuliaSyntax.var"#invoke_fixedworld#fix_world_age##2"{Base.JuliaSyntax.var"#invoke_fixedworld#95#fix_world_age##3"{typeof(Base.JuliaSyntax.core_parser_hook), UInt64}})(::SubString{String}, ::Vararg{Any})
+│         @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/integration/hooks.jl:142
+│      [19] _parse_string(text::SubString{String}, filename::String, lineno::Int64, index::Int64, options::Symbol)
+│         @ Base.Meta ./meta.jl:312
+│      [20] #parse#2
+│         @ ./meta.jl:350 [inlined]
+│      [21] parse
+│         @ ./meta.jl:348 [inlined]
+│      [22] parse(str::SubString{String}; filename::String, raise::Bool, depwarn::Bool)
+│         @ Base.Meta ./meta.jl:390
+│      [23] parse
+│         @ ./meta.jl:388 [inlined]
+│      [24] str2val(val_str::String)
+│         @ Main.OldStr2Val ~/.claude/jobs/d2d299f1/tmp/review-psc1d/repo/test/reference_str2val.jl:159
+│      [25] top-level scope
+│         @ ~/.claude/jobs/d2d299f1/tmp/review-psc1d/probes/probe_invalid_utf8.jl:7
+│      [26] include(mod::Module, _path::String)
+│         @ Base ./Base.jl:309
+│      [27] exec_options(opts::Base.JLOptions)
+│         @ Base ./client.jl:344
+│      [28] _start()
+│         @ Base ./client.jl:577
+│   offset = 0
+│   code = "[1, x\xc0\x8f]"
+└ @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/integration/hooks.jl:291
+"[1, x\xc0\x8f]"       _too_nested: throws Base.InvalidCharError{Char} new: "[1, x\xc0\x8f]"       old: "[1, x\xc0\x8f]"      
+"'\xc0\x8f'"           _too_nested: false                              new: "'\xc0\x8f'"           old: "'\xc0\x8f'"          
+"\"a\xc0\x8f\""        _too_nested: false                              new: "a\xc0\x8f"            old: "a\xc0\x8f"           
+"[\"a\xc0\x8f\", 1]"   _too_nested: false                              new: "[\"a\xc0\x8f\", 1]"   old: "[\"a\xc0\x8f\", 1]"  
+"\xff"                 _too_nested: false                              new: "\xff"                 old: "\xff"                
+"1\xff"                _too_nested: false                              new: "1\xff"                old: "1\xff"               
+"x\xff"                _too_nested: false                              new: "x\xff"                old: "x\xff"               

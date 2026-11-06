@@ -1,0 +1,14 @@
+begin_semi_2000      overflow=true 0.006 s
+begin_semi_100       overflow=true 0.0 s
+return_2000          overflow=true 0.0 s
+return_200           overflow=true 0.0 s
+at_2000              overflow=true 0.0 s
+paren32              overflow=false 0.0 s
+paren33x32           overflow=false 0.001 s
+semi_f_2000          overflow=false 0.0 s
+semi2_f_2000         overflow=false 0.0 s
+tuple_semi_2000      overflow=false 0.0 s
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+pow_500              overflow=true 0.0 s
+pairsp_500           overflow=false 0.0 s
+dict_semi_1e5        overflow=false 0.018 s

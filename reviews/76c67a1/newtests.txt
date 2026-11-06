@@ -1,0 +1,23 @@
+    @test str2val("Dict{SVector{64, SVector{64, SVector{64, Int}}}, Int}()") isa String
+    @test str2val("Dict{SVector{256, SVector{256, Int}}, Int}()") isa String
+    @test str2val("SVector{1000, SVector{1000, Int}}[]") isa String
+    @test str2val("Pair{SVector{256, SVector{256, Int}}, Int}[]") isa String
+    @test str2val("SArray{Tuple{1000, 1000, 1000}}[[1.0]]") isa String
+    @test str2val("SMatrix{1000, 1000}[[1.0]]") isa String
+    @test str2val("Dict(SA[" * join(fill("1", 2000), ", ") * "] => 1)") isa String
+    @test str2val("SVector{300, Float64}[]") == SVector{300, Float64}[]
+    @test str2val("Dict(SA[1, 2] => 1)") == Dict(SA[1, 2] => 1)
+    @test str2val("BigInt(2)^524288:BigInt(2)^524288+999") isa String
+    @test str2val("BigInt(1):BigInt(5)") == BigInt(1):BigInt(5)
+    @test str2val("["^33 * "1" * "]"^33) isa String
+    @test str2val("("^100_000 * "1" * ")"^100_000) isa String
+    @test str2val("Dict(1 => "^40 * "1" * ")"^40) isa String
+    @test str2val("1-"^2000 * "1") isa String && str2val("-"^2000 * "1") isa String
+    @test str2val("["^8 * "1" * "]"^8) == [[[[[[[[1]]]]]]]]
+    @test str2val("[" * join(fill("-1.5", 5000), ", ") * "]") == fill(-1.5, 5000)   # (separated: no chain)
+    @test str2val("\"" * "("^100 * "\"") == "("^100                                  # (inside a string)
+    @test str2val("sqrt(1//4)") === 0.5 && str2val("exp(1//2)") === exp(0.5)
+    @test str2val("sqrt(1//4 + 0im)") === sqrt(0.25 + 0im)
+    @test str2val("sqrt(big\"1\"//3)") isa String
+    @test str2val("IdDict(1 => 2)") isa String
+    @test str2val("SA_F64[1, 2]") === SA_F64[1, 2] && str2val("SA_F32[1, 2]") === SA_F32[1, 2]

@@ -1,0 +1,12 @@
+BigInt(2)^524288:BigInt(2)^524288+999999                                 -> UnitRange{BigInt}                        str2val 4.84 s, maxrss 0.66 GiB
+LLVM ERROR: out of memory
+Allocation failed
+
+[23439] signal 6 (-6): Aborted
+in expression starting at none:0
+gsignal at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+abort at /lib/x86_64-linux-gnu/libc.so.6 (unknown line)
+_ZN4llvm22report_bad_alloc_errorEPKcb at /opt/julia/bin/../lib/julia/libLLVM.so.20.1jl (unknown line)
+_ZN4llvm15SmallVectorBaseIjE13mallocForGrowEPvmmRm at /opt/julia/bin/../lib/julia/libLLVM.so.20.1jl (unknown line)
+jl_emit_codeinst_to_jit_impl at /opt/julia/bin/../lib/julia/libjulia-codegen.so.1.13 (unknown line)
+jl_type_infer at /opt/julia/bin/../lib/julia/libjulia-internal.so.1.13 (unknown line)

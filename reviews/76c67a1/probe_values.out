@@ -1,0 +1,70 @@
+SA[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, …(30402 chars) -> StaticArraysCore.SVector{100, StaticArraysCore.SVector{100,  str2val 0.06 s, maxrss 0.49 GiB
+                                                                            hash 0.17 s, maxrss 0.5 GiB
+   [exit 0, wall 1118 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/sa_sa_100.txt
+  old:
+SA[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, …(30402 chars) -> StaticArraysCore.SVector{100, StaticArraysCore.SVector{100,  str2val 0.06 s, maxrss 0.5 GiB
+   [exit 0, wall 1062 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/sa_sa_100.txt
+SA[SA[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], SA[1, 1, 1, 1, 1, 1,…(3442 chars) -> StaticArraysCore.SVector{10, StaticArraysCore.SVector{10, St str2val 0.09 s, maxrss 0.49 GiB
+                                                                            hash 0.19 s, maxrss 0.5 GiB
+   [exit 0, wall 1164 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/sa3_10.txt
+  old:
+SA[SA[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], SA[1, 1, 1, 1, 1, 1,…(3442 chars) -> StaticArraysCore.SVector{10, StaticArraysCore.SVector{10, St str2val 0.08 s, maxrss 0.5 GiB
+   [exit 0, wall 1083 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/sa3_10.txt
+SA[SA[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], SA…(13378 chars) -> StaticArraysCore.SVector{16, StaticArraysCore.SVector{16, St str2val 0.09 s, maxrss 0.49 GiB
+                                                                            hash 0.18 s, maxrss 0.5 GiB
+   [exit 0, wall 1149 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/sa3_16.txt
+  old:
+SA[SA[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], SA…(13378 chars) -> StaticArraysCore.SVector{16, StaticArraysCore.SVector{16, St str2val 0.08 s, maxrss 0.49 GiB
+   [exit 0, wall 1096 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/sa3_16.txt
+[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…(30004 chars) -> Vector{StaticArraysCore.SVector{10000, Int64}} str2val 0.06 s, maxrss 0.48 GiB
+                                                                            hash 0.17 s, maxrss 0.5 GiB
+   [exit 0, wall 1118 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/vec_sa_1e4.txt
+  old:
+[SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…(30004 chars) -> Vector{StaticArraysCore.SVector{10000, Int64}} str2val 0.05 s, maxrss 0.49 GiB
+   [exit 0, wall 1052 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/vec_sa_1e4.txt
+(1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, …(4000 chars) -> Tuple{Int64, Float64, Int64, Float64, Int64, Float64, Int64, str2val 0.05 s, maxrss 0.49 GiB
+                                                                            hash 0.14 s, maxrss 0.5 GiB
+   [exit 0, wall 1079 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hettuple_1000.txt
+  old:
+(1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, …(4000 chars) -> Tuple{Int64, Float64, Int64, Float64, Int64, Float64, Int64, str2val 0.05 s, maxrss 0.5 GiB
+   [exit 0, wall 1075 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hettuple_1000.txt
+(1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, …(40000 chars) -> Tuple{Int64, Float64, Int64, Float64, Int64, Float64, Int64, str2val 0.11 s, maxrss 0.5 GiB
+                                                                            hash 0.22 s, maxrss 0.52 GiB
+   [exit 0, wall 1248 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hettuple_10000.tx
+  old:
+(1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, …(40000 chars) -> Tuple{Int64, Float64, Int64, Float64, Int64, Float64, Int64, str2val 0.1 s, maxrss 0.52 GiB
+   [exit 0, wall 1125 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hettuple_10000.tx
+Any[1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, …(4003 chars) -> Vector{Any}                              str2val 0.05 s, maxrss 0.48 GiB
+                                                                            hash 0.19 s, maxrss 0.49 GiB
+   [exit 0, wall 1168 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hetany_1000.txt
+  old:
+Any[1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, …(4003 chars) -> Vector{Any}                              str2val 0.05 s, maxrss 0.49 GiB
+   [exit 0, wall 1069 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hetany_1000.txt
+Any[1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, …(40003 chars) -> Vector{Any}                              str2val 0.06 s, maxrss 0.49 GiB
+                                                                            hash 0.19 s, maxrss 0.51 GiB
+   [exit 0, wall 1139 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hetany_10000.txt
+  old:
+Any[1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, …(40003 chars) -> Vector{Any}                              str2val 0.05 s, maxrss 0.49 GiB
+   [exit 0, wall 1075 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hetany_10000.txt
+(((((((((((((((Dict(1 => [1]), 1.0), 1.0), 1.0), 1.0), 1.0),…(119 chars) -> Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{ str2val 0.75 s, maxrss 0.5 GiB
+                                                                            hash 0.39 s, maxrss 0.51 GiB
+   [exit 0, wall 2029 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/mix32.txt
+  old:
+(((((((((((((((Dict(1 => [1]), 1.0), 1.0), 1.0), 1.0), 1.0),…(119 chars) -> Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{ str2val 0.72 s, maxrss 0.51 GiB
+   [exit 0, wall 1727 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/mix32.txt
+[1 -2 3 -4 5 -6 7 -8 9 -10 11 -12 13 -14 15 -16 17 -18 19 -2…(9894 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 877 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hcat_neg_2000.txt
+  old:
+[1 -2 3 -4 5 -6 7 -8 9 -10 11 -12 13 -14 15 -16 17 -18 19 -2…(9894 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1007 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hcat_neg_2000.txt
+[1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0…(14001 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 876 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hcat_e_2000.txt
+  old:
+[1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0e-5 1.0…(14001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1002 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/hcat_e_2000.txt
+Float64[1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e…(16007 chars) -> Vector{Float64}                          str2val 0.01 s, maxrss 0.48 GiB
+                                                                            hash 0.14 s, maxrss 0.49 GiB
+   [exit 0, wall 1039 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/vec_e_2000.txt
+  old:
+Float64[1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e-5, 1.0e…(16007 chars) -> Vector{Float64}                          str2val 0.01 s, maxrss 0.48 GiB
+   [exit 0, wall 1019 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/vec_e_2000.txt

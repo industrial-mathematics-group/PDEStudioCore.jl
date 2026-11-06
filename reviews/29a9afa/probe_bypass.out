@@ -1,0 +1,69 @@
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'…(400000 chars) -> String                                   str2val 0.84 s, maxrss 0.63 GiB
+   [exit 0, wall 1839 ms] @lit/adjbr_100000.txt
+(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'…(40000 chars) -> String                                   str2val 0.75 s, maxrss 0.61 GiB
+   [exit 0, wall 1753 ms] @lit/adjbr_10000.txt
+(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'(x)'…(8000 chars) -> String                                   str2val 0.0 s, maxrss 0.5 GiB
+   [exit 0, wall 1010 ms] @lit/adjbr_2000.txt
+│   code = "(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a" ⋯ 499498 bytes ⋯ "(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->1"
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->…(500001 chars) -> String                                   str2val 1.75 s, maxrss 0.88 GiB
+   [exit 0, wall 2773 ms] @lit/arrowbr_100000.txt
+│   code = "(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a" ⋯ 49497 bytes ⋯ ">(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->1"
+(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->…(50001 chars) -> String                                   str2val 1.35 s, maxrss 0.65 GiB
+   [exit 0, wall 2327 ms] @lit/arrowbr_10000.txt
+(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->(a)->…(10001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 999 ms] @lit/arrowbr_2000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+begin; begin; begin; begin; begin; begin; begin; begin; begi…(1200001 chars) -> String                                   str2val 1.29 s, maxrss 0.66 GiB
+   [exit 0, wall 2305 ms] @lit/beginsc_100000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+begin; begin; begin; begin; begin; begin; begin; begin; begi…(120001 chars) -> String                                   str2val 1.31 s, maxrss 0.65 GiB
+   [exit 0, wall 2315 ms] @lit/beginsc_10000.txt
+begin; begin; begin; begin; begin; begin; begin; begin; begi…(24001 chars) -> String                                   str2val 1.32 s, maxrss 0.62 GiB
+   [exit 0, wall 2333 ms] @lit/beginsc_2000.txt
+('\'','"', [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(20013 chars) -> String                                   str2val 1.35 s, maxrss 0.65 GiB
+   [exit 0, wall 2421 ms] @lit/charq_esc_10000.txt
+('\'','"', [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(4013 chars) -> String                                   str2val 1.29 s, maxrss 0.62 GiB
+   [exit 0, wall 2298 ms] @lit/charq_esc_2000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+if true; if true; if true; if true; if true; if true; if tru…(1400001 chars) -> String                                   str2val 1.32 s, maxrss 0.66 GiB
+   [exit 0, wall 2360 ms] @lit/ifsc_100000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+if true; if true; if true; if true; if true; if true; if tru…(140001 chars) -> String                                   str2val 1.34 s, maxrss 0.65 GiB
+   [exit 0, wall 2348 ms] @lit/ifsc_10000.txt
+if true; if true; if true; if true; if true; if true; if tru…(28001 chars) -> String                                   str2val 1.27 s, maxrss 0.61 GiB
+   [exit 0, wall 2279 ms] @lit/ifsc_2000.txt
+"$([[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(20006 chars) -> String                                   str2val 1.35 s, maxrss 0.65 GiB
+   [exit 0, wall 2310 ms] @lit/interp_10000.txt
+"$([[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(4006 chars) -> String                                   str2val 1.3 s, maxrss 0.62 GiB
+   [exit 0, wall 2462 ms] @lit/interp_2000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-…(400001 chars) -> String                                   str2val 1.26 s, maxrss 0.62 GiB
+   [exit 0, wall 2310 ms] @lit/minusbr_100000.txt
+(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-…(40001 chars) -> String                                   str2val 0.82 s, maxrss 0.61 GiB
+   [exit 0, wall 1878 ms] @lit/minusbr_10000.txt
+(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-(1)-…(8001 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 1045 ms] @lit/minusbr_2000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>…(500001 chars) -> String                                   str2val 2.5 s, maxrss 0.65 GiB
+   [exit 0, wall 3516 ms] @lit/pairbr_100000.txt
+(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>…(50001 chars) -> String                                   str2val 0.83 s, maxrss 0.61 GiB
+   [exit 0, wall 1841 ms] @lit/pairbr_10000.txt
+(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>(1)=>…(10001 chars) -> String                                   str2val 0.01 s, maxrss 0.49 GiB
+   [exit 0, wall 1069 ms] @lit/pairbr_2000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^…(400001 chars) -> String                                   str2val 1.58 s, maxrss 0.65 GiB
+   [exit 0, wall 2599 ms] @lit/powbr_100000.txt
+(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^…(40001 chars) -> String                                   str2val 1.21 s, maxrss 0.61 GiB
+   [exit 0, wall 2243 ms] @lit/powbr_10000.txt
+(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^(1)^…(8001 chars) -> String                                   str2val 0.01 s, maxrss 0.49 GiB
+   [exit 0, wall 1035 ms] @lit/powbr_2000.txt
+(""" " """, [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(20014 chars) -> String                                   str2val 1.34 s, maxrss 0.65 GiB
+   [exit 0, wall 2370 ms] @lit/triple_10000.txt
+(""" " """, [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(4014 chars) -> String                                   str2val 1.32 s, maxrss 0.61 GiB
+   [exit 0, wall 2336 ms] @lit/triple_2000.txt
+(''','"', [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(20012 chars) -> String                                   str2val 1.36 s, maxrss 0.65 GiB
+   [exit 0, wall 2392 ms] @lit/triplech_10000.txt
+(''','"', [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(4012 chars) -> String                                   str2val 1.3 s, maxrss 0.63 GiB
+   [exit 0, wall 2316 ms] @lit/triplech_2000.txt
