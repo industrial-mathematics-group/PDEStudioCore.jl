@@ -1,0 +1,8 @@
+repo: @test T(lv(8, "'"^1022)) && T(lv(16, "-1"^511)) && T(lv(16, "-1"^511; sep = "; "))                     PASS  (0.28 s)
+wt356: @test T(lv(8, "'"^1022)) && T(lv(16, "-1"^511)) && T(lv(16, "-1"^511; sep = "; "))                     FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.26 s)
+repo: @test !T(val2str(nestfirst(30, 100))) && str2val(val2str(nestfirst(30, 100))) == nestfirst(30, 100)    PASS  (1.44 s)
+wt356: @test !T(val2str(nestfirst(30, 100))) && str2val(val2str(nestfirst(30, 100))) == nestfirst(30, 100)    PASS  (1.48 s)
+repo: @test str2val(val2str(:~)) === :~ && str2val(val2str(Val(:~))) === Val(:~) && str2val("(:+=, 1)") ==   PASS  (1.39 s)
+wt356: @test str2val(val2str(:~)) === :~ && str2val(val2str(Val(:~))) === Val(:~) && str2val("(:+=, 1)") ==   FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (2.26 s)
+repo: @test str2val(val2str(Symbol("="))) === Symbol("=") && str2val(val2str(Dict(:~ => 1))) == Dict(:~ =>   PASS  (1.6 s)
+wt356: @test str2val(val2str(Symbol("="))) === Symbol("=") && str2val(val2str(Dict(:~ => 1))) == Dict(:~ =>   FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (2.24 s)

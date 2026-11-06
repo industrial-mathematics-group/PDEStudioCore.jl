@@ -1,0 +1,4 @@
+@test T(lv(8, "'"^1022)) && T(lv(16, "-1"^511)) && T(lv(16, "-1"^511; sep = "; "))
+@test !T(val2str(nestfirst(30, 100))) && str2val(val2str(nestfirst(30, 100))) == nestfirst(30, 100)
+@test str2val(val2str(:~)) === :~ && str2val(val2str(Val(:~))) === Val(:~) && str2val("(:+=, 1)") == (:+=, 1)
+@test str2val(val2str(Symbol("="))) === Symbol("=") && str2val(val2str(Dict(:~ => 1))) == Dict(:~ => 1)

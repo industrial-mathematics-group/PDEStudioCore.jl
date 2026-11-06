@@ -1,0 +1,6 @@
+at356e683/lit3/kw_return_10000: exit=0 wall=3115ms overflow-warnings=2 StackOverflowError=1 | String str2val 1.27 s, maxrss 0.66 GiB
+at356e683/lit3/kw_begin_semi_10000: exit=0 wall=3201ms overflow-warnings=2 StackOverflowError=1 | String str2val 1.35 s, maxrss 0.66 GiB
+at356e683/lit3/kw_local_10000: exit=0 wall=3108ms overflow-warnings=2 StackOverflowError=1 | String str2val 1.26 s, maxrss 0.66 GiB
+at356e683/lit3/kw_tern_return_10000: exit=0 wall=3220ms overflow-warnings=2 StackOverflowError=1 | String str2val 1.38 s, maxrss 0.68 GiB
+at356e683/lit4/at_sym_10000: exit=0 wall=1826ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+at356e683/lit4/at_range_10000: exit=0 wall=1825ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
