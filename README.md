@@ -13,9 +13,9 @@
 [![Human review](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/ai-human-review.json)](https://github.com/industrial-mathematics-group/.github/blob/main/.github/CONTRIBUTING.md#h-human-review)
 [![AI review](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/ai-review.json)](https://github.com/industrial-mathematics-group/.github/blob/main/.github/CONTRIBUTING.md#a-ai-review)
 
-![AI generation](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aidecl-generation.json)
-![Human review](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aidecl-human-review.json)
-![AI review](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aidecl-ai-review.json)
+![AI generation](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aisignoff-generation.json)
+![Human review](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aisignoff-human-review.json)
+![AI review](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aisignoff-ai-review.json)
 </div>
 
 **PDEStudioCore.jl** is a headless Julia backend for running, storing and analysing PDE simulations. You write the solver; PDEStudioCore runs it over parameter sweeps, caches every result on disk under a hash of its parameters, and computes statistics (norms, errors against a reference, conservation) for you.
