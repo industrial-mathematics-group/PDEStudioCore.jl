@@ -32,6 +32,7 @@ end
         ex = exact_advection_1d(cfg.shared)
         err(m, cfl) = final_error(run_example(cfg, m; cfl), ex)
         @test err(:upwind, 1.0) < 1e-12 && err(:lax_wendroff, 1.0) < 1e-12      # exact shifts at ν = 1
+        @test err(:lax_friedrichs, 1.0) < 1e-12                                 # (l + r)/2 - (r - l)/2 = l
         @test err(:lax_wendroff, 0.5) < err(:upwind, 0.5) < err(:lax_friedrichs, 0.5)
     end
 

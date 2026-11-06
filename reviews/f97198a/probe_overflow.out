@@ -1,0 +1,14 @@
+BigInt(3)^(2^62) -> String in 0.13 s
+exit=0  status=0
+BigInt(5)^6148914691236517206 -> String in 0.13 s
+exit=0  status=0
+unknown function (ip: 0x4010b8) at julia
+Allocations: 2075361 (Pool: 2075193; Big: 168); GC: 104
+timeout: the monitored command dumped core
+exit=0  status=134
+(BigInt(3)+0im)^(2^62) -> String in 17.78 s
+exit=0  status=0
+BigInt(2)^typemin(Int) -> String in 0.12 s
+exit=0  status=0
+BigInt(3)^(2^19) -> BigInt in 0.15 s, bits = 830977
+exit=0  status=0

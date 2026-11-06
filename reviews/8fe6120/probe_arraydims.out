@@ -1,0 +1,4 @@
+Dict{Array{Int, 64}, Int}()                                              -> Dict{Array{Int64, 64}, Int64}            str2val 0.21 s, maxrss 0.47 GiB
+                                                                            hash 1.12 s, maxrss 0.61 GiB
+(Dict{Array{Int, 256}, Int}(), Dict{Array{Int, 255}, Int}(),…(120 chars) -> Tuple{Dict{Array{Int64, 256}, Int64}, Dict{Array{Int64, 255} str2val 2.99 s, maxrss 0.74 GiB
+                                                                            hash 17.84 s, maxrss 1.57 GiB

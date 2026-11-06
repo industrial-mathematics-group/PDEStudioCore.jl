@@ -1,0 +1,20 @@
+c[:a] = (1, Nothing)
+typeof(c[:a]) = Tuple{Int64, DataType}
+c[:b] = "Union{Missing, Int64}[1, Missing]"
+typeof(c[:b]) = String
+c[:c] = "Nothing[Nothing]"
+Test Summary:                                      | Pass  Broken  Total  Time
+normalisation of nothing/missing inside containers |    1       2      3  0.6s
+Test Summary:                                    | Pass  Total  Time
+hash collisions between strings and other values |    6      6  0.3s
+sim.params[:h] = 0.1
+typeof(sim.params[:h]) = Float64
+Test Summary:                             | Pass  Total  Time
+save_sim_data mutates the caller's params |    1      1  3.1s
+typeof(v) = Base.EnvDict
+Test Summary:                                 | Pass  Total  Time
+str2val returns live global objects (EnvDict) |    1      1  0.0s
+t = 0.101930398
+ndigits(v) = 4771213
+Test Summary:                                                    | Pass  Total  Time
+str2val resource use: arithmetic on BigInt literals is unbounded |    1      1  0.1s

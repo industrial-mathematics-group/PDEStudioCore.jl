@@ -1,0 +1,12 @@
+=== NTuple{2^62, Int}
+
+[105274] signal 11 (1): Segmentation fault
+in expression starting at ð˜ÎÂ:3
+ijl_svec_fill at /cache/build/builder-amdci4-1/julialang/julia-ci/src/simplevector.c:105
+exit=0
+=== NTuple{10^7, Int}
+NTuple{10^7, Int}                             => DataType                                      t=0.71  hash ok 0.25 s  normalize ok 0.22 s
+exit=0
+=== NTuple{10^8, Int}
+NTuple{10^8, Int}                             => DataType                                      t=5.91  hash ok 0.97 s  normalize ok 2.07 s
+exit=0

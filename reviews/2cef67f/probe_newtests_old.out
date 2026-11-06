@@ -1,0 +1,14 @@
+old: Vector{Float32}[1:2^34] -> String in 0.109 s
+
+new tests against dfdcbac: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round6/psc/probe_newtests_old.jl:12
+  Expression: old("reshape(1:0, (2^32, 2^32))") isa String
+   Evaluated: 4294967296×4294967296 reshape(::UnitRange{Int64}, 4294967296, 4294967296) with eltype Int64 isa String
+
+new tests against dfdcbac: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round6/psc/probe_newtests_old.jl:14
+  Expression: #= /home/agent/.claude/jobs/b26d185e/tmp/reviews/round6/psc/probe_newtests_old.jl:14 =# @allocated(old("Vector{Float16}[0:2^26]")) < 2 ^ 20
+   Evaluated: 139375784 < 1048576
+Test Summary:             | Pass  Fail  Total  Time
+new tests against dfdcbac |    1     2      3  1.0s
+RNG of the outermost testset: Random.Xoshiro(0x891d303c8e15f31b, 0xc561d53cd3dbc0fa, 0x1fff73b15c26308d, 0x106813abfee183b2, 0xec187c1dce92c2a8)
+ERROR: LoadError: Some tests did not pass: 1 passed, 2 failed, 0 errored, 0 broken.
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round6/psc/probe_newtests_old.jl:8

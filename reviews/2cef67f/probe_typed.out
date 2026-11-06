@@ -1,0 +1,26 @@
+--- typed vectors of capped ranges: allocation grows with the number of ranges
+23 chars: Vector{Float64}[1:10^6]                                                    => Vector{Vector{Float64}}                   t=0.001  alloc=7.6 MiB
+31 chars: Vector{Float64}[1:10^6, 1:10^6]                                            => String                                    t=0.001  alloc=15.3 MiB
+47 chars: Vector{Float64}[1:10^6, 1:10^6, 1:10^6, 1:10^6]                            => String                                    t=0.002  alloc=30.5 MiB
+79 chars: Vector{Float64}[1:10^6, 1:10^6, 1:10^6, 1:10^6, 1:10^6, 1:10^6, 1:10^6     => String                                    t=0.006  alloc=61.1 MiB
+31 chars: Vector{Complex{Int128}}[1:10^6]                                            => Vector{Vector{Complex{Int128}}}           t=0.002  alloc=30.5 MiB
+39 chars: Vector{Complex{Int128}}[1:10^6, 1:10^6]                                    => String                                    t=0.003  alloc=61.0 MiB
+55 chars: Vector{Complex{Int128}}[1:10^6, 1:10^6, 1:10^6, 1:10^6]                    => String                                    t=0.007  alloc=122.1 MiB
+33 chars: Vector{Complex{BigFloat}}[1:10^6]                                          => Vector{Vector{Complex{BigFloat}}}         t=0.038  alloc=198.4 MiB
+41 chars: Vector{Complex{BigFloat}}[1:10^6, 1:10^6]                                  => String                                    t=0.082  alloc=396.7 MiB
+--- typed dicts
+39 chars: Dict{Int, Vector{Float64}}(1 => 1:10^6)                                    => String                                    t=0.0  alloc=7.6 MiB
+78 chars: Dict{Int, Vector{Float64}}(1 => 1:10^6, 2 => 1:10^6, 3 => 1:10^6, 4 =>     => String                                    t=0.001  alloc=30.5 MiB
+--- nested typed containers (each inner one is collected before any outer check)
+51 chars: Vector{Vector{Float64}}[Vector{Float64}[1:10^6][1]]                        => String                                    t=0.0  alloc=7.6 MiB
+147 chars: Vector{Matrix{Float64}}[reshape(1:10^6, (1000, 1000)), reshape(1:10^6,    => String                                    t=0.0  alloc=0.0 MiB
+103 chars: Any[Vector{Float64}[1:10^6], Vector{Float64}[1:10^6], Vector{Float64}[    => String                                    t=0.001  alloc=30.5 MiB
+100 chars: (Vector{Float64}[1:10^6], Vector{Float64}[1:10^6], Vector{Float64}[1:1    => String                                    t=0.001  alloc=30.5 MiB
+100 chars: [Vector{Float64}[1:10^6], Vector{Float64}[1:10^6], Vector{Float64}[1:1    => String                                    t=0.001  alloc=30.5 MiB
+--- untyped vect with promotion
+17 chars: [1:10^6, 1.0:2.0]                                                          => String                                    t=0.0  alloc=0.0 MiB
+15 chars: [1:10^6, [1.0]]                                                            => String                                    t=0.0  alloc=0.0 MiB
+39 chars: [1:10^6, 1:10^6, 1:10^6, 1:10^6, [1.0]]                                    => String                                    t=0.0  alloc=0.0 MiB
+--- within limits: still accepted
+23 chars: Vector{Float64}[1:10^6]                                                    => Vector{Vector{Float64}}                   t=0.0  alloc=7.6 MiB
+35 chars: Vector{Float64}[1:500000, 1:500000]                                        => Vector{Vector{Float64}}                   t=0.0  alloc=7.6 MiB

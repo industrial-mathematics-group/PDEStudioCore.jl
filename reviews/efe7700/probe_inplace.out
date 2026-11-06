@@ -1,0 +1,10 @@
+ino = 0x0000000000780d68
+ino2 = 0x0000000000780d7e
+ino3 = 0x0000000000780d7e
+sizes[1] = 38609
+sizes[var"end"] = 41231
+Test Summary:   | Pass  Total  Time
+in-place writes |    1      1  7.7s
+ArgumentError: reducing over an empty collection is not allowed; consider supplying `init` to the reducer
+Test Summary:               | Total  Time
+empty particle step message |     0  2.3s

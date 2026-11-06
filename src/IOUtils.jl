@@ -120,23 +120,42 @@ function _load_key(path::AbstractString, key::AbstractString)
     end
 end
 
-function _append_key!(path::AbstractString, key::AbstractString, value)
-    jldopen(path, "a+") do file
-        haskey(file, key) || (file[key] = value)
+# A temporary file next to `path`, unique per writer (process, task and time; without touching the global RNG),
+# so concurrent writers never share one.
+_tmp_path(path::AbstractString) =
+    string(path, ".", getpid(), "_", string(objectid(current_task()); base = 16), "_", time_ns(), ".tmp")
+
+# Sets top-level entries of an existing file atomically: the entries are written into a byte copy of the file,
+# which is then renamed into place, like every other writer. The other entries are not loaded and stored again
+# (that would change entries of types the session hasn't loaded). Does nothing if every entry already has the
+# given value (`only_missing = true`: if every key already exists). Replacing an entry leaves its old space in
+# the file, so a changed entry grows the file by about its size; the data itself is never rewritten here.
+function _update_entries!(path::AbstractString, entries::AbstractDict{String}; only_missing::Bool = false)
+    pending = jldopen(path, "r") do file
+        filter(((k, v),) -> !haskey(file, k) || (!only_missing && !isequal(file[k], v)), entries)
+    end
+    isempty(pending) && return nothing
+    path = realpath(path)  # replace the file a symlink points to, not the link
+    tmp = _tmp_path(path)
+    try
+        cp(path, tmp)
+        jldopen(tmp, "a+") do file
+            for (k, v) in pending
+                haskey(file, k) && delete!(file, k)
+                file[k] = v
+            end
+        end
+        mv(tmp, path; force = true)
+    catch
+        rm(tmp; force = true)
+        rethrow()
     end
     return nothing
 end
 
-function _set_key!(path::AbstractString, key::AbstractString, value)
-    jldopen(path, "a+") do file
-        if haskey(file, key)
-            isequal(file[key], value) && return nothing  # unchanged: avoid growing the file
-            delete!(file, key)
-        end
-        file[key] = value
-    end
-    return nothing
-end
+_append_key!(path::AbstractString, key::AbstractString, value) =
+    _update_entries!(path, Dict{String, Any}(key => value); only_missing = true)
+_set_key!(path::AbstractString, key::AbstractString, value) = _update_entries!(path, Dict{String, Any}(key => value))
 
 # "shape" identifies the native representation: the size of `u` (Eulerian) or
 # (time steps, total particle count) (Lagrangian).
@@ -154,9 +173,16 @@ function _write_metadata!(file, data::AbstractSimData)
     return nothing
 end
 
-# Copies an entry (recursively for groups) from one open JLD2 file to another.
+# Whether JLD2 had to reconstruct a value (or a type parameter of it, e.g. the element type of a vector) because
+# its type isn't loaded in this session. Best effort: elements of untyped containers are not inspected.
+_is_reconstructed(value) = occursin(r"JLD2\.(Reconstructed|Serialized)", string(typeof(value)))
+
+# Copies an entry (recursively for groups) from one open JLD2 file to another. Entries are loaded and stored
+# again, so an entry whose type isn't loaded in this session is stored as JLD2's reconstruction (warned).
 function _copy_entry!(dest, src, key::AbstractString)
     value = src[key]
+    _is_reconstructed(value) && @warn "Entry '$key' has a type that isn't loaded in this session " *
+        "($(typeof(value))); it is kept as such. Load the package that defines it before rewriting the data."
     if value isa JLD2.Group
         for sub in keys(value)
             _copy_entry!(dest, src, string(key, "/", sub))
@@ -172,7 +198,8 @@ end
 # here (and are not stale conversion caches) are carried over.
 function _write_sim_file(path::AbstractString, data::AbstractSimData, metadata::AbstractDict,
                          previous::Union{Nothing, AbstractString})
-    tmp = path * ".tmp"
+    path = isfile(path) ? realpath(path) : path  # replace the file a symlink points to, not the link
+    tmp = _tmp_path(path)
     try
         jldopen(tmp, "w") do file
             file["raw"] = data
@@ -208,6 +235,7 @@ Saves the dataset under the hash of its (normalised) parameters and returns the 
 An existing file is only replaced when `overwrite = true` (which also drops stale conversion caches).
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 Extra `metadata` entries are stored as top-level keys of the file.
+`sim_data.params` is replaced by its normalised form (see [`get_clean_params`](@ref)), as stored in the file.
 """
 function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbose::Bool = true,
                        metadata::AbstractDict = Dict{String, Any}())
@@ -216,6 +244,12 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
         (key in _MANAGED_KEYS || startswith(key, "conv_")) && throw(ArgumentError(
             "metadata key '$key' is reserved for the data file layout; choose another name"))
     end
+    return _save_sim_data(sim_data, overwrite, verbose, metadata)
+end
+
+# `save_sim_data` without the check of the metadata keys, so internal callers can write managed entries
+# (e.g. "evaluated_stats") in the same atomic write as the data.
+function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Bool, metadata::AbstractDict)
     normalized = _normalize_params(sim_data.params)
     empty!(sim_data.params)
     merge!(sim_data.params, normalized)
@@ -265,12 +299,19 @@ function _native_and_shape(path::AbstractString)
     end
 end
 
-# Whether `data` has the representation stored as "raw" in `path` (and is not, e.g., a conversion of it).
+# Whether `data` is the dataset stored as "raw" in `path`: the same representation and the same solution (its
+# statistics may differ), not a conversion or an exact solution that shares its parameters (and hash).
+# Loads the stored solution once for the comparison.
 function _is_native_representation(path::AbstractString, data::AbstractSimData)
     native, shape = _native_and_shape(path)
     native === _data_kind(data) || return false
-    return shape == _data_shape(data)
+    shape == _data_shape(data) || return false
+    return _same_solution(_load_key(path, "raw"), data)
 end
+
+_same_solution(a::ESimData, b::ESimData) = isequal(a.axes, b.axes) && isequal(a.u, b.u)
+_same_solution(a::LSimData, b::LSimData) = isequal(a.t, b.t) && isequal(a.x, b.x) && isequal(a.u, b.u)
+_same_solution(::AbstractSimData, ::AbstractSimData) = false
 
 function load_sim_data(params::AbstractDict, ::Val{:eulerian}, res::Tuple)
     path = get_file_name(params)

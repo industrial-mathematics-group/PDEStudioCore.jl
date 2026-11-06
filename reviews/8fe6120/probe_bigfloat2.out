@@ -1,0 +1,15 @@
+[121736] signal 11 (1): Segmentation fault
+str2val at /workspace/julia/PDEStudioDev/PDEStudioCore.jl/src/Serialization.jl:211
+    [exit code 139 for: Int128(BigFloat(2)^(2^36))]
+Int(BigFloat(2)^(2^36))                                                  -> String                                   str2val 0.16 s, maxrss 0.45 GiB
+[121793] signal 11 (1): Segmentation fault
+str2val at /workspace/julia/PDEStudioDev/PDEStudioCore.jl/src/Serialization.jl:211
+    [exit code 139 for: Complex{BigInt}(BigFloat(2)^(2^36))]
+[121807] signal 11 (1): Segmentation fault
+    [exit code 139 for: Rational{BigInt}(BigFloat(2)^(-2^36))]
+[121821] signal 11 (1): Segmentation fault
+str2val at /workspace/julia/PDEStudioDev/PDEStudioCore.jl/src/Serialization.jl:211
+    [exit code 139 for: sin(BigFloat(2)^(2^40) + 0im)]
+[121835] signal 11 (1): Segmentation fault
+str2val at /workspace/julia/PDEStudioDev/PDEStudioCore.jl/src/Serialization.jl:211
+    [exit code 139 for: BigInt(BigFloat(2)^(2^36)) isa Any]

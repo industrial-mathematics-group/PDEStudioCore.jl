@@ -1,0 +1,29 @@
+reshape(1:6, (2, 3))                               => Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}} t=0.145  roundtrip=true  hash ok=true
+reshape(1:0, (2^32, 2^32))                         => String                                                  t=0.002
+reshape(1:0, (2^31, 2^31, 4))                      => String                                                  t=0.016
+reshape(1:0, (0, 2^62, 2^62))                      => Base.ReshapedArray{Int64, 3, UnitRange{Int64}, Tuple{}} t=0.013  roundtrip=true  hash ok=true
+reshape(1:0, (2^62, 2^62, 0))                      => String                                                  t=0.0
+reshape(1:0, (0, -1))                              => Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}} t=0.0  val2str/hash THROWS ArgumentError: invalid Array dimensions
+reshape(1:0, (-1, 0))                              => Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}} t=0.0  val2str/hash THROWS ArgumentError: invalid Array dimensions
+reshape(1:6, (-2, -3))                             => Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}} t=0.0  val2str/hash THROWS ArgumentError: invalid Array dimensions
+reshape(1:0, (-2^32, 2^32))                        => String                                                  t=0.0
+reshape(Int64[], (0, 5))                           => Matrix{Int64} size=(0, 5)                               t=0.0  roundtrip=true  hash ok=true
+reshape(1:1, ())                                   => Base.ReshapedArray{Int64, 0, UnitRange{Int64}, Tuple{}} t=0.035  roundtrip=true  hash ok=true
+reshape(Int64[1], ())                              => Array{Int64, 0} size=()                                 t=0.0  roundtrip=true  hash ok=true
+reshape(1:6, (BigInt(2), BigInt(3)))               => Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}} t=0.06  roundtrip=true  hash ok=true
+reshape(1:1, (true, true))                         => Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}} t=0.029  roundtrip=true  hash ok=true
+reshape(1:10^6, (1000, 1000))                      => Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}} t=0.0  roundtrip=true  hash ok=true
+reshape(1:10^6, (1000, 1001))                      => String                                                  t=0.0
+reshape(1:6, (6,))                                 => UnitRange{Int64} size=(6,)                              t=0.019  roundtrip=true  hash ok=true
+reshape(1:4, (2, 2.0))                             => String                                                  t=0.036
+reshape(1:6, (Int8(2), 3))                         => Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}} t=0.063  roundtrip=true  hash ok=true
+reshape(1:0, (UInt64(2)^63, 2))                    => String                                                  t=0.083
+reshape(1:0, (9223372036854775807, 0))             => Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}} t=0.0  val2str/hash THROWS ArgumentError: invalid Array dimensions
+reshape(Float64[], (2^40, 0))                      => Matrix{Float64} size=(1099511627776, 0)                 t=0.039  roundtrip=true  hash ok=true
+reshape(1:0, (Int128(2)^64, 0))                    => String                                                  t=0.104
+reshape(1:0, (0, Int128(2)^64))                    => String                                                  t=0.027
+--- many dimensions (compile time)
+ndims=10: 44 chars, str2val 0.03 s, array; hash 0.11 s
+ndims=50: 164 chars, str2val 0.08 s, array; hash 0.27 s
+ndims=100: 314 chars, str2val 0.12 s, array; hash 0.42 s
+ndims=200: 614 chars, str2val 0.17 s, array; hash 0.82 s

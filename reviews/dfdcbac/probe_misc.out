@@ -1,0 +1,15 @@
+first call reshape(1:2^48, ...): 0.070995933 s
+second call: 0.000123716 s
+value: 4294967296×4294967296 reshape(::UnitRange{Int64}, 4294967296, 4294967296) with eltype Int64  length = 0
+val2str: THROWS ArgumentError: invalid Array dimensions
+_normalize_param: THROWS ArgumentError: invalid Array dimensions
+calculate_hash: THROWS ArgumentError: invalid Array dimensions
+1000000-element Vector{Int64}                      round-trips: true
+1000×1000 Matrix{Float64}                          round-trips: true
+2-element Vector{Vector{Int64}}                    round-trips: true
+1000001-element Vector{Int64}                      round-trips: false
+Dict{Symbol, Any} with 2 entries                   round-trips: true
+Tuple{Int64, String, Symbol, Char, Float32, Rational{Int64}, Complex{Int64}, BigInt} round-trips: false
+3-element Vector{Any}                              round-trips: true
+0-element Vector{Int64}                            round-trips: true
+Tuple{}                                            round-trips: true

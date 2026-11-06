@@ -1,0 +1,26 @@
+[121672] signal 11 (1): Segmentation fault
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round7/psc/one.jl:6
+mpfr_init2 at /workspace/srcdir/mpfr-4.2.2/src/init2.c:63
+mpfr_get_z at /workspace/srcdir/mpfr-4.2.2/src/get_z.c:49
+_unchecked_cast at ./mpfr.jl:441
+_unchecked_cast at ./mpfr.jl:429 [inlined]
+round at ./mpfr.jl:461 [inlined]
+round at ./mpfr.jl:468 [inlined]
+trunc at ./rounding.jl:483 [inlined]
+BigInt at ./mpfr.jl:487
+jfptr_BigInt_19304.1 at /opt/julia/lib/julia/sys.so (unknown line)
+_literal_call at /workspace/julia/PDEStudioDev/PDEStudioCore.jl/src/Serialization.jl:193
+----
+[121692] signal 11 (1): Segmentation fault
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round7/psc/one.jl:6
+mpfr_init2 at /workspace/srcdir/mpfr-4.2.2/src/init2.c:63
+mpfr_cos at /workspace/srcdir/mpfr-4.2.2/src/cos.c:187
+cos at ./mpfr.jl:950
+jfptr_cos_62439.1 at /opt/julia/lib/julia/sys.so (unknown line)
+jl_apply at /cache/build/builder-amdci4-1/julialang/julia-ci/src/julia.h:2319 [inlined]
+jl_f__apply_iterate at /cache/build/builder-amdci4-1/julialang/julia-ci/src/builtins.c:876
+_literal_call at /workspace/julia/PDEStudioDev/PDEStudioCore.jl/src/Serialization.jl:180
+unknown function (ip: 0x7f6ac46b0e66) at (unknown file)
+_literal at /workspace/julia/PDEStudioDev/PDEStudioCore.jl/src/Serialization.jl:117
+unknown function (ip: 0x7f6ac46abcb2) at (unknown file)
+----

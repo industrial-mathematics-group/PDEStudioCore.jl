@@ -1,0 +1,10 @@
+BigInt(1):BigInt(10)^6         rep=1  _literal=21634584  _literal_size=225159056  checked_length=168  length=336
+BigInt(1):BigInt(10)^6         rep=2  _literal=2624  _literal_size=224045344  checked_length=168  length=336
+BigInt(1):BigInt(10)^5         rep=1  _literal=2624  _literal_size=22400128  checked_length=168  length=336
+BigInt(1):BigInt(10)^5         rep=2  _literal=2624  _literal_size=22400128  checked_length=168  length=336
+BigFloat(1):BigFloat(1e6)      rep=1  _literal=9319984  _literal_size=361171240  checked_length=0  length=0
+BigFloat(1):BigFloat(1e6)      rep=2  _literal=3120  _literal_size=360079896  checked_length=0  length=0
+BigFloat(1):BigFloat(1e5)      rep=1  _literal=3120  _literal_size=36000424  checked_length=0  length=0
+BigFloat(1):BigFloat(1e5)      rep=2  _literal=3120  _literal_size=36012392  checked_length=0  length=0
+x isa AbstractArray → length check: 336
+_literal_size twice: 224029328

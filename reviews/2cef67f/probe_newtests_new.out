@@ -1,0 +1,12 @@
+
+same tests at 2cef67f: Test Failed at none:7
+  Expression: str2val("reshape(1:0, (0, -1))") isa String
+   Evaluated: 0×-1 reshape(::UnitRange{Int64}, 0, -1) with eltype Int64 isa String
+
+same tests at 2cef67f: Test Failed at none:9
+  Expression: #= none:9 =# @allocated(str2val("Vector{Float64}[1:10^6, 1:10^6, 1:10^6, 1:10^6]")) < 10 * 2 ^ 20
+   Evaluated: 32269672 < 10485760
+Test Summary:         | Pass  Fail  Total  Time
+same tests at 2cef67f |    4     2      6  1.0s
+RNG of the outermost testset: Random.Xoshiro(0xf2a62fe9adeb4de5, 0xbd13bcb8f7e9a2b2, 0x8e5d11259fd6c2cd, 0xc6e082779217a11f, 0x61d64d15b37f6bd5)
+ERROR: Some tests did not pass: 4 passed, 2 failed, 0 errored, 0 broken.

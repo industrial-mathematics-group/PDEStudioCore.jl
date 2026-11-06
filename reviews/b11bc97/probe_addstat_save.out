@@ -1,0 +1,10 @@
+
+add_stat! + calculate_all_stats!(save = true): Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_addstat_save.jl:10
+  Expression: haskey((load_sim_data(create_param_dict(:case => "addstat"))).stats, :runtime)
+   Evaluated: haskey(StatsView(:Solution, :wave_height, :mass, :l2norm, :l1norm), runtime)
+  Stacktrace:
+Test Summary:                                 | Fail  Total  Time
+add_stat! + calculate_all_stats!(save = true) |    1      1  7.8s
+RNG of the outermost testset: Random.Xoshiro(0x7698aedc7cfa8fec, 0x4998c1f7a633ac05, 0xa9b40475f8bb73a2, 0x9ae165ce0e7f6fe7, 0xe010d3b3b0bae576)
+ERROR: LoadError: Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 broken.
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_addstat_save.jl:4

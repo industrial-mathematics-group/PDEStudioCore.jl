@@ -67,6 +67,63 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         @test_logs (:warn, r"not saved") match_mode = :any calculate_all_stats!(ref, exact_advection)
         @test size(load_sim_data(PARAMS_CONV).u) == size(sim_base.u)
         @test haskey(ref.stats, :mass)  # the statistics are still computed in memory
+
+        # ... also at the native resolution, where representation, shape and parameters all match
+        ref_native = generate_reference_simdata(exact_advection, PARAMS_CONV, sim_base.domain, size(sim_base.u), :eulerian)
+        @test_logs (:warn, r"not saved") match_mode = :any calculate_all_stats!(ref_native, exact_advection)
+        @test load_sim_data(PARAMS_CONV).u == sim_base.u
+        # while the native dataset itself (with other statistics) is saved
+        native = load_sim_data(PARAMS_CONV)
+        calculate_all_stats!(native, exact_advection)
+        @test haskey(load_sim_data(PARAMS_CONV).stats, :l1error)
+    end
+
+    @testset "Bookkeeping entries are written atomically" begin
+        p = create_param_dict(:N => 20, :scheme => "upwind", :cfl => 0.5, :test_mode => "atomic")
+        sim = advection_solver_1d(p)
+        calculate_all_stats!(sim, exact_advection)
+        file = get_file_name(p)
+        flag() = load_sim_data(calculate_hash(get_clean_params(p))[1:12]; key = "evaluated_with_reference")
+        @test flag() == true
+        # Nothing to compute, only the flag changes: the file is replaced (new inode), not modified in place
+        inode, size0 = stat(file).inode, filesize(file)
+        calculate_all_stats!(sim)
+        @test flag() == false && stat(file).inode != inode
+        @test load_sim_data(p).u == sim.u && haskey(load_sim_data(p).stats, :l1error)
+        # Flag updates don't rewrite the data (the file grows by little), and leave no temporary files behind
+        for v in (true, false, true, false)
+            PDEStudioCore._set_key!(file, "evaluated_with_reference", v)
+        end
+        @test filesize(file) <= size0 + 4096 && load_sim_data(p).u == sim.u
+        @test !any(f -> endswith(f, ".tmp"), readdir(dirname(file)))
+        # Entries of types this session doesn't know survive a bookkeeping update unchanged (another process
+        # writes and reads them back)
+        jl = Base.julia_cmd()
+        proj = Base.active_project()
+        foo_file = joinpath(mktempdir(), "foreign.jld2")
+        def = "using PDEStudioCore; using PDEStudioCore.JLD2; struct ForeignEntry; a::Int; end"
+        run(`$jl --project=$proj -e "$def; jldsave($(repr(foo_file)); foo = ForeignEntry(7))"`)
+        PDEStudioCore._set_key!(foo_file, "evaluated_with_reference", true)
+        @test success(`$jl --project=$proj -e "$def; x = load($(repr(foo_file)), \"foo\"); exit(x isa ForeignEntry && x.a == 7 ? 0 : 1)"`)
+        # Here the type is unknown, so rewriting the data warns about the entry; also when the unknown type is
+        # only an element type (a type defined in an anonymous module can't be found again by JLD2)
+        @test PDEStudioCore._is_reconstructed(PDEStudioCore.JLD2.load(foo_file, "foo"))
+        anon = Module()
+        Core.eval(anon, :(struct Hidden; a::Int; end))
+        hidden_file = joinpath(mktempdir(), "hidden.jld2")
+        PDEStudioCore.JLD2.jldsave(hidden_file; v = [Base.invokelatest(anon.Hidden, 1)])
+        @test PDEStudioCore._is_reconstructed(PDEStudioCore.JLD2.load(hidden_file, "v"))
+        @test !PDEStudioCore._is_reconstructed([1.0, 2.0]) && !PDEStudioCore._is_reconstructed(Dict(:a => 1))
+        # A symlinked data file stays a symlink, and its target is updated
+        link = foo_file * ".link.jld2"
+        symlink(foo_file, link)
+        PDEStudioCore._set_key!(link, "evaluated_with_reference", false)
+        @test islink(link) && PDEStudioCore.JLD2.load(foo_file, "evaluated_with_reference") == false
+
+        # Unchanged entries don't touch the file at all
+        inode = stat(file).inode
+        calculate_all_stats!(sim)
+        @test stat(file).inode == inode
     end
 
     @testset "Resampling keeps non-uniform axes it does not resample" begin

@@ -1,0 +1,13 @@
+Test Summary:                                       | Pass  Total  Time
+postprocess returning false does not prevent saving |    1      1  5.7s
+has_eval = false
+Test Summary:                                                                    | Pass  Total  Time
+postprocess returning true: evaluated_stats dropped, file rewritten on every run |    3      3  3.6s
+typeof(err) = ArgumentError
+Test Summary:                                      | Pass  Total  Time
+wave_height on a Lagrangian step without particles |    1      1  2.2s
+(tasks[1])[:Ns] = (20, 10)
+[t[:dt__1] for t = tasks] = [0.1, 0.1]
+(tasks[1])[:Ns] = (10, 10, 0.0, 5)
+Test Summary:  | Pass  Total  Time
+tuple suffixes |    4      4  0.7s

@@ -1,0 +1,8 @@
+OneTo{Int}[10^18]                                                        -> String                                   str2val 0.03 s, maxrss 0.43 GiB
+OneTo[10^18]                                                             -> String                                   str2val 0.03 s, maxrss 0.44 GiB
+Dict{Int, OneTo{Int}}(1 => 10^18)                                        -> String                                   str2val 0.05 s, maxrss 0.44 GiB
+Vector{Vector{Int}}[OneTo{Int}[10^7]]                                    -> String                                   str2val 0.03 s, maxrss 0.43 GiB
+Pair{Int, OneTo{Int}}[1 => 10^18]                                        -> String                                   str2val 0.05 s, maxrss 0.44 GiB
+Tuple{OneTo{Int}}[(10^7,)]                                               -> String                                   str2val 0.06 s, maxrss 0.44 GiB
+Vector{Float64}[(1, 2)]                                                  -> String                                   str2val 0.03 s, maxrss 0.43 GiB
+Vector{Float64}[OneTo{Int}[5]]                                           -> String                                   str2val 0.01 s, maxrss 0.43 GiB

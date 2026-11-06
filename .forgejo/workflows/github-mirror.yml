@@ -19,6 +19,8 @@ name: Push to GitHub
 
 on:
   workflow_dispatch:
+  push:
+    branches: ["main_dev"]
 
 concurrency:
   group: github-mirror
@@ -59,8 +61,7 @@ jobs:
           # and have no counterpart on Forgejo; every other branch on GitHub,
           # gh-pages included, is outside the patterns and left alone.
           git push --prune "$dst" \
-            '+refs/heads/main:refs/heads/main' \
-            '+refs/heads/claude/*:refs/heads/claude/*'
+            '+refs/heads/main_dev:refs/heads/main_dev'
 
           # Tags: create/update only, never delete (TagBot creates the release
           # tags on GitHub).

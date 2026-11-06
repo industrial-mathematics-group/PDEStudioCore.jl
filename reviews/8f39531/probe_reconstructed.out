@@ -1,0 +1,15 @@
+PDEStudioCore warnings: 2
+  Entry 'note' has a type that isn't loaded in this session (ReconstructedStatic); it is kep
+  Entry 'mnote' has a type that isn't loaded in this session (ReconstructedStatic); it is ke
+all warnings: 8
+--- process C (types defined):
+note   => JLD2.ReconstructedStatic{:UserNote, (:a,), Tuple{Int64}}
+notes  => Vector{JLD2.ReconstructedStatic{:UserNote, (:a,), Tuple{Int64}}}
+┌ Warning: some parameters could not be resolved for type Pair{String,JLD2.ReconstructedStatic{:UserNote, (:a,), Tuple{Int64}}}; reading as Pair{String, JLD2.ReconstructedStatic{:UserNote, (:a,), Tuple{Int64}}}
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:580
+dnote  => JLD2.SerializedDict
+mnote  => JLD2.ReconstructedStatic{:MutNote, (:a,), Tuple{Int64}}
+┌ Warning: some parameters could not be resolved for type Some{JLD2.ReconstructedStatic{:UserNote, (:a,), Tuple{Int64}}}; reading as Some{JLD2.ReconstructedStatic{:UserNote, (:a,), Tuple{Int64}}}
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:580
+snote  => Some{JLD2.ReconstructedStatic{:UserNote, (:a,), Tuple{Int64}}}
+tnote  => Tuple{JLD2.ReconstructedStatic{:UserNote, (:a,), Tuple{Int64}}, Int64}

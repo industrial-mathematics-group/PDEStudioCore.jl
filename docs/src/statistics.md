@@ -51,6 +51,8 @@ end
 
 The function must return an `SVector` with one entry per field component.
 
+The integration measure is the product of the mean node spacings of the integrated dimensions, so `sum(u .* measure)` is a rectangle rule over all nodes. That is exact for periodic grids without the duplicate endpoint and harmless where the solution vanishes on the boundary, but on a grid that contains both endpoints of an axis it counts the boundary nodes fully: `u ≡ 1` on `[0, 1]` with `N` nodes integrates to `N/(N - 1)`. Convergence orders are unaffected; absolute masses and norms carry this `O(h)` offset.
+
 ### Step C: Evaluate
 
 ```julia

@@ -37,7 +37,7 @@ pkg> add PDEStudioCore
 ```julia
 using PDEStudioCore
 
-set_stat_preset!("hyperbolic")             # mass, L1/L2 norms and errors, wave position, …
+set_stat_preset!("hyperbolic")             # mass, L1/L2 norms and errors, wave height, …
 set_save_path!("results")
 run_all_simulations(test_heat_1d(); parallel = true, calculate_stats = true)
 ```
@@ -91,7 +91,7 @@ config  = SimulationConfig(shared, methods, [:upwind, :lax_friedrichs];      # a
                            reference = :my_exact_advection)
 
 # 4. Run: 2 methods × 3 CFL numbers = 6 runs, with statistics
-set_stat_preset!("hyperbolic")             # mass, L1/L2 norms and errors, wave position, …
+set_stat_preset!("hyperbolic")             # mass, L1/L2 norms and errors, wave height, …
 set_save_path!("results")
 run_all_simulations(config; parallel = true, calculate_stats = true)
 
@@ -113,7 +113,7 @@ The built-in examples in [`src/Examples/`](src/Examples/) are complete versions 
 | `defaults` | The methods that are run. |
 | `varied` | The sweep; a swept key must also exist in `shared` or a method. |
 | `reference` | Name of a reference factory (exact solution) for error statistics. |
-| `postprocess` | Name of a function `data -> Bool` deciding whether a result is saved. |
+| `postprocess` | Name of a function `data -> Bool` run on every dataset; `true` saves the changes it made. |
 | `sources` | Files included before running (e.g. the file defining the solver). |
 
 Functions are referenced by name and resolved in the module set with `set_target_module!` (default: `Main`).

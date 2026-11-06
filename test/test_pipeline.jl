@@ -1,5 +1,6 @@
 POST_CALLS = Ref(0)  # non-const so the suite can be re-run in one session
 count_post(data) = (POST_CALLS[] += 1; nothing)  # returns nothing: nothing is saved
+keep_post(data) = true                            # saves the (unchanged) data again
 
 @testset "SimulationConfig" begin
     # Varied keys must also appear in the shared (or method) parameters.
@@ -46,6 +47,13 @@ count_post(data) = (POST_CALLS[] += 1; nothing)  # returns nothing: nothing is s
     @test length(tasks3) == 1
     @test is_reference_method(:analytic) && is_reference_method(:exact_solution)
     @test !is_reference_method(:inexact_newton) && !is_reference_method(:construe)
+    # A method named like a reference but with a solver of its own is skipped too, with a warning
+    cfg4 = SimulationConfig(Dict(:N => 8),
+                            Dict(:godunov_exact_riemann => Dict(:sim_func_name => :advection_solver_1d),
+                                 :upwind => Dict(:scheme => "upwind", :sim_func_name => :advection_solver_1d)))
+    empty!(PDEStudioCore._WARNED_REFERENCE_NAMES)  # warned once per session: keep the suite re-runnable
+    tasks4 = @test_logs (:warn, r"godunov_exact_riemann.*marks it as a reference") match_mode = :any generate_tasks(cfg4)
+    @test length(tasks4) == 1
 end
 
 @testset "Pipeline: sweep, statistics & loading" begin
@@ -105,6 +113,19 @@ end
     @test PDEStudioCore._split_varied_key(:Ns__12) == (:Ns, [12])
     @test PDEStudioCore._split_varied_key(:Ns__zx) == (:Ns, [1, 3])
     @test PDEStudioCore._split_varied_key(:Ns__ab) == (:Ns__ab, nothing)   # not a tuple suffix
+    # a parameter whose own name looks like a suffix key is an ordinary key
+    tasks_dt, _ = generate_method_tasks(create_param_dict(:dt__1 => 0.1), [:dt__1], [[0.2, 0.3]])
+    @test [t[:dt__1] for t in tasks_dt] == [0.2, 0.3]
+    cfg_dt = SimulationConfig(create_param_dict(:dt__1 => 0.1, :sim_func_name => :dummy_tuple_solver);
+                              varied = create_varied_dict(:dt__1 => [0.2]))
+    @test only(generate_tasks(cfg_dt))[:dt__1] == 0.2
+    # Bool tuples stay Bool tuples
+    tasks_b, _ = generate_method_tasks(create_param_dict(:flags => (true, true)), [:flags__y], [[false]])
+    @test tasks_b[1][:flags] === (true, false)
+    # a suffix on a scalar parameter is a configuration error, reported as such
+    @test_throws ArgumentError generate_method_tasks(create_param_dict(:N => 10), [:N__all], [[20]])
+    @test_throws ArgumentError generate_tasks(SimulationConfig(create_param_dict(:N => 10, :sim_func_name => :dummy_tuple_solver);
+                                                               varied = create_varied_dict(:N__x => [20])))
     cfg_sq = SimulationConfig(create_param_dict(:Ns => (10, 10), :sim_func_name => :dummy_tuple_solver);
                               varied = create_varied_dict(:Ns__all => [20, 30]))
     @test [t[:Ns] for t in generate_tasks(cfg_sq)] == [(20, 20), (30, 30)]
@@ -178,6 +199,20 @@ end
 
     # A sweep without values produces no tasks (and says so)
     @test isempty(@test_logs (:warn, r"no values") match_mode = :any generate_tasks(SimulationConfig(shared; varied = Dict(:N => Int[]))))
+end
+
+@testset "Pipeline: post-processing keeps the statistics bookkeeping" begin
+    shared = create_param_dict(:N => 10, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :advection_solver_1d,
+                               :test_mode => "post-keep")
+    cfg = SimulationConfig(shared; postprocess = :keep_post)
+    run_all_simulations(cfg; calculate_stats = true)   # no reference: the error statistics are dropped
+    p = only(generate_tasks(cfg))
+    file = get_file_name(p)
+    entries = load_sim_data(calculate_hash(get_clean_params(p))[1:12])
+    @test haskey(entries, "evaluated_stats") && entries["evaluated_with_reference"] == false
+    # so a rerun doesn't reload the data for statistics that were evaluated already
+    required = sort!(Symbol[k for k in keys(get_stat_registry()) if k !== :Solution])
+    @test !PDEStudioCore._needs_stats(file, required, false)
 end
 
 @testset "Pipeline: source files" begin
