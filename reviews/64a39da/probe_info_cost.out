@@ -1,0 +1,6 @@
+new file: 0.226 ms, 0.0457 MiB
+old file, call 1: 17.9 ms, 7.91 MiB; dim_keys written back: false
+old file, call 2: 1.89 ms, 7.91 MiB; dim_keys written back: false
+old file, call 3: 3.19 ms, 7.91 MiB; dim_keys written back: false
+info params given as a plain Dict with unnormalised values: 500
+file without native/shape: ArgumentError: 2026-11-06_11-17-21_838_90dd256c37bab25313f13f24c0e54c13c7f844fbf5f7e7282526fe0dc38d108f.jld2 was written by an older PDEStudioCore version (no "native"/"shape" metadata). Run its configuration again (`run_all_simulations` recomputes outdated files) or delete it.

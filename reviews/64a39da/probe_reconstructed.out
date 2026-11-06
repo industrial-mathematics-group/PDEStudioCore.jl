@@ -1,0 +1,52 @@
+== false positives (should all be nothing)
+Dict{Symbol,Any} mixed                                          nothing
+nested Any vectors                                              nothing
+String with JLD2.ReconstructedMutable                           nothing
+Any[String with JLD2.UnknownType]                               nothing
+Types as values                                                 nothing
+Vector{DataType}                                                nothing
+Vector{Union{Missing,Float64}} 10^7                             nothing
+SVector-ish tuple                                               nothing
+after JLD2 roundtrip: Dict{Symbol,Any}                          nothing
+after JLD2 roundtrip: Any types                                 nothing
+   user module whose name ends in JLD2 (regex unanchored):
+   MyJLD2.Reconstructed()                                       "Main.MyJLD2.Reconstructed"
+== true positives after a JLD2 round trip (should name Hidden)
+Hidden                                                          "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+type Hidden                                                     "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+Any[1, Hidden]                                                  "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+Dict{Symbol,Any}(:h => type)                                    "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+Any[Any[(1, type)]]                                             "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+Vector{Type}[type]                                              "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+depth 4: Any[Any[Any[Any[h]]]]                                  "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+== false negatives (reconstructed value present; nothing means missed)
+Vector{Vector{Any}}: [Any[h]]                                   nothing
+Dict{String, Dict{Symbol,Any}}                                  nothing
+Dict{Symbol, Vector{Any}}                                       nothing
+NamedTuple (a = Any[h],)                                        nothing
+Pair :a => Any[h]                                               nothing
+Set{Any}                                                        nothing
+depth 5: Any[Any[Any[Any[Any[h]]]]]                             nothing
+Any vector, h at index 10^4+1                                   nothing
+Dict{Symbol,Any} with 10^4+ keys, one value Hidden              nothing
+Dict{Symbol,Any} with 6000 keys, one value Hidden               "JLD2.ReconstructedStatic{:Hidden, (:a,), Tuple{Int64}}"
+== cost
+Any[Float64 x 10^6]                                             0.00234 s, 1.9 MiB
+Vector{Union{Missing,Float64}} 10^7                             0.00248 s, 2.03 MiB
+Any[10^3 x Any[10^3 Float64]] (10^6 leaves)                     0.396 s, 253.0 MiB
+Any[2000 x Any[2000 Float64]] (4*10^6 leaves)                   1.25 s, 871.0 MiB
+Any[30 x Any[30 x Any[30 x Any[30]]]] (8.1*10^5)                5.13 s, 2090.0 MiB
+Dict{Symbol,Any}(10^5 entries)                                  0.00236 s, 1.89 MiB
+Vector{Float64} 10^8 (concrete)                                 0.000172 s, 0.0695 MiB
+== cycles
+   self-referential Any vector: nothing (terminates)
+   self-referential Dict: nothing
+== JLD2.Group
+   JLD2.Group <: AbstractDict: false
+   rt(group) = nothing  typeof = JLD2.Group{JLD2.JLDFile{JLD2.MmapIO}}
+== end to end: carried-over metadata during save_sim_data(overwrite = true)
+   warned entries: SubString{String}["top"]
+┌ Warning: Assignment to `v` in soft scope is ambiguous because a global variable by the same name exists: `v` will be treated as a new local. Disambiguate by using `local v` to suppress this warning or `global v` to assign to the existing global variable.
+   stored top: Dict{Symbol, Any}  rt = "JLD2.UnknownType{Symbol(\"Main.anonymous.Hidden\"), Tuple{}}"
+   stored nested: Dict{String, Dict{Symbol, Any}}  rt = nothing
+   stored vv: Vector{Vector{Any}}  rt = nothing

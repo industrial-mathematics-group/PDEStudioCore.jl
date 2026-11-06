@@ -1,0 +1,27 @@
+old _is_reconstructed(t)                false
+old _is_reconstructed(anyv)             false
+old _is_reconstructed(d)                false
+old _is_reconstructed(nested)           false
+is the old code loaded: yes
+symlink test on this code: Log Test Failed at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2/probes/probe_newtests_old.jl:20
+  Expression: rehash_sim_data(linked; remove_keys = [:obsolete])
+  Log Pattern: (:warn, r"is a symlink.*is kept"s) match_mode = :any
+  Captured Logs: 
+    LogRecord(Info, "Processing matched file: 2026-11-06_11-17-03_195_d6cbfb7e950eedd46836a195951be8e3d630443d788c5e1520a639d3e7305125.jld2", PDEStudioCore, :DataManagement, :PDEStudioCore_da07fc5d, "/home/agent/.claude/jobs/d2d299f1/tmp/review-psc2/probes/oldrepo/src/DataManagement.jl", 213, Base.Pairs{Symbol, Union{}, Nothing, @NamedTuple{}}())
+    LogRecord(Info, "  Removed key :obsolete", PDEStudioCore, :DataManagement, :PDEStudioCore_d1bf37d9, "/home/agent/.claude/jobs/d2d299f1/tmp/review-psc2/probes/oldrepo/src/DataManagement.jl", 218, Base.Pairs{Symbol, Union{}, Nothing, @NamedTuple{}}())
+    LogRecord(Info, "Rehashed and renamed: 2026-11-06_11-17-03_195_d6cbfb7e950eedd46836a195951be8e3d630443d788c5e1520a639d3e7305125.jld2 -> 2026-11-06_11-17-03_195_efa32451532158c654d8c66a5cfa9096ba1cb174c9ecf43ea73423dc50c5b036.jld2", PDEStudioCore, :DataManagement, :PDEStudioCore_31c53637, "/home/agent/.claude/jobs/d2d299f1/tmp/review-psc2/probes/oldrepo/src/DataManagement.jl", 245, Base.Pairs{Symbol, Union{}, Nothing, @NamedTuple{}}())
+
+Stacktrace:
+ [1] record(ts::Test.DefaultTestSet, t::Test.LogTestFailure)
+   @ Test /opt/julia/share/julia/stdlib/v1.13/Test/src/logging.jl:166
+ [2] top-level scope
+   @ ~/.claude/jobs/d2d299f1/tmp/review-psc2/probes/probe_newtests_old.jl:20
+ [3] macro expansion
+   @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+ [4] macro expansion
+   @ ~/.claude/jobs/d2d299f1/tmp/review-psc2/probes/probe_newtests_old.jl:20 [inlined]
+Test Summary:             | Pass  Fail  Total  Time
+symlink test on this code |    1     1      2  2.7s
+RNG of the outermost testset: Random.Xoshiro(0x6728f8692eb42377, 0x9fee726af22e30ee, 0xa6bda88266389526, 0x2841c2ea143cc707, 0xa274ee9c92031130)
+ERROR: LoadError: Some tests did not pass: 1 passed, 1 failed, 0 errored, 0 broken.
+in expression starting at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2/probes/probe_newtests_old.jl:19
