@@ -1,0 +1,16 @@
+Size                                                          UnionAll                                        -> String                                    hash text same
+SubString{String}["a", "b"]                                   Vector{SubString{String}}                       -> String                                    hash text same
+BitVector                                                     DataType                                        -> String                                    hash text same
+Colon                                                         DataType                                        -> String                                    hash text same
+193 literals, 4 differ, 0 with different hash text
+sqrt(1//4)    in corpus
+SizedVector   NOT in corpus
+SubString     in corpus
+Size(         NOT in corpus
+IdDict        in corpus
+StaticArrays types reachable by the old parser but not in part 4's set: 25: FieldArray, FieldMatrix, FieldVector, Length, MArray, MMatrix, MVector, SA, SA_F32, SA_F64, SArray, SDiagonal, SHermitianCompact, SMatrix, SOneTo, SVector, Scalar, Size, SizedArray, SizedMatrix, SizedVector, StaticArray, StaticMatrix, StaticScalar, StaticVector
+DataFrames                    12 more types: AbstractDataFrame, All, AsTable, Between, ByRow, Cols, DataFrame, DataFrameRow, GroupedDataFrame, InvertedIndex, Not, SubDataFrame
+JLD2                          3 more types: Deflate, Shuffle, ZstdFilter
+Dates                         21 more types: Date, DateFormat, DatePeriod, DateTime, Day, Hour, Microsecond, Millisecond, Minute, Month, Nanosecond, Period
+LinearAlgebra                 39 more types: Adjoint, Bidiagonal, BunchKaufman, Cholesky, CholeskyPivoted, ColumnNorm, Diagonal, Eigen, Factorization, GeneralizedEigen, GeneralizedSVD, GeneralizedSchur
+Interpolations                34 more types: AbstractExtrapolation, AbstractInterpolation, AkimaMonotonicInterpolation, BSpline, CardinalMonotonicInterpolation, Constant, Cubic, CubicHermite, FiniteDifferenceMonotonicInterpolation, Flat, Free, FritschButlandMonotonicInterpolation

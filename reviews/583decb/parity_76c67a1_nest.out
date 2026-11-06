@@ -1,0 +1,31 @@
+1   Any['"', "((((((((((((((((((((((((((((((((((((((((   new: Vector{Any}                      old: Vector{Any}                      hash text equal: true
+2   ('"', "-------------------------------------------   new: Tuple{Char, String}              old: Tuple{Char, String}              hash text equal: true
+3   ('"', "x", "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[")      new: Tuple{Char, String, String}      old: Tuple{Char, String, String}      hash text equal: true
+4   Char['(', '(', '(', '(', '(', '(', '(', '(', '(',    new: Vector{Char}                     old: Vector{Char}                     hash text equal: true
+5   Char['(', '(', '(', '(', '(', '(', '(', '(', '(',    new: Vector{Char}                     old: Vector{Char}                     hash text equal: true
+6   Char['"', '"']                                       new: Vector{Char}                     old: Vector{Char}                     hash text equal: true
+7   '"'                                                  new: Char                             old: Char                             hash text equal: true
+8   Vector{Vector{Vector{Vector{Vector{Vector{Vector{V   new: Vector{Vector{Vector{Vector{Ve   old: Vector{Vector{Vector{Vector{Ve   hash text equal: true
+9   Vector{Vector{Vector{Vector{Vector{Vector{Vector{V   new: Vector{Vector{Vector{Vector{Ve   old: Vector{Vector{Vector{Vector{Ve   hash text equal: true
+10  Vector{Vector{Vector{Vector{Vector{Vector{Vector{V   new: String                           old: Vector{Vector{Vector{Vector{Ve   hash text equal: true
+11  (((((((((((((((((((((((((((((((((1,),),),),),),),)   new: String                           old: Tuple{Tuple{Tuple{Tuple{Tuple{   hash text equal: true
+12  Dict{Symbol, Dict{Symbol, Dict{Symbol, Dict{Symbol   new: Dict{Symbol, Dict{Symbol, Dict   old: Dict{Symbol, Dict{Symbol, Dict   hash text equal: true
+13  Dict{Symbol, Dict{Symbol, Dict{Symbol, Dict{Symbol   new: String                           old: Dict{Symbol, Dict{Symbol, Dict   hash text equal: true
+14  String["\"", "((((((((((((((((((((((((((((((((((((   new: Vector{String}                   old: Vector{String}                   hash text equal: true
+15  String["a\\", "(((((((((((((((((((((((((((((((((((   new: Vector{String}                   old: Vector{String}                   hash text equal: true
+16  Symbol("((((((((((((((((((((((((((((((((((((((((")   new: Symbol                           old: Symbol                           hash text equal: true
+17  Symbol[Symbol("\"")]                                 new: Vector{Symbol}                   old: Vector{Symbol}                   hash text equal: true
+18  --------------------------------------------------   new: String                           old: String                           hash text equal: true
+19  Complex{Rational{Int64}}[1//2 + 3//4*im]             new: Vector{Complex{Rational{Int64}   old: Vector{Complex{Rational{Int64}   hash text equal: true
+20  1180591620717411303424//3 + 1//1*im                  new: Complex{Rational{Int128}}        old: Complex{Rational{Int128}}        hash text equal: true
+21  reshape(Float64[-1.5e-5, -1.5e-5, -1.5e-5, -1.5e-5   new: Matrix{Float64}                  old: Matrix{Float64}                  hash text equal: true
+22  SVector{1, SVector{1, SVector{1, SVector{1, SVecto   new: String                           old: Vector{SVector{1, SVector{1, S   hash text equal: true
+23  NTuple{4, NTuple{4, Float64}}                        new: DataType                         old: DataType                         hash text equal: true
+24  Vector{Vector{Vector{Vector{Vector{Vector{Vector{V   new: String                           old: DataType                         hash text equal: true
+25  Vector{Vector{Vector{Vector{Vector{Vector{Vector{V   new: DataType                         old: DataType                         hash text equal: true
+    "\"\"\"a\"((((((((((((((((((((((((((((((((((((((((\"\"\"" new: "a\"((((((((((((((((((((((((((   old: "a\"((((((((((((((((((((((((((
+    "'\"'"                                               new: '"'                              old: '"'
+    "('\"', 1)"                                          new: ('"', 1)                         old: ('"', 1)
+    "\"a#b\""                                            new: "a#b"                            old: "a#b"
+    "1 # \"\n"                                           new: 1                                old: 1
+    "1 #= ((( =#"                                        new: 1                                old: 1

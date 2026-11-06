@@ -313,10 +313,12 @@ end
 
 """
     run_all_simulations(config::SimulationConfig; force_overwrite = false, calculate_stats = false,
-                        force_stats = false, post_process = true, parallel = false)
+                        force_stats = false, post_process = true, parallel = false, load_sources = true)
 
 Runs the complete pipeline for a [`SimulationConfig`](@ref):
-0. includes `config.sources` into the target module,
+0. includes `config.sources` into the target module (with `load_sources = false` the caller has done that
+   itself, e.g. PDEStudio, which runs the source copies bundled with an export in place of their originals; their
+   digests are stored either way),
 1. runs every task of [`generate_tasks`](@ref) whose data is not on disk yet (all of them with
    `force_overwrite`), in parallel over Julia threads with `parallel = true`,
 2. with `calculate_stats = true`, evaluates missing statistics using the reference factory
@@ -330,9 +332,10 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref):
 Failures of individual tasks are logged and do not abort the batch.
 """
 function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = false, calculate_stats::Bool = false,
-                             force_stats::Bool = false, post_process::Bool = true, parallel::Bool = false)
+                             force_stats::Bool = false, post_process::Bool = true, parallel::Bool = false,
+                             load_sources::Bool = true)
     @info "Started simulation pipeline."
-    _load_sources(config.sources)
+    load_sources && _load_sources(config.sources)
     tasks = generate_tasks(config)
     n = length(tasks)
     if n == 0

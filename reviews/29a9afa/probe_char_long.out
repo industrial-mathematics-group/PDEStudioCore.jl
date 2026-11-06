@@ -1,0 +1,10 @@
+'\xf0\x80\x80\x80'                 char_literal_end(s,1)=nothing  too_nested=false  new: Char  old: Char  equal: true
+Char['\xf0\x80\x80\x80', '"']      char_literal_end(s,6)=nothing  too_nested=false  new: Vector{Char}  old: Vector{Char}  equal: true
+('\xf0\x80\x80\x80', "x")          char_literal_end(s,2)=nothing  too_nested=false  new: Tuple{Char, String}  old: Tuple{Char, String}  equal: true
+'\U110000'                         char_literal_end(s,1)=10  too_nested=false  new: String  old: String  equal: true
+Char['\U110000', '"']              char_literal_end(s,6)=15  too_nested=false  new: String  old: String  equal: true
+('\U110000', "x")                  char_literal_end(s,2)=11  too_nested=false  new: String  old: String  equal: true
+'\U1fffff'                         char_literal_end(s,1)=10  too_nested=false  new: String  old: String  equal: true
+Char['\U1fffff', '"']              char_literal_end(s,6)=15  too_nested=false  new: String  old: String  equal: true
+('\U1fffff', "x")                  char_literal_end(s,2)=11  too_nested=false  new: String  old: String  equal: true
+typed: ('\xf0\x80\x80\x80','"', deep) too_nested = false

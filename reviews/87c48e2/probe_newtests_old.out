@@ -1,0 +1,43 @@
+str2val("NTuple{256, NTuple{256, Int}}") isa String                      old: false  (0.09 s)
+   [exit 0] str2val("NTuple{256, NTuple{256, Int}}") isa String
+   [exit 1] str2val("Dict{NTuple{256, NTuple{256, Int}}, Int}()") isa String
+terminate called after throwing an instance of 'std::bad_alloc'
+   [exit 139] str2val("Dict{NTuple{256, NTuple{256, NTuple{256, Int}}}, Int}()") isa
+str2val("NTuple{256, NTuple{256, NTuple{256, Any}}}[]") isa String       old: false  (5.07 s)
+   [exit 0] str2val("NTuple{256, NTuple{256, NTuple{256, Any}}}[]") isa String
+str2val("Dict((" * join(fill("1", 10^4), ", ") * ",) => 1)") isa Strin   old: false  (58.88 s)
+   [exit 0] str2val("Dict((" * join(fill("1", 10^4), ", ") * ",) => 1)") isa Strin
+str2val("Dict((1, 2) => 3)") == Dict((1, 2) => 3)                        old: true  (0.22 s)
+   [exit 0] str2val("Dict((1, 2) => 3)") == Dict((1, 2) => 3)
+str2val("Dict{Array{Int, 256}, Int}()") isa String                       old: false  (0.87 s)
+   [exit 0] str2val("Dict{Array{Int, 256}, Int}()") isa String
+str2val("Array{Int, 16}") == Array{Int, 16}                              old: true  (0.11 s)
+   [exit 0] str2val("Array{Int, 16}") == Array{Int, 16}
+str2val("BigInt(BigFloat(2)^(2^28))") isa String                         old: false  (0.18 s)
+   [exit 0] str2val("BigInt(BigFloat(2)^(2^28))") isa String
+   [exit 1] str2val("BigInt(BigFloat(2)^(2^36))") isa String
+   [exit 1] str2val("cos(BigFloat(2)^(2^40))") isa String
+   [exit 1] str2val("sin(BigFloat(2)^(2^40) + 0im)") isa String
+   [exit 1] str2val("Rational{BigInt}(BigFloat(2)^(-2^36))") isa String
+str2val("BigInt(big\"1.5e100000000\")") isa String                       old: true  (0.06 s)
+   [exit 0] str2val("BigInt(big\"1.5e100000000\")") isa String
+str2val("BigFloat(2)^100") == BigFloat(2)^100                            old: true  (0.15 s)
+   [exit 0] str2val("BigFloat(2)^100") == BigFloat(2)^100
+str2val("NTuple{300, Float64}") == NTuple{300, Float64}                  old: false  (0.1 s)
+   [exit 0] str2val("NTuple{300, Float64}") == NTuple{300, Float64}
+str2val("SMatrix{17, 17, Float64, 289}") == SMatrix{17, 17, Float64, 2   old: false  (0.1 s)
+   [exit 0] str2val("SMatrix{17, 17, Float64, 289}") == SMatrix{17, 17, Float64, 2
+str2val(val2str([ntuple(_ -> 1.0, 300)])) == [ntuple(_ -> 1.0, 300)]     old: false  (0.16 s)
+   [exit 0] str2val(val2str([ntuple(_ -> 1.0, 300)])) == [ntuple(_ -> 1.0, 300)]
+str2val("NTuple{1025, Int}") isa String                                  old: true  (0.1 s)
+   [exit 0] str2val("NTuple{1025, Int}") isa String
+str2val("1//2:1//2:2") == 1//2:1//2:2                                    old: false  (0.19 s)
+   [exit 0] str2val("1//2:1//2:2") == 1//2:1//2:2
+str2val("Base.EnvDict()") isa String && str2val("EnvDict()") isa Strin   old: true  (0.1 s)
+   [exit 0] str2val("Base.EnvDict()") isa String && str2val("EnvDict()") isa Strin
+str2val("OneTo{Int}[10]") isa String                                     old: true  (0.1 s)
+   [exit 0] str2val("OneTo{Int}[10]") isa String
+str2val("Date(2020)") isa String                                         old: true  (0.07 s)
+   [exit 0] str2val("Date(2020)") isa String
+str2val("Float32") === Float32 && str2val("Float64") === Float64         old: true  (0.02 s)
+   [exit 0] str2val("Float32") === Float32 && str2val("Float64") === Float64

@@ -1,0 +1,17 @@
+lvl_unarysp_31: exit=0 wall=2737ms overflow-warnings=1 StackOverflowError=1 | String str2val 0.82 s, maxrss 0.62 GiB
+lvl_not_31: exit=0 wall=2775ms overflow-warnings=1 StackOverflowError=1 | String str2val 0.81 s, maxrss 0.62 GiB
+lvl_sqrt_31: exit=0 wall=2747ms overflow-warnings=1 StackOverflowError=1 | String str2val 0.85 s, maxrss 0.62 GiB
+lvl_where_31: exit=0 wall=2725ms overflow-warnings=1 StackOverflowError=1 | String str2val 0.79 s, maxrss 0.61 GiB
+lvl_decl_31: exit=0 wall=2664ms overflow-warnings=1 StackOverflowError=1 | String str2val 0.74 s, maxrss 0.6 GiB
+lvl_splat_31: exit=0 wall=1926ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.51 GiB
+lvl_juxt_31: exit=0 wall=1909ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+--- in a task (Threads.@spawn)
+task_comma_assign_10000: exit=0 wall=2778ms overflow-warnings=1 StackOverflowError=1 | String str2val 0.87 s, maxrss 0.63 GiB
+task_lvl_pow_16: exit=0 wall=2749ms overflow-warnings=1 StackOverflowError=1 | String str2val 0.84 s, maxrss 0.63 GiB
+lvl_unarysp_31.txt _too_nested=false
+lvl_not_31.txt _too_nested=false
+lvl_sqrt_31.txt _too_nested=false
+lvl_where_31.txt _too_nested=false
+lvl_decl_31.txt _too_nested=false
+lvl_splat_31.txt _too_nested=false
+lvl_juxt_31.txt _too_nested=true

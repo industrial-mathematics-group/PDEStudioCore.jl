@@ -1,0 +1,62 @@
+Dict{SVector{64, SVector{64, SVector{64, Int}}}, Int}()                  -> String                                   str2val 0.03 s, maxrss 0.64 GiB
+   [exit 0, wall 2794 ms] Dict{SVector{64, SVector{64, SVector{64, Int}}}, Int}()
+Dict{SVector{256, SVector{256, Int}}, Int}()                             -> String                                   str2val 0.03 s, maxrss 0.49 GiB
+   [exit 0, wall 1029 ms] Dict{SVector{256, SVector{256, Int}}, Int}()
+SVector{1000, SVector{1000, Int}}[]                                      -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 1025 ms] SVector{1000, SVector{1000, Int}}[]
+IdDict{SVector{256, SVector{256, Int}}, Int}()                           -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 973 ms] IdDict{SVector{256, SVector{256, Int}}, Int}()
+Pair{SVector{256, SVector{256, Int}}, Int}[]                             -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 1021 ms] Pair{SVector{256, SVector{256, Int}}, Int}[]
+SArray{Tuple{1000, 1000, 1000}}[[1.0]]                                   -> String                                   str2val 0.02 s, maxrss 0.49 GiB
+   [exit 0, wall 987 ms] SArray{Tuple{1000, 1000, 1000}}[[1.0]]
+SMatrix{1000, 1000}[[1.0]]                                               -> String                                   str2val 0.02 s, maxrss 0.48 GiB
+   [exit 0, wall 998 ms] SMatrix{1000, 1000}[[1.0]]
+SArray{Tuple{100, 100, 10}}[[1.0]]                                       -> String                                   str2val 0.02 s, maxrss 0.49 GiB
+   [exit 0, wall 994 ms] SArray{Tuple{100, 100, 10}}[[1.0]]
+BigInt(2)^524288:BigInt(2)^524288+999999                                 -> String                                   str2val 0.18 s, maxrss 0.49 GiB
+   [exit 0, wall 1120 ms] BigInt(2)^524288:BigInt(2)^524288+999999
+BigInt(2)^524288:BigInt(2)^524288+999                                    -> String                                   str2val 0.17 s, maxrss 0.49 GiB
+   [exit 0, wall 1231 ms] BigInt(2)^524288:BigInt(2)^524288+999
+big(1):big(1000)                                                         -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 983 ms] big(1):big(1000)
+sqrt(1//4)                                                               -> Float64                                  str2val 0.09 s, maxrss 0.48 GiB
+                                                                            hash 0.13 s, maxrss 0.49 GiB
+   [exit 0, wall 1184 ms] sqrt(1//4)
+exp(1//2)                                                                -> Float64                                  str2val 0.08 s, maxrss 0.49 GiB
+                                                                            hash 0.14 s, maxrss 0.5 GiB
+   [exit 0, wall 1167 ms] exp(1//2)
+sqrt(1//4 + 0im)                                                         -> ComplexF64                               str2val 0.22 s, maxrss 0.49 GiB
+                                                                            hash 0.16 s, maxrss 0.5 GiB
+   [exit 0, wall 1314 ms] sqrt(1//4 + 0im)
+sqrt(big"1"//3)                                                          -> String                                   str2val 0.01 s, maxrss 0.48 GiB
+   [exit 0, wall 951 ms] sqrt(big"1"//3)
+IdDict(1 => 2)                                                           -> String                                   str2val 0.06 s, maxrss 0.49 GiB
+   [exit 0, wall 1016 ms] IdDict(1 => 2)
+SA_F64[1, 2]                                                             -> StaticArraysCore.SVector{2, Float64}     str2val 0.02 s, maxrss 0.49 GiB
+                                                                            hash 0.16 s, maxrss 0.49 GiB
+   [exit 0, wall 1144 ms] SA_F64[1, 2]
+SVector{300, Float64}                                                    -> DataType                                 str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.14 s, maxrss 0.49 GiB
+   [exit 0, wall 1143 ms] SVector{300, Float64}
+SMatrix{17, 17, Float64, 289}                                            -> DataType                                 str2val 0.03 s, maxrss 0.48 GiB
+                                                                            hash 0.14 s, maxrss 0.48 GiB
+   [exit 0, wall 1129 ms] SMatrix{17, 17, Float64, 289}
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(201 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 957 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/psc-fix/nest200.txt
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]          -> Vector{Vector{Vector{Vector{Vector{Vector{Vector{Vector{Vect str2val 0.95 s, maxrss 0.51 GiB
+                                                                            hash 0.61 s, maxrss 0.52 GiB
+   [exit 0, wall 2533 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/psc-fix/nest32.txt
+Dict(1 => Dict(1 => Dict(1 => Dict(1 => Dict(1 => Dict(1 => …(331 chars) -> String                                   str2val 0.01 s, maxrss 0.49 GiB
+   [exit 0, wall 998 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/psc-fix/nest_dict.txt
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((…(200001 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 994 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/psc-fix/paren1e5.txt
+│   offset = 0
+│   code = "------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------" ⋯ 99498 bytes ⋯ "----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------1"
+└ @ Base.JuliaSyntax /cache/build/builder-amdci4-1/julialang/julia-ci/base/JuliaSyntax/src/integration/hooks.jl:291
+------------------------------------------------------------…(100001 chars) -> String                                   str2val 0.8 s, maxrss 0.6 GiB
+   [exit 0, wall 1771 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/psc-fix/minus1e5.txt
+Dict(SA[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…(30013 chars) -> String                                   str2val 0.14 s, maxrss 0.48 GiB
+   [exit 0, wall 1120 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/psc-fix/sa1e4.txt
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((…(3001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1009 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/psc-fix/tuple1000.txt

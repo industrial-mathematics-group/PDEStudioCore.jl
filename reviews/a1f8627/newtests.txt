@@ -1,0 +1,8 @@
+# ... read with Julia's lexer: escaped and odd Chars, triple quotes, interpolation, bracketed chains, blocks
+deep = "["^2000 * "1" * "]"^2000
+@test T("('\\'','\"', $deep)") && T("(''','\"', $deep)") && T("('\\xf0\\x80\\x80\\x80','\"', $deep)")
+@test T("(\"\"\" \" \"\"\", $deep)") && T("\"\$($deep)\"")
+@test T("(1)^"^2000 * "1") && T("(a)->"^2000 * "1") && T("begin; "^20 * "1" * "; end"^20)
+@test !T("[:begin, :end, :if]") && !T("var\"#a\"") && !T(val2str(Any['\'', '"', "\$x", "a'b"]))
+@test str2val("1 # c") === 1 && str2val("[:begin, :end]") == [:begin, :end]
+@test str2val(val2str(Symbol("x" * "′"^1100))) == Symbol("x" * "′"^1100)

@@ -1,0 +1,10 @@
+raw                         refused
+native                      refused
+shape                       refused
+dim_keys                    refused
+time_dim                    refused
+evaluated_stats             refused
+evaluated_with_reference    ACCEPTED
+sources                     ACCEPTED
+conv_L                      refused
+conv_E_3x2                  refused

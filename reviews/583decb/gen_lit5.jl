@@ -1,0 +1,5 @@
+# Unmatched closers at the top level reset the chain (into lit5/, generated, not to be committed)
+d = joinpath(@__DIR__, "lit5"); mkpath(d)
+w(name, s) = write(joinpath(d, name), s)
+w("top_close_pow.txt", ("1^"^500 * "1)")^1000); w("top_close_adj.txt", ("1" * "'"^1000 * "]")^1000)
+w("top_close_in_level.txt", "(" * ("1^"^500 * "1)")^100)

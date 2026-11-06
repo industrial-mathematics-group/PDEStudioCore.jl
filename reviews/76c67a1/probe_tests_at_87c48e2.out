@@ -1,0 +1,11 @@
+== diff_part1.jl at 87c48e2 src
+str2val against the previous parser: Test Failed at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/scratch-87c48e2/test/diff_part1.jl:101
+  Expression: isempty(differences)
+   Evaluated: isempty(["sqrt(1//4)", "exp(1//2)", "sin(1//2)", "log(3//2)", "sqrt(1//4 + 0im)", "SA_F64[1, 2]", "SA_F32[1, 2]"])
+Test Summary:                         | Pass  Fail  Total   Time
+file                                  |  479     1    480  12.8s
+  str2val against the previous parser |  479     1    480  12.3s
+ERROR: LoadError: Some tests did not pass: 479 passed, 1 failed, 0 errored, 0 broken.
+== test_roundtrip.jl at 87c48e2 src
+Test Summary: | Pass  Total  Time
+file          |  146    146  7.7s

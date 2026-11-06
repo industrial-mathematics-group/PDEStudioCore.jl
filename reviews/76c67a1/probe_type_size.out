@@ -1,0 +1,15 @@
+Union{NTuple{1000, Float64}, NTuple{1000, Int64}}           1025
+Union{Int64, NTuple{1023, Int64}}                           1025
+SVector{1018, Int64}                                        1024
+SVector{1019, Int64}                                        1025
+SMatrix{32, 32, Float64, 1024}                              1025
+SMatrix{31, 32, Float64, 992}                               999
+SArray{Tuple{0}, Int64, 1, 1024}                            6
+SArray{Tuple{}, Int64, 0, 1024}                             6
+SMatrix{-3, -3, Int64, 1024}                                7
+SMatrix{31, 32, Float64, 992}  SMatrix{32, 32, Float64, 1024}
+SMatrix{31, 32, Float64, 992}           DataType
+SMatrix{32, 32, Float64, 1024}          String
+SVector{1019, Float64}                  String
+SVector{1019, Float64}[Float64          String
+SMatrix{32, 32, Float64, 1024}[reshape(F -> String

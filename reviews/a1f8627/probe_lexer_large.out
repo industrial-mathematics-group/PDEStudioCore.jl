@@ -1,0 +1,6 @@
+lex_str_1e7: exit=0 wall=2072ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.12 s, maxrss 0.54 GiB
+lex_commas_1e7: exit=0 wall=2313ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.39 s, maxrss 0.73 GiB
+lex_comment_1e7: exit=0 wall=1974ms overflow-warnings=0 StackOverflowError=0 | Int64 str2val 0.05 s, maxrss 0.51 GiB
+lex_mix_1e7: exit=0 wall=3189ms overflow-warnings=0 StackOverflowError=0 | String str2val 1.24 s, maxrss 0.84 GiB
+lex_interp_1e6: exit=0 wall=1868ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.01 s, maxrss 0.53 GiB
+lex_ops_1e7: exit=0 wall=1862ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.54 GiB

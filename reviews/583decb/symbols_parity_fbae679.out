@@ -1,0 +1,46 @@
+:.=           :.=                                                  new: String                   old: Symbol                   T: true
+:.=           Symbol[:.=]                                          new: String                   old: Vector{Symbol}           T: true
+:.=           (:.=,)                                               new: String                   old: Tuple{Symbol}            T: true
+:.=           (:.=, :a)                                            new: String                   old: Tuple{Symbol, Symbol}    T: true
+:.=           Dict{Symbol, Int64}(:.= => 1)                        new: String                   old: Dict{Symbol, Int64}      T: true
+:.=           Dict{Symbol, Symbol}(:a => :.=)                      new: String                   old: Dict{Symbol, Symbol}     T: true
+:.=           Val{:.=}()                                           new: String                   old: Val{:.=}                 T: true
+:.=           Symbol[:.=, :begin]                                  new: String                   old: Vector{Symbol}           T: true
+:.=           Val{(:.=, 1)}()                                      new: String                   old: Val{(:.=, 1)}            T: true
+:.~           :.~                                                  new: String                   old: Symbol                   T: true
+:.~           Symbol[:.~]                                          new: String                   old: Vector{Symbol}           T: true
+:.~           (:.~,)                                               new: String                   old: Tuple{Symbol}            T: true
+:.~           (:.~, :a)                                            new: String                   old: Tuple{Symbol, Symbol}    T: true
+:.~           Dict{Symbol, Int64}(:.~ => 1)                        new: String                   old: Dict{Symbol, Int64}      T: true
+:.~           Dict{Symbol, Symbol}(:a => :.~)                      new: String                   old: Dict{Symbol, Symbol}     T: true
+:.~           Val{:.~}()                                           new: String                   old: Val{:.~}                 T: true
+:.~           Symbol[:.~, :begin]                                  new: String                   old: Vector{Symbol}           T: true
+:.~           Val{(:.~, 1)}()                                      new: String                   old: Val{(:.~, 1)}            T: true
+:.≔           :.≔                                                  new: String                   old: Symbol                   T: true
+:.≔           Symbol[:.≔]                                          new: String                   old: Vector{Symbol}           T: true
+:.≔           (:.≔,)                                               new: String                   old: Tuple{Symbol}            T: true
+:.≔           (:.≔, :a)                                            new: String                   old: Tuple{Symbol, Symbol}    T: true
+:.≔           Dict{Symbol, Int64}(:.≔ => 1)                        new: String                   old: Dict{Symbol, Int64}      T: true
+:.≔           Dict{Symbol, Symbol}(:a => :.≔)                      new: String                   old: Dict{Symbol, Symbol}     T: true
+:.≔           Val{:.≔}()                                           new: String                   old: Val{:.≔}                 T: true
+:.≔           Symbol[:.≔, :begin]                                  new: String                   old: Vector{Symbol}           T: true
+:.≔           Val{(:.≔, 1)}()                                      new: String                   old: Val{(:.≔, 1)}            T: true
+:.≕           :.≕                                                  new: String                   old: Symbol                   T: true
+:.≕           Symbol[:.≕]                                          new: String                   old: Vector{Symbol}           T: true
+:.≕           (:.≕,)                                               new: String                   old: Tuple{Symbol}            T: true
+:.≕           (:.≕, :a)                                            new: String                   old: Tuple{Symbol, Symbol}    T: true
+:.≕           Dict{Symbol, Int64}(:.≕ => 1)                        new: String                   old: Dict{Symbol, Int64}      T: true
+:.≕           Dict{Symbol, Symbol}(:a => :.≕)                      new: String                   old: Dict{Symbol, Symbol}     T: true
+:.≕           Val{:.≕}()                                           new: String                   old: Val{:.≕}                 T: true
+:.≕           Symbol[:.≕, :begin]                                  new: String                   old: Vector{Symbol}           T: true
+:.≕           Val{(:.≕, 1)}()                                      new: String                   old: Val{(:.≕, 1)}            T: true
+:.⩴           :.⩴                                                  new: String                   old: Symbol                   T: true
+:.⩴           Symbol[:.⩴]                                          new: String                   old: Vector{Symbol}           T: true
+:.⩴           (:.⩴,)                                               new: String                   old: Tuple{Symbol}            T: true
+:.⩴           (:.⩴, :a)                                            new: String                   old: Tuple{Symbol, Symbol}    T: true
+:.⩴           Dict{Symbol, Int64}(:.⩴ => 1)                        new: String                   old: Dict{Symbol, Int64}      T: true
+:.⩴           Dict{Symbol, Symbol}(:a => :.⩴)                      new: String                   old: Dict{Symbol, Symbol}     T: true
+:.⩴           Val{:.⩴}()                                           new: String                   old: Val{:.⩴}                 T: true
+:.⩴           Symbol[:.⩴, :begin]                                  new: String                   old: Vector{Symbol}           T: true
+:.⩴           Val{(:.⩴, 1)}()                                      new: String                   old: Val{(:.⩴, 1)}            T: true
+1469 symbols, 13221 values: 45 parse differences, 0 hash-text differences, 45 rejected by _too_nested although the reference reads a non-String

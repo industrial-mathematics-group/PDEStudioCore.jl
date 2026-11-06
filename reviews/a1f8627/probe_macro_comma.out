@@ -1,0 +1,8 @@
+"@a 1, @a 1, @a 1, @a 1, "     depth 100
+"@a @a @a @a @a @a @a @a "     depth 50
+"x = @a 1, x = @a 1, x = "     depth 101
+"a -> 1, a -> 1, a -> 1, "     depth 3
+"1 => 2, 1 => 2, 1 => 2, "     depth 2
+comma_macro_10000: exit=0 wall=3123ms overflow-warnings=2 StackOverflowError=1 | String str2val 1.24 s, maxrss 0.66 GiB
+comma_macro_100000: exit=0 wall=3260ms overflow-warnings=2 StackOverflowError=1 | String str2val 1.29 s, maxrss 0.66 GiB
+br_macro_10000: exit=0 wall=3073ms overflow-warnings=2 StackOverflowError=1 | String str2val 1.21 s, maxrss 0.67 GiB

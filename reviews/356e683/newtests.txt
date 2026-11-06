@@ -1,0 +1,4 @@
+@test T(levels(16, "1^"^511)) && T(levels(31, "", "'"^1022)) && T(levels(31, "- "^1022))
+@test T("x = 1, "^2000 * "1") && T("x ~ 1, "^2000 * "1") && T("[" * "@a 1, "^2000 * "1]")
+nested = foldl((inner, _) -> "Any[" * join(fill("1", 100), ", ") * ", " * inner * "]", 1:30; init = "1")
+@test !T(nested) && str2val(nested) isa Vector{Any}

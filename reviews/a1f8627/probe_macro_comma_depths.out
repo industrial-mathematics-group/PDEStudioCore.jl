@@ -1,0 +1,11 @@
+"@a 1, @a 1, @a 1, @a 1, "     depth 100
+"@a @a @a @a @a @a @a @a "     depth 50
+"x = @a 1, x = @a 1, x = "     depth 101
+"a -> 1, a -> 1, a -> 1, "     depth 3
+"1 => 2, 1 => 2, 1 => 2, "     depth 2
+-- inside brackets
+"(@a 1, @a 1, @a 1, @a 1,"     depth 100
+"[@a 1, @a 1, @a 1, @a 1,"     depth 101
+"f(@a 1, @a 1, @a 1, @a 1"     depth 101
+"(x = 1, x = 1, x = 1, x "     depth 2
+"[x = 1, x = 1, x = 1, x "     depth 2

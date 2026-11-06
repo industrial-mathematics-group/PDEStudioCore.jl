@@ -1,0 +1,16 @@
+semi_braces_1e5: exit=0 wall=1886ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.03 s, maxrss 0.52 GiB
+semi_curly_1e5: exit=0 wall=1905ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.05 s, maxrss 0.52 GiB
+semi_dict_1e5: exit=0 wall=1950ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.05 s, maxrss 0.52 GiB
+semi_dict_1e6: exit=0 wall=2370ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.51 s, maxrss 0.68 GiB
+semi_ncat_1e5: exit=0 wall=1888ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.04 s, maxrss 0.53 GiB
+sym_colon_tilde_10000: exit=0 wall=1857ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+sym_colon_tilde_100000: exit=0 wall=1898ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.03 s, maxrss 0.53 GiB
+sym_quote_assign_10000: exit=0 wall=3033ms overflow-warnings=0 StackOverflowError=0 | Tuple{Pair{Symbol, Int64}, Pair{Symbol, Int64}, Pair{Symbol, str2val 0.14 s, maxrss 0.53 GiB
+sym_quote_assign_100000: exit=0 wall=12567ms overflow-warnings=0 StackOverflowError=0 | Tuple{Pair{Symbol, Int64}, Pair{Symbol, Int64}, Pair{Symbol, str2val 0.52 s, maxrss 0.59 GiB
+top_close_adj: exit=0 wall=1908ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.05 s, maxrss 0.54 GiB
+top_close_pow: exit=0 wall=1946ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.07 s, maxrss 0.55 GiB
+kw_return_100000: exit=0 wall=1857ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+at_sym_100000: exit=0 wall=1829ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+kw_begin_semi_2000: exit=0 wall=1832ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.51 GiB
+at_sym_2000: exit=0 wall=1828ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB
+kw_return_2000: exit=0 wall=1823ms overflow-warnings=0 StackOverflowError=0 | String str2val 0.0 s, maxrss 0.52 GiB

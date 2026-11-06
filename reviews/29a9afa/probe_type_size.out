@@ -1,0 +1,42 @@
+SArray{Tuple{}, Int, 0, 64}                                          -> DataType   _type_size 69
+SArray{Tuple{0}, Int, 1, 64}                                         -> DataType   _type_size 70
+SArray{Tuple{}, Int, 0, 1024}                                        -> String     _type_size -
+SArray{Tuple{}, Int, 0, 1025}                                        -> String     _type_size -
+SArray{Tuple{2}, Int, 1, 1000}                                       -> DataType   _type_size 1006
+SArray{Tuple{2}, Int, 1, -5}                                         -> DataType   _type_size 8
+SArray{Tuple{2}, Int, 1, 0x40}                                       -> DataType   _type_size 70
+SArray{Tuple{2}, Int, 1, Int32(64)}                                  -> DataType   _type_size 70
+SArray{Tuple{2}, Int, 1, true}                                       -> DataType   _type_size 8
+SArray{Tuple{0}, Int, 1, 64.0}                                       -> DataType   _type_size 6
+SArray{Tuple{0}, Int, 1, 1.0e6}                                      -> DataType   _type_size 6
+SArray{Tuple{0}, Int, 1, 'a'}                                        -> DataType   _type_size 6
+SArray{Tuple{0}, Int, 1, :L}                                         -> DataType   _type_size 6
+SArray{Tuple{0}, Int, 1}                                             -> UnionAll   _type_size 6
+SArray{Tuple{0}, SArray{Tuple{0}, Int, 1, 64}, 1}                    -> UnionAll   _type_size 75
+MArray{Tuple{}, MArray{Tuple{}, Int, 0, 64}, 0, 64}                  -> String     _type_size -
+MArray{Tuple{0}, Int, 1, 1000}                                       -> DataType   _type_size 1006
+SArray{Tuple{1000}, Int, 1}                                          -> UnionAll   _type_size 1006
+SVector{1000}                                                        -> UnionAll   _type_size 1006
+SArray{Tuple{1, 1000}, Int, 2}                                       -> UnionAll   _type_size 1007
+Union{SArray{Tuple{}, Int, 0, 600}, SArray{Tuple{}, Int, 0, 600}}    -> DataType   _type_size 605
+Union{SArray{Tuple{}, Int, 0, 600}, MArray{Tuple{}, Int, 0, 600}}    -> String     _type_size -
+Tuple{SArray{Tuple{}, Int, 0, 600}, SArray{Tuple{}, Int, 0, 600}}    -> String     _type_size -
+StaticArray{Tuple{1000}, Int, 1}                                     -> DataType   _type_size 1005
+StaticVector{1000, Int}                                              -> DataType   _type_size 1005
+SArray{Tuple{}, SArray{Tuple{}, Int, 0, 32}, 0, 32}                  -> String     _type_size -
+SArray{Tuple{}, NTuple{64, Int}, 0, 64}                              -> String     _type_size -
+SArray{Tuple{0}, Tuple{Int, Int}, 1, 512}                            -> String     _type_size -
+SMatrix{2, 2, Float64, 4}                                            -> DataType   _type_size 11
+SMatrix{2, 2, Float64, 5}                                            -> DataType   _type_size 12
+SVector{3, Float64}                                                  -> DataType   _type_size 9
+MMatrix{32, 32, Float64, 1024}                                       -> String     _type_size -
+SMatrix{31, 33, Float64, 1023}                                       -> String     _type_size -
+SArray{Tuple{3, 3, 3}, Float64, 3, 27}                               -> DataType   _type_size 35
+SVector{1018, Float64}                                               -> DataType   _type_size 1024
+SVector{1019, Float64}                                               -> String     _type_size -
+--- through the types directly (not parsed)
+SArray{Tuple{0}, Int64, 1, 64.0}                                     _type_size 6
+SArray{Tuple{0}, SArray{Tuple{0}, Int64, 1, 64.0}, 1, 64.0}          _type_size 11
+SizedVector{1000, Int64, Vector{Int64}}                              _type_size 1009
+SArray{Tuple{0}, T, 1, 2000} where T                                 _type_size 1025
+SArray{Tuple{N}, Int64, 1, 2000} where N                             _type_size 1025

@@ -231,4 +231,10 @@ end
     @test sim isa ESimData{1, 1, 1, Float64} && !has_time(sim)
     entries = load_sim_data(calculate_hash(get_clean_params(p))[1:12])
     @test haskey(entries, "sources") && haskey(entries["sources"], abspath(src))
+    # with `load_sources = false` the caller has included the sources: they don't run again, the digests are stored
+    write(src, "error(\"must not run\")")
+    run_all_simulations(cfg; force_overwrite = true, load_sources = false)
+    entries = load_sim_data(calculate_hash(get_clean_params(p))[1:12])
+    @test haskey(entries["sources"], abspath(src))
+    @test_throws LoadError run_all_simulations(cfg; force_overwrite = true)
 end

@@ -73,7 +73,7 @@ Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed
 | Entry | Content |
 | :--- | :--- |
 | `"raw"` | the native dataset |
-| `"native"`, `"params"`, `"stat_keys"`, `"registry"`, `"shape"` | fast metadata, read without loading the data (`"shape"` is `size(u)`, or time steps and total particle count for Lagrangian data) |
+| `"native"`, `"params"`, `"stat_keys"`, `"registry"`, `"shape"`, `"dim_keys"`, `"time_dim"` | fast metadata, read without loading the data (`"shape"` is `size(u)`, or time steps and total particle count for Lagrangian data; the axes are stored since November 2026, see [`get_sim_data_info`](@ref)). These names, `"raw"`, `"evaluated_stats"` and the `conv_*` entries are reserved: `save_sim_data(...; metadata)` refuses them |
 | `"evaluated_stats"` | statistics already evaluated for this data |
 | `"evaluated_with_reference"` | whether a reference function was available when they were evaluated |
 | `"sources"` | SHA-256 digests of the source files (pipeline runs with `sources`) |
@@ -102,6 +102,7 @@ The resolution `res` always lists every axis: the spatial resolutions followed b
 
 ```julia
 does_sim_data_exist(params)                         # without loading the data
+get_sim_data_info(params)                           # kind, shape, axes and stored time steps, without loading the data
 find_sim_data(Dict(:N => 100))                      # list the files of every run with N = 100 (any subset of the parameters)
 delete_sim_data(Dict(:scheme => "upwind"); dry_run = true)   # preview, then delete
 rehash_sim_data(joinpath(get_save_path(), "data"); remove_keys = [:obsolete])
@@ -113,4 +114,4 @@ check_data(data)                                    # min/max/mean/NaN summary a
 
 ## 6. Parameter Normalisation
 
-Before hashing and saving, parameters are normalised: closures become `"Closure"`, custom structs become a descriptive string and other values round-trip through [`val2str`](@ref)/[`str2val`](@ref). Strings are always kept verbatim, so a parameter such as `:ic => "sin"` stays a string. [`str2val`](@ref) only parses literals (numbers, strings, symbols, types, tuples, vectors, `Dict`s and arithmetic like `2π`); it never executes code. Inspect the stored form with [`print_clean_params`](@ref).
+Before hashing and saving, parameters are normalised: closures become `"Closure"`, custom structs become a descriptive string and other values round-trip through [`val2str`](@ref)/[`str2val`](@ref). Strings are always kept verbatim, so a parameter such as `:ic => "sin"` stays a string. [`str2val`](@ref) only parses literals (numbers, strings, symbols, tuples, vectors, `Dict`s, static arrays, arithmetic like `2π` and a range as the whole value, e.g. a sweep typed as `1:10`); it never executes code. Types come from an allowlist (numbers, text, the containers [`val2str`](@ref) writes and StaticArrays), and what a value may build is bounded (elements, digits, the size of types including static arrays, nesting), so a file cannot run code, and these limits bound what the parser computes and compiles for a text; anything else is kept as a string. Inspect the stored form with [`print_clean_params`](@ref).

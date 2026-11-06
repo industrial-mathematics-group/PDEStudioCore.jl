@@ -1,0 +1,23 @@
+SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[…(125 chars) -> StaticArraysCore.SVector{1, StaticArraysCore.SVector{1, Stat str2val 0.76 s, maxrss 0.51 GiB
+                                                                            hash 0.39 s, maxrss 0.53 GiB
+   [exit 0, wall 2087 ms] @lit/sa31.txt
+SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[SA[…(129 chars) -> StaticArraysCore.SVector{1, StaticArraysCore.SVector{1, Stat str2val 0.78 s, maxrss 0.52 GiB
+                                                                            hash 0.41 s, maxrss 0.54 GiB
+   [exit 0, wall 2126 ms] @lit/sa32.txt
+Dict(1 => Dict(1 => Dict(1 => Dict(1 => Dict(1 => Dict(1 => …(177 chars) -> Dict{Int64, Dict{Int64, Dict{Int64, Dict{Int64, Dict{Int64,  str2val 1.68 s, maxrss 0.52 GiB
+                                                                            hash 0.67 s, maxrss 0.55 GiB
+   [exit 0, wall 3269 ms] @lit/dict16.txt
+[([([([([([([([([([([([([([([(1,)],)],)],)],)],)],)],)],)],)…(76 chars)  -> Vector{Tuple{Vector{Tuple{Vector{Tuple{Vector{Tuple{Vector{T str2val 0.81 s, maxrss 0.5 GiB
+                                                                            hash 0.44 s, maxrss 0.52 GiB
+   [exit 0, wall 2196 ms] @lit/vectuple15.txt
+1 => 1 => 1 => 1 => 1 => 1 => 1 => 1 => 1 => 1 => 1 => 1 => …(156 chars) -> Pair{Int64, Pair{Int64, Pair{Int64, Pair{Int64, Pair{Int64,  str2val 0.47 s, maxrss 0.51 GiB
+                                                                            hash 0.65 s, maxrss 0.52 GiB
+   [exit 0, wall 2046 ms] @lit/pair31.txt
+SA[[SA[[SA[[SA[[SA[[SA[[SA[[SA[[SA[[SA[[(1, 1.0)]]]]]]]]]]]]]]]]]]]]     -> StaticArraysCore.SVector{1, Vector{StaticArraysCore.SVector{ str2val 0.63 s, maxrss 0.5 GiB
+                                                                            hash 0.37 s, maxrss 0.51 GiB
+   [exit 0, wall 1933 ms] @lit/mixsa.txt
+(((((((((((((((((((((((((((((((1, 1.0), 1.0), 1.0), 1.0), 1.…(218 chars) -> Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{Tuple{ str2val 1.26 s, maxrss 0.51 GiB
+                                                                            hash 0.45 s, maxrss 0.53 GiB
+   [exit 0, wall 2652 ms] @lit/tupmix31.txt
+Dict(1.0 => [(Dict(1.0 => [(Dict(1.0 => [(Dict(1.0 => [(Dict…(181 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 934 ms] @lit/dictmix.txt

@@ -1,0 +1,105 @@
+('"', ((((((((((((((((((((((((((((((((((((((((((((((((((((((…(2008 chars) -> Tuple{Char, Int64}                       str2val 0.04 s, maxrss 0.48 GiB
+   [exit 0, wall 952 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/charquote_paren_1
+('"', ((((((((((((((((((((((((((((((((((((((((((((((((((((((…(20008 chars) -> Tuple{Char, Int64}                       str2val 1.32 s, maxrss 0.64 GiB
+   [exit 0, wall 2255 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/charquote_paren_1
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+('"', ((((((((((((((((((((((((((((((((((((((((((((((((((((((…(200008 chars) -> String                                   str2val 1.25 s, maxrss 0.66 GiB
+   [exit 0, wall 2179 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/charquote_paren_1
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+('"', ((((((((((((((((((((((((((((((((((((((((((((((((((((((…(2000008 chars) -> String                                   str2val 1.26 s, maxrss 0.67 GiB
+   [exit 0, wall 2180 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/charquote_paren_1
+# "
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((…(20007 chars) -> Int64                                    str2val 1.26 s, maxrss 0.64 GiB
+   [exit 0, wall 2157 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/comment_paren_100
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+# "
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((…(200007 chars) -> String                                   str2val 1.24 s, maxrss 0.66 GiB
+   [exit 0, wall 2138 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/comment_paren_100
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+# "
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((…(2000007 chars) -> String                                   str2val 1.25 s, maxrss 0.67 GiB
+   [exit 0, wall 2155 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/comment_paren_100
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+begin begin begin begin begin begin begin begin begin begin …(100001 chars) -> String                                   str2val 1.22 s, maxrss 0.65 GiB
+   [exit 0, wall 2121 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/begin_10000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+begin begin begin begin begin begin begin begin begin begin …(1000001 chars) -> String                                   str2val 1.22 s, maxrss 0.65 GiB
+   [exit 0, wall 2130 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/begin_100000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+begin begin begin begin begin begin begin begin begin begin …(10000001 chars) -> String                                   str2val 1.23 s, maxrss 0.67 GiB
+   [exit 0, wall 2131 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/begin_1000000.txt
+1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → …(40001 chars)                   -> String                                   str2val 0.76 s, maxrss 0.62 GiB
+   [exit 0, wall 1665 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/arrow_10000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → …(400001 chars)                  -> String                                   str2val 1.74 s, maxrss 0.62 GiB
+   [exit 0, wall 2638 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/arrow_100000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → …(4000001 chars)                 -> String                                   str2val 9.0 s, maxrss 0.73 GiB
+   [exit 0, wall 9930 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/arrow_1000000.txt
+1'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''…(10001 chars) -> String                                   str2val 0.73 s, maxrss 0.61 GiB
+   [exit 0, wall 1652 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/adjoint_10000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+1'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''…(100001 chars) -> String                                   str2val 0.83 s, maxrss 0.6 GiB
+   [exit 0, wall 1749 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/adjoint_100000.tx
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+1'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''…(1000001 chars) -> String                                   str2val 0.9 s, maxrss 0.63 GiB
+   [exit 0, wall 1839 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/adjoint_1000000.t
+a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.…(20001 chars) -> String                                   str2val 0.72 s, maxrss 0.61 GiB
+   [exit 0, wall 1641 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/dot_10000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.…(200001 chars) -> String                                   str2val 0.78 s, maxrss 0.62 GiB
+   [exit 0, wall 1699 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/dot_100000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.…(2000001 chars) -> String                                   str2val 0.87 s, maxrss 0.68 GiB
+   [exit 0, wall 1791 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/dot_1000000.txt
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$…(10001 chars) -> String                                   str2val 0.71 s, maxrss 0.61 GiB
+   [exit 0, wall 1658 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/dollar_10000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$…(100001 chars) -> String                                   str2val 1.31 s, maxrss 0.62 GiB
+   [exit 0, wall 2233 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/dollar_100000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$…(1000001 chars) -> String                                   str2val 2.57 s, maxrss 0.67 GiB
+   [exit 0, wall 3497 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/dollar_1000000.tx
+   @ Base ./strings/string.jl:12
+ [2] getindex(s::String, r::UnitRange{Int64})
+   @ Base ./strings/string.jl:530
+ [3] top-level scope
+   @ ~/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/one.jl:6
+ [4] include(mod::Module, _path::String)
+   @ Base ./Base.jl:309
+ [5] exec_options(opts::Base.JLOptions)
+   @ Base ./client.jl:344
+ [6] _start()
+   @ Base ./client.jl:577
+in expression starting at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/one.jl:6
+   [exit 1, wall 1610 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/pm_10000.txt
+   @ Base ./strings/string.jl:12
+ [2] getindex(s::String, r::UnitRange{Int64})
+   @ Base ./strings/string.jl:530
+ [3] top-level scope
+   @ ~/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/one.jl:6
+ [4] include(mod::Module, _path::String)
+   @ Base ./Base.jl:309
+ [5] exec_options(opts::Base.JLOptions)
+   @ Base ./client.jl:344
+ [6] _start()
+   @ Base ./client.jl:577
+in expression starting at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/one.jl:6
+   [exit 1, wall 1623 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/pm_100000.txt
+1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × …(40001 chars)           -> String                                   str2val 0.76 s, maxrss 0.61 GiB
+   [exit 0, wall 1672 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/times_10000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × …(400001 chars)          -> String                                   str2val 0.99 s, maxrss 0.62 GiB
+   [exit 0, wall 1925 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/times_100000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × …(4000001 chars)         -> String                                   str2val 1.19 s, maxrss 0.7 GiB
+   [exit 0, wall 2123 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/times_1000000.txt
+1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ …(40001 chars)                   -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 893 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/in_10000.txt
+1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ 1 ∈ …(400001 chars)                  -> String                                   str2val 0.04 s, maxrss 0.5 GiB
+   [exit 0, wall 929 ms] @/home/agent/.claude/jobs/d2d299f1/tmp/review-psc1b/probes/lit/in_100000.txt
+±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±…(10001 chars) -> String                                   str2val 0.74 s, maxrss 0.61 GiB
+   [exit 0, wall 1638 ms] @lit/pm_10000.txt
+Warning: detected a stack overflow; program state may be corrupted, so further execution might be unreliable.
+±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±…(100001 chars) -> String                                   str2val 0.88 s, maxrss 0.61 GiB
+   [exit 0, wall 1799 ms] @lit/pm_100000.txt

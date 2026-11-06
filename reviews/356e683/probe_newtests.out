@@ -1,0 +1,14 @@
+--- repo
+@test T(levels(16, "1^"^511)) && T(levels(31, "", "'"^1022)) && T(levels(31, "- "^1022))     PASS  (0.28 s)
+@test T("x = 1, "^2000 * "1") && T("x ~ 1, "^2000 * "1") && T("[" * "@a 1, "^2000 * "1]")    PASS  (0.26 s)
+nested = foldl((inner, _) -> "Any[" * join(fill("1", 100), ", ") * ", " * inner * "]", 1:3   FAIL  (0.17 s)
+@test !T(nested) && str2val(nested) isa Vector{Any}                                          FAIL (Some tests did not pass: 0 passed, 0 failed, 1 errored, 0 br)  (1.15 s)
+--- wt-a1f8627
+@test T(levels(16, "1^"^511)) && T(levels(31, "", "'"^1022)) && T(levels(31, "- "^1022))     FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.28 s)
+@test T("x = 1, "^2000 * "1") && T("x ~ 1, "^2000 * "1") && T("[" * "@a 1, "^2000 * "1]")    FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.26 s)
+nested = foldl((inner, _) -> "Any[" * join(fill("1", 100), ", ") * ", " * inner * "]", 1:3   FAIL  (0.17 s)
+@test !T(nested) && str2val(nested) isa Vector{Any}                                          FAIL (Some tests did not pass: 0 passed, 0 failed, 1 errored, 0 br)  (1.13 s)
+--- repo
+nested = foldl((inner, _) -> "Any[" * join(fill("1", 100), ", ") * ", " * inner * "]", 1:3   PASS  (1.43 s)
+--- wt-a1f8627
+nested = foldl((inner, _) -> "Any[" * join(fill("1", 100), ", ") * ", " * inner * "]", 1:3   PASS  (1.45 s)

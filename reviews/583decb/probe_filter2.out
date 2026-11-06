@@ -1,0 +1,15 @@
+saved; stored :op = :~
+normalised :op now = :~
+does_sim_data_exist (hash): true
+find_sim_data(:op => OP): 1 file(s)
+find_sim_data(:N => 20): 1 file(s)
+saved; stored :op = :.=
+normalised :op now = :.=
+does_sim_data_exist (hash): true
+find_sim_data(:op => OP): 1 file(s)
+find_sim_data(:N => 20): 1 file(s)
+saved; stored :op = :.~
+normalised :op now = :.~
+does_sim_data_exist (hash): true
+find_sim_data(:op => OP): 1 file(s)
+find_sim_data(:N => 20): 1 file(s)

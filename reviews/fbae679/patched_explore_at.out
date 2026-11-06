@@ -1,0 +1,96 @@
+"x : @a 1"      ,   ""    T = true   depth(50) = 150
+"x : @a 1"      ,   "("   T = true   depth(50) = 150
+"x : @a 1"      ,   "["   T = true   depth(50) = 151
+"x : @a 1"      ,   "{"   T = true   depth(50) = 151
+"x : @a 1"      ;   ""    T = true   depth(50) = 3
+"x : @a 1"      ;   "("   T = true   depth(50) = 3
+"x : @a 1"      ;   "["   T = true   depth(50) = 3
+"x : @a 1"      ;   "{"   T = true   depth(50) = 3
+"x : @a 1"      nl  ""    T = true   depth(50) = -1
+"x : @a 1"      nl  "("   T = true   depth(50) = -1
+"x : @a 1"      nl  "["   T = true   depth(50) = 3
+"x : @a 1"      nl  "{"   T = true   depth(50) = 3
+"1:@a 1"        ,   ""    T = true   depth(50) = 150
+"1:@a 1"        ,   "("   T = true   depth(50) = 150
+"1:@a 1"        ,   "["   T = true   depth(50) = 151
+"1:@a 1"        ,   "{"   T = true   depth(50) = 151
+"1:@a 1"        ;   ""    T = true   depth(50) = 3
+"1:@a 1"        ;   "("   T = true   depth(50) = 3
+"1:@a 1"        ;   "["   T = true   depth(50) = 3
+"1:@a 1"        ;   "{"   T = true   depth(50) = 3
+"1:@a 1"        nl  ""    T = true   depth(50) = -1
+"1:@a 1"        nl  "("   T = true   depth(50) = -1
+"1:@a 1"        nl  "["   T = true   depth(50) = 3
+"1:@a 1"        nl  "{"   T = true   depth(50) = 3
+"x ? y : @a 1"  ,   ""    T = true   depth(50) = 150
+"x ? y : @a 1"  ,   "("   T = true   depth(50) = 150
+"x ? y : @a 1"  ,   "["   T = true   depth(50) = 151
+"x ? y : @a 1"  ,   "{"   T = true   depth(50) = 151
+"x ? y : @a 1"  ;   ""    T = true   depth(50) = 3
+"x ? y : @a 1"  ;   "("   T = true   depth(50) = 3
+"x ? y : @a 1"  ;   "["   T = true   depth(50) = 3
+"x ? y : @a 1"  ;   "{"   T = true   depth(50) = 3
+"x ? y : @a 1"  nl  ""    T = true   depth(50) = -1
+"x ? y : @a 1"  nl  "("   T = true   depth(50) = -1
+"x ? y : @a 1"  nl  "["   T = true   depth(50) = 3
+"x ? y : @a 1"  nl  "{"   T = true   depth(50) = 3
+":@a 1"         ,   ""    T = true   depth(50) = 150
+":@a 1"         ,   "("   T = true   depth(50) = 150
+":@a 1"         ,   "["   T = true   depth(50) = 151
+":@a 1"         ,   "{"   T = true   depth(50) = 151
+":@a 1"         ;   ""    T = true   depth(50) = 3
+":@a 1"         ;   "("   T = true   depth(50) = 3
+":@a 1"         ;   "["   T = true   depth(50) = 3
+":@a 1"         ;   "{"   T = true   depth(50) = 3
+":@a 1"         nl  ""    T = true   depth(50) = -1
+":@a 1"         nl  "("   T = true   depth(50) = -1
+":@a 1"         nl  "["   T = true   depth(50) = 3
+":@a 1"         nl  "{"   T = true   depth(50) = 3
+"x :@a 1"       ,   ""    T = true   depth(50) = 101
+"x :@a 1"       ,   "("   T = true   depth(50) = 101
+"x :@a 1"       ,   "["   T = true   depth(50) = 102
+"x :@a 1"       ,   "{"   T = true   depth(50) = 103
+"x :@a 1"       ;   ""    T = true   depth(50) = 3
+"x :@a 1"       ;   "("   T = true   depth(50) = 3
+"x :@a 1"       ;   "["   T = true   depth(50) = 4
+"x :@a 1"       ;   "{"   T = true   depth(50) = 4
+"x :@a 1"       nl  ""    T = true   depth(50) = -1
+"x :@a 1"       nl  "("   T = true   depth(50) = -1
+"x :@a 1"       nl  "["   T = true   depth(50) = 4
+"x :@a 1"       nl  "{"   T = true   depth(50) = 4
+"1 : @a 1"      ,   ""    T = true   depth(50) = 150
+"1 : @a 1"      ,   "("   T = true   depth(50) = 150
+"1 : @a 1"      ,   "["   T = true   depth(50) = 151
+"1 : @a 1"      ,   "{"   T = true   depth(50) = 151
+"1 : @a 1"      ;   ""    T = true   depth(50) = 3
+"1 : @a 1"      ;   "("   T = true   depth(50) = 3
+"1 : @a 1"      ;   "["   T = true   depth(50) = 3
+"1 : @a 1"      ;   "{"   T = true   depth(50) = 3
+"1 : @a 1"      nl  ""    T = true   depth(50) = -1
+"1 : @a 1"      nl  "("   T = true   depth(50) = -1
+"1 : @a 1"      nl  "["   T = true   depth(50) = 3
+"1 : @a 1"      nl  "{"   T = true   depth(50) = 3
+":(@a 1)"       ,   ""    T = true   depth(50) = 3
+":(@a 1)"       ,   "("   T = true   depth(50) = 3
+":(@a 1)"       ,   "["   T = true   depth(50) = 3
+":(@a 1)"       ,   "{"   T = true   depth(50) = 3
+":(@a 1)"       ;   ""    T = true   depth(50) = 3
+":(@a 1)"       ;   "("   T = true   depth(50) = 3
+":(@a 1)"       ;   "["   T = true   depth(50) = 3
+":(@a 1)"       ;   "{"   T = true   depth(50) = 3
+":(@a 1)"       nl  ""    T = true   depth(50) = -1
+":(@a 1)"       nl  "("   T = true   depth(50) = -1
+":(@a 1)"       nl  "["   T = true   depth(50) = 3
+":(@a 1)"       nl  "{"   T = true   depth(50) = 3
+"x:(@a 1"       ,   ""    T = true   depth(50) = 1
+"x:(@a 1"       ,   "("   T = true   depth(50) = 1
+"x:(@a 1"       ,   "["   T = true   depth(50) = -1
+"x:(@a 1"       ,   "{"   T = true   depth(50) = -1
+"x:(@a 1"       ;   ""    T = true   depth(50) = 1
+"x:(@a 1"       ;   "("   T = true   depth(50) = 1
+"x:(@a 1"       ;   "["   T = true   depth(50) = -1
+"x:(@a 1"       ;   "{"   T = true   depth(50) = -1
+"x:(@a 1"       nl  ""    T = true   depth(50) = -1
+"x:(@a 1"       nl  "("   T = true   depth(50) = -1
+"x:(@a 1"       nl  "["   T = true   depth(50) = -1
+"x:(@a 1"       nl  "{"   T = true   depth(50) = -1

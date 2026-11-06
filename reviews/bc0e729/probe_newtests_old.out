@@ -1,0 +1,19 @@
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+┌ Warning: type Main.anonymous.Hidden does not exist in workspace; reconstructing
+└ @ JLD2 ~/.julia/packages/JLD2/rm5a0/src/data/reconstructing_datatypes.jl:588
+PDEStudioCore at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2b/probes/repo64/src/PDEStudioCore.jl
+_is_reconstructed(vv)                             false
+_is_reconstructed(dd)                             false
+_is_reconstructed(nt)                             false
+_is_reconstructed(pr)                             false
+_is_reconstructed(big)                            false
+@elapsed nested < 0.5                             (4.968891766, false)
+!_is_reconstructed("JLD2.ReconstructedStatic")    true
+!_is_reconstructed(:MyJLD2)                       true
+!_is_reconstructed(MyJLD2.Reconstructed()) (real anchoring test)false
+_copy_entry!(vv) warns naming Hidden              false
