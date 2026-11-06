@@ -57,9 +57,10 @@ end
 # `str2val` reads values from files (CSV configs, presets) and the editors, so it must neither run code nor let a
 # short text cost unbounded time or memory. It evaluates a fixed grammar: the literals `val2str` writes, plus
 # arithmetic on numbers ("2π", "1/3", "1e-3") and ranges as whole values ("1:10"). Types come from an allowlist
-# (the types `val2str` writes for parameters), and everything it builds is bounded: the number of type parameters
-# (nested ones multiply, and compiling for a huge type can crash Julia), the bits of exact numbers and the exponent
-# of BigFloats, the dimensions of arrays and the number of elements of the whole value.
+# (the types `val2str` writes for parameters), and what it builds is bounded: the size of types (parameters, nested
+# ones and the elements of static arrays: compiling for a huge type can crash Julia), the bits of exact numbers and
+# the exponent of BigFloats, the dimensions of arrays, the nesting of the text and of the literal (every level
+# compiles for a new type), and the number of elements of the whole value (and of its digits, for ranges).
 
 struct _NotALiteral <: Exception end
 
@@ -95,15 +96,18 @@ const _LITERAL_TYPES = Dict{Symbol, Any}(
     :Function => Function, :Tuple => Tuple, :NTuple => NTuple, :Pair => Pair, :Val => Val,
     :Vector => Vector, :Matrix => Matrix, :Array => Array, :AbstractVector => AbstractVector,
     :AbstractMatrix => AbstractMatrix, :AbstractArray => AbstractArray, :Dict => Dict,
-    :AbstractDict => AbstractDict, :IdDict => IdDict, :SVector => SVector, :SMatrix => SMatrix, :SArray => SArray,
+    :AbstractDict => AbstractDict, :SVector => SVector, :SMatrix => SMatrix, :SArray => SArray,
     :MVector => MVector, :MMatrix => MMatrix, :MArray => MArray, :StaticVector => StaticVector,
-    :StaticMatrix => StaticMatrix, :StaticArray => StaticArray, :SA => SA,
+    :StaticMatrix => StaticMatrix, :StaticArray => StaticArray, :SA => SA, :SA_F64 => SA_F64, :SA_F32 => SA_F32,
 )
 
 const _MAX_LITERAL_BITS = 2^20     # bits of an exact number (Integer, Rational, Complex) and BigFloat exponents
 const _MAX_LITERAL_LENGTH = 10^6   # elements of the whole value (ranges included: hashing writes every element)
-const _MAX_TYPE_SIZE = 1024        # parameters of a type, nested ones counted (e.g. NTuple{1000, Float64})
+const _MAX_RANGE_BITS = 2^24       # elements × bits of a range of BigInts/BigFloats (hashing writes every element)
+const _MAX_TYPE_SIZE = 1024        # size of a type: parameters, nested ones and static array elements counted
 const _MAX_DIMS = 16               # dimensions of arrays and array types
+const _MAX_DEPTH = 32              # nesting of brackets in the text and of expressions in the parsed literal
+const _MAX_OPERATORS = 1024        # operator characters between two separators of the text (see `_too_nested`)
 
 _exact_bits(x::Integer) = ndigits(x; base = 2)
 _exact_bits(x::Rational) = max(_exact_bits(numerator(x)), _exact_bits(denominator(x)))
@@ -114,20 +118,37 @@ _exact_bits(::Number) = 0  # fixed-size results
 # A parsed or computed number within the size limits
 _checked_number(x::Number) = _exact_bits(x) <= _MAX_LITERAL_BITS ? x : throw(_NotALiteral())
 
-_is_fixed_size(x::Union{BigInt, BigFloat}) = false
-_is_fixed_size(x::Union{Rational, Complex}) = _is_fixed_size(real(x)) && _is_fixed_size(imag(x)) &&
-                                             (!(x isa Rational) || _is_fixed_size(numerator(x)))
+_is_fixed_size(::Union{BigInt, BigFloat}) = false
+_is_fixed_size(x::Rational) = _is_fixed_size(numerator(x))
+_is_fixed_size(x::Complex) = _is_fixed_size(real(x)) && _is_fixed_size(imag(x))
 _is_fixed_size(::Number) = true
 
-# The number of parameters of a type, nested ones included; stops counting at `limit + 1`.
+# The size of a type: its parameters, nested ones included, and the elements of static arrays, whose number is a
+# value parameter (`SVector{64, SVector{64, Int}}` holds 4096 numbers, and compiling for it costs that much). Also for
+# static array types with a free element type (`SArray{Tuple{1000, 1000}}`). Returns at most `limit + 1`.
 function _type_size(T, limit::Integer = _MAX_TYPE_SIZE)
-    T isa Union && return _type_size(T.a, limit) + _type_size(T.b, limit)
+    if T isa Union
+        a = _type_size(T.a, limit)
+        return a > limit ? a : min(a + _type_size(T.b, limit - a), limit + 1)
+    end
     T isa UnionAll && return _type_size(Base.unwrap_unionall(T), limit)
     T isa DataType || return 1
     total = 1
     for p in T.parameters
         total += _type_size(p, limit - total)
         total > limit && return limit + 1
+    end
+    if T.name.wrapper <: StaticArray && !isempty(T.parameters) && T.parameters[1] isa DataType &&
+       T.parameters[1] <: Tuple
+        n = 1
+        for d in T.parameters[1].parameters
+            d isa Integer || return total   # (a free size)
+            n *= max(d, 0)
+            n > limit && return limit + 1
+        end
+        element = length(T.parameters) >= 2 ? _type_size(T.parameters[2], limit) : 1
+        n * element > limit - total && return limit + 1
+        total += n * element
     end
     return total
 end
@@ -144,47 +165,49 @@ end
 _array_ndims(::Type{<:AbstractArray{<:Any, N}}) where {N} = N
 _array_ndims(::Type) = nothing
 
-function _literal_type(sym::Symbol)
+function _literal_type(sym::Symbol, depth::Int = 0)
     T = get(_LITERAL_TYPES, sym, nothing)
     T === nothing && throw(_NotALiteral())
     return T
 end
-_literal_type(ex::Expr) = (T = _literal(ex); T isa Type ? T : throw(_NotALiteral()))
-_literal_type(::Any) = throw(_NotALiteral())
+_literal_type(ex::Expr, depth::Int = 0) = (T = _literal(ex, depth); T isa Type ? T : throw(_NotALiteral()))
+_literal_type(::Any, depth::Int = 0) = throw(_NotALiteral())
 
-_literal(x::Number) = _checked_number(x)
-_literal(x::Union{AbstractString, AbstractChar}) = x
-_literal(q::QuoteNode) = q.value isa Symbol ? q.value : throw(_NotALiteral())
-_literal(sym::Symbol) = haskey(_LITERAL_CONSTANTS, sym) ? _LITERAL_CONSTANTS[sym] : _literal_type(sym)
-_literal(::Any) = throw(_NotALiteral())
+# (`depth`: how deep in the expression the part is; every level compiles for a new type, see `_MAX_DEPTH`)
+_literal(x::Number, depth::Int = 0) = _checked_number(x)
+_literal(x::Union{AbstractString, AbstractChar}, depth::Int = 0) = x
+_literal(q::QuoteNode, depth::Int = 0) = q.value isa Symbol ? q.value : throw(_NotALiteral())
+_literal(sym::Symbol, depth::Int = 0) = haskey(_LITERAL_CONSTANTS, sym) ? _LITERAL_CONSTANTS[sym] : _literal_type(sym)
+_literal(::Any, depth::Int = 0) = throw(_NotALiteral())
 
 # The parts of a composite literal. A range is only a literal on its own (e.g. a sweep typed as "1:10"):
 # `val2str` never writes ranges into containers, and inside one (`Vector{T}[1:n, …]`, `reshape(1:n, …)`,
 # `2 * (1:n)`) it would be expanded before any size check could see it.
-function _literal_parts(args)
-    parts = map(_literal, args)
+function _literal_parts(args, depth::Int)
+    parts = map(a -> _literal(a, depth), args)
     any(p -> p isa AbstractRange, parts) && throw(_NotALiteral())
     return parts
 end
 
-function _literal(ex::Expr)
-    head, args = ex.head, ex.args
+function _literal(ex::Expr, depth::Int = 0)
+    depth < _MAX_DEPTH || throw(_NotALiteral())
+    head, args, inner = ex.head, ex.args, depth + 1
     if head === :vect
-        return Base.vect(_literal_parts(args)...)
+        return Base.vect(_literal_parts(args, inner)...)
     elseif head === :tuple
         any(a -> a isa Expr && a.head in (:(=), :kw, :parameters), args) && throw(_NotALiteral())
-        return tuple(_literal_parts(args)...)
+        return tuple(_literal_parts(args, inner)...)
     elseif head === :ref
-        T = _checked_type(_literal_type(args[1]))
-        return getindex(T, _literal_parts(args[2:end])...)
+        T = _checked_type(_literal_type(args[1], inner))
+        return getindex(T, _literal_parts(args[2:end], inner)...)
     elseif head === :curly
-        T = _literal_type(args[1])
-        params = _literal_parts(args[2:end])
+        T = _literal_type(args[1], inner)
+        params = _literal_parts(args[2:end], inner)
         # Integer parameters size types (`NTuple{N, T}`): bound them before the type is built (`Val` is inert).
         T === Val || all(p -> !(p isa Integer) || abs(p) <= _MAX_TYPE_SIZE, params) || throw(_NotALiteral())
         return _checked_type(Core.apply_type(T, params...))
     elseif head === :call
-        return _literal_call(args[1], _literal_parts(args[2:end]))
+        return _literal_call(args[1], _literal_parts(args[2:end], inner), inner)
     elseif head === :macrocall && length(args) == 3 && args[3] isa String
         # Integer literals too large for Int64/UInt64 are parsed as `@int128_str "..."` etc.
         T = get(_BIG_LITERAL_MACROS, args[1], nothing)
@@ -222,7 +245,45 @@ end
 _range_length(r::AbstractRange{<:Rational}) = length(r)
 _range_length(r::AbstractRange) = Base.checked_length(r)
 
-function _literal_call(f, values::Vector)
+# A range built from `values` within the size limits: its length, and for ranges of BigInts/BigFloats (whose hash
+# text holds every element, each as long as its number) also the length times the bits of the endpoints.
+function _checked_range(r::AbstractRange, values)
+    n = _range_length(r)
+    n <= _MAX_LITERAL_LENGTH || throw(_NotALiteral())
+    all(_is_fixed_size, values) && return r
+    bits = maximum(v -> max(_exact_bits(v), v isa BigFloat ? precision(v) : 64), values)
+    n <= _MAX_RANGE_BITS ÷ bits || throw(_NotALiteral())
+    return r
+end
+
+# Whether the text nests too deep for `Meta.parse` (which can overflow the stack on deep nesting): brackets nested
+# more than `_MAX_DEPTH` levels, or more than `_MAX_OPERATORS` operator characters between two separators (`1-1-1…`,
+# `- - -1`). Outside of string literals; Char literals count, which only overestimates. `val2str` writes elements
+# separated by commas, each with a few operators.
+function _too_nested(s::AbstractString)
+    depth, operators, quoted, escaped = 0, 0, false, false
+    for c in s
+        if quoted
+            escaped ? (escaped = false) : c == '\\' ? (escaped = true) : c == '"' && (quoted = false)
+        elseif c == '"'
+            quoted = true
+        elseif c in ('(', '[', '{')
+            depth += 1
+            depth > _MAX_DEPTH && return true
+            operators = 0
+        elseif c in (')', ']', '}', ',', ';', '\n')
+            c in (')', ']', '}') && (depth -= 1)
+            operators = 0
+        elseif c in _OPERATOR_CHARS
+            operators += 1
+            operators > _MAX_OPERATORS && return true
+        end
+    end
+    return false
+end
+const _OPERATOR_CHARS = Set("+-*/\\^%<>=!~&|:?√∛∜¬÷⊻")
+
+function _literal_call(f, values::Vector, depth::Int = 0)
     if f === :(=>) && length(values) == 2
         return values[1] => values[2]
     elseif f === :reshape && length(values) == 2 && values[1] isa AbstractVector &&
@@ -242,11 +303,11 @@ function _literal_call(f, values::Vector)
         end
         result = _LITERAL_FUNCTIONS[f](values...)
         # Ranges are capped where they are built (they are only literals on their own, see `_literal_parts`).
-        f === :(:) && return _range_length(result) <= _MAX_LITERAL_LENGTH ? result : throw(_NotALiteral())
+        f === :(:) && return _checked_range(result, values)
         return _checked_number(result)
     end
-    T = _literal_type(f)
-    if (T <: Dict || T <: IdDict) && all(v -> v isa Pair, values)
+    T = _literal_type(f, depth)
+    if T <: Dict && all(v -> v isa Pair, values)
         # Building a dictionary compiles for its key and value types: bound them (also for untyped `Dict(…)`).
         all(p -> _type_size(typeof(p.first)) <= _MAX_TYPE_SIZE && _type_size(typeof(p.second)) <= _MAX_TYPE_SIZE,
             values) || throw(_NotALiteral())
@@ -270,16 +331,20 @@ never evaluated. Accepted are the values `val2str` writes: numbers, strings, sym
 static arrays (`SA{T}[...]`); arithmetic on numbers such as `2π`, `1/3` or `sqrt(2)`; and a range as the whole
 value (`1:10`, `0:0.1:1`).
 
-Types come from an allowlist (numbers, text, `Tuple`/`NTuple`, `Vector`/`Matrix`/`Array`, `Dict`, `Pair`, `Val`,
-`Union`, `Nothing`, `Missing`, `Any`, `DataType` and the static arrays of StaticArrays); other names stay strings. Values beyond
-the size limits are returned as strings too: more than 10^6 elements in total, exact numbers with more than 2^20
-bits (BigFloats: exponents), types with more than 1024 parameters (nested ones counted), more than 16 array
-dimensions, and functions such as `sin` or `sqrt` of a BigInt or BigFloat.
+Types come from an allowlist (the number types, including `Rational`, `Complex`, `Irrational` and the abstract ones,
+text, `Tuple`/`NTuple`, `Vector`/`Matrix`/`Array`, `Dict`, `Pair`, `Val`, `Union`, `Type`, `DataType`, `UnionAll`,
+`Function`, `Nothing`, `Missing`, `Any` and the static arrays of StaticArrays); other names stay strings. Values
+beyond the size limits are returned as strings too: more than 10^6 elements in total, exact numbers with more than
+2^20 bits (BigFloats: exponents), types of a size above 1024 (parameters, nested ones and static array elements
+counted), more than 16 array dimensions, more than 32 levels of nesting, long operator chains, ranges of BigInts or
+BigFloats with more than 2^24 bits in total, and functions such as `sin` or `sqrt` of a BigInt, BigFloat or
+`Rational{BigInt}`.
 """
 function str2val(val_str::AbstractString)
     s = strip(String(val_str))  # a plain String: the parser cannot iterate every AbstractString (e.g. lazy CSV strings)
     (s == "<empty>" || isempty(s)) && return ""
     try
+        _too_nested(s) && throw(_NotALiteral())
         value = _literal(Meta.parse(s))
         _literal_size(value) > _MAX_LITERAL_LENGTH && throw(_NotALiteral())
         return value

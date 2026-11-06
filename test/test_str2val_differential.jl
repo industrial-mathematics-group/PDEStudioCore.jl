@@ -54,6 +54,9 @@ end
         "NTuple{1024, Int}", "NTuple{1025, Int}", "NTuple{2^62, Int}", "Dims{257}",
         "Base.OneTo{Int}[10]", "UnitRange{Int64}", "StepRangeLen", "Base.EnvDict", "Date(2020)", "DataFrame",
         "ParamDict()", "IOStream", "Symbol", "Function", "DataType",
+        "sqrt(1//4)", "exp(1//2)", "sin(1//2)", "log(3//2)", "sqrt(1//4 + 0im)", "sqrt(big\"1\"//3)",
+        "SA_F64[1, 2]", "SA_F32[1, 2]", "IdDict(1 => 2)", "BitVector", "SubString{String}[\"a\"]", "Colon",
+        "BigInt(2)^1000:BigInt(2)^1000+10", "SVector{64, SVector{8, Int}}[]",
     ]
     # 3. Every allowlisted type in common patterns
     for name in string.(keys(PDEStudioCore._LITERAL_TYPES))
@@ -75,6 +78,8 @@ end
         # types outside the allowlist (not written by val2str for parameters), and arrays with more than 16 dims
         "UnitRange{Int64}", "StepRangeLen", "DataFrame", "ParamDict()", "IOStream",
         "Array{Float64, 17}",
+        # names reachable through `using`, not written by val2str for parameters (IdDict: val2str cannot write it)
+        "BitVector", "SubString{String}[\"a\"]", "Colon", "IdDict(1 => 2)",
     ])
     differences = String[]
     for s in corpus
@@ -86,8 +91,8 @@ end
             @test !(old isa String) && new isa String
             # the hash text (top level) is unchanged, except for hand-typed texts val2str never writes: function
             # calls, the alias `ParamDict`, and types of dependencies (written module-qualified, e.g.
-            # `DataFrames.DataFrame`, which no parser read back)
-            @test val2str(new) == val2str(old) || s in ("exp(BigFloat(1))", "ParamDict()", "DataFrame")
+            # `DataFrames.DataFrame`, which no parser read back), and `IdDict` values (val2str can't write them)
+            @test s in ("exp(BigFloat(1))", "ParamDict()", "DataFrame", "IdDict(1 => 2)") || val2str(new) == val2str(old)
         else
             push!(differences, s)
         end
@@ -95,12 +100,13 @@ end
     isempty(differences) || @info "Unexpected differences" differences
     @test isempty(differences)
 
-    # 4. Every type the old parser could reach (Core, Base, and what PDEStudioCore uses): the allowlisted ones
-    #    parse to the same type, the others are strings now. None of them appears in the parameters of the
-    #    downstream packages (HyperCloud uses `:T => Float64`/`Float32`).
+    # 4. Every type the old parser could reach (Core, Base, PDEStudioCore and the packages it uses, e.g.
+    #    StaticArrays, Dates, DataFrames): the allowlisted ones parse to the same type, the others are strings
+    #    now (e.g. `BitVector`, `SubString`, `IdDict`, whose values `val2str` can't write). None of them appears in
+    #    the parameters of the downstream packages (HyperCloud uses `:T => Float64`/`Float32`).
     reachable = Set{Symbol}()
     for mod in (Core, Base, PDEStudioCore)
-        for n in names(mod; all = false, imported = true)
+        for n in names(mod; all = false, imported = true, usings = true)
             isdefined(mod, n) && getglobal(mod, n) isa Type && push!(reachable, n)
         end
     end
@@ -150,4 +156,33 @@ end
     @test str2val("Date(2020)") isa String
     # type values used downstream
     @test str2val("Float32") === Float32 && str2val("Float64") === Float64
+    # static arrays: their elements count towards the size of a type (nested ones aborted Julia, also as `SA` keys
+    # and with a free element type, which ran out of memory in type inference)
+    @test str2val("Dict{SVector{64, SVector{64, SVector{64, Int}}}, Int}()") isa String
+    @test str2val("Dict{SVector{256, SVector{256, Int}}, Int}()") isa String
+    @test str2val("SVector{1000, SVector{1000, Int}}[]") isa String
+    @test str2val("Pair{SVector{256, SVector{256, Int}}, Int}[]") isa String
+    @test str2val("SArray{Tuple{1000, 1000, 1000}}[[1.0]]") isa String
+    @test str2val("SMatrix{1000, 1000}[[1.0]]") isa String
+    @test str2val("Dict(SA[" * join(fill("1", 2000), ", ") * "] => 1)") isa String
+    @test str2val("SVector{300, Float64}[]") == SVector{300, Float64}[]
+    @test str2val("Dict(SA[1, 2] => 1)") == Dict(SA[1, 2] => 1)
+    # ranges of big numbers: elements × bits bounded (hashing writes every element)
+    @test str2val("BigInt(2)^524288:BigInt(2)^524288+999") isa String
+    @test str2val("BigInt(1):BigInt(5)") == BigInt(1):BigInt(5)
+    # nesting: of brackets (also beyond what `Meta.parse` survives) and of operator chains
+    @test str2val("["^33 * "1" * "]"^33) isa String
+    @test str2val("("^100_000 * "1" * ")"^100_000) isa String
+    @test str2val("Dict(1 => "^40 * "1" * ")"^40) isa String
+    @test str2val("1-"^2000 * "1") isa String && str2val("-"^2000 * "1") isa String
+    @test str2val("["^8 * "1" * "]"^8) == [[[[[[[[1]]]]]]]]
+    @test str2val("[" * join(fill("-1.5", 5000), ", ") * "]") == fill(-1.5, 5000)   # (separated: no chain)
+    @test str2val("\"" * "("^100 * "\"") == "("^100                                  # (inside a string)
+    # transcendental functions of Rationals (a recursion overflowed the stack), not of Rational{BigInt}
+    @test str2val("sqrt(1//4)") === 0.5 && str2val("exp(1//2)") === exp(0.5)
+    @test str2val("sqrt(1//4 + 0im)") === sqrt(0.25 + 0im)
+    @test str2val("sqrt(big\"1\"//3)") isa String
+    # IdDict is no literal (`val2str` can't write it); SA_F64/SA_F32 are
+    @test str2val("IdDict(1 => 2)") isa String
+    @test str2val("SA_F64[1, 2]") === SA_F64[1, 2] && str2val("SA_F32[1, 2]") === SA_F32[1, 2]
 end
