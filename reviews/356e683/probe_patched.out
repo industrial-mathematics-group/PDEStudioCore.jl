@@ -1,0 +1,104 @@
+old_comma_assign_10000.txt       current: true   fix: true
+old_comma_assign_100000.txt      current: true   fix: true
+old_comma_colonassign_10000.txt  current: true   fix: true
+old_comma_colonassign_100000.txt current: true   fix: true
+old_comma_opassign_10000.txt     current: true   fix: true
+old_comma_opassign_100000.txt    current: true   fix: true
+old_comma_tilde_10000.txt        current: true   fix: true
+old_comma_tilde_100000.txt       current: true   fix: true
+old_lvl_adj_31.txt               current: true   fix: true
+old_lvl_arrow_31.txt             current: true   fix: true
+old_lvl_decl_31.txt              current: true   fix: true
+old_lvl_minus_31.txt             current: true   fix: true
+old_lvl_neg_31.txt               current: true   fix: true
+old_lvl_not_31.txt               current: true   fix: true
+old_lvl_pair_31.txt              current: true   fix: true
+old_lvl_pow_16.txt               current: true   fix: true
+old_lvl_pow_31.txt               current: true   fix: true
+old_lvl_sqrt_31.txt              current: true   fix: true
+old_lvl_where_31.txt             current: true   fix: true
+old_macro_10000.txt              current: true   fix: true
+old_macro_100000.txt             current: true   fix: true
+old_macro_vect_10000.txt         current: true   fix: true
+old_macro_vect_100000.txt        current: true   fix: true
+sep_block_minus_16.txt           current: false  fix: true
+sep_block_minus_31.txt           current: false  fix: true
+sep_block_minus_8.txt            current: false  fix: true
+sep_braces_minus_16.txt          current: false  fix: true
+sep_braces_minus_31.txt          current: false  fix: true
+sep_braces_minus_8.txt           current: false  fix: true
+sep_call_semi_minus_16.txt       current: false  fix: true
+sep_call_semi_minus_31.txt       current: true   fix: true
+sep_call_semi_minus_8.txt        current: false  fix: true
+sep_curly_minus_16.txt           current: false  fix: true
+sep_curly_minus_31.txt           current: true   fix: true
+sep_curly_minus_8.txt            current: false  fix: true
+sep_dict_minus_16.txt            current: false  fix: true
+sep_dict_minus_31.txt            current: true   fix: true
+sep_dict_minus_8.txt             current: false  fix: true
+sep_trailing_minus_16.txt        current: false  fix: true
+sep_trailing_minus_31.txt        current: false  fix: true
+sep_trailing_minus_8.txt         current: false  fix: true
+sep_tuple_adj_16.txt             current: false  fix: true
+sep_tuple_adj_31.txt             current: false  fix: true
+sep_tuple_adj_8.txt              current: false  fix: true
+sep_tuple_call_16.txt            current: false  fix: true
+sep_tuple_call_31.txt            current: false  fix: true
+sep_tuple_call_8.txt             current: false  fix: true
+sep_tuple_decl_16.txt            current: false  fix: true
+sep_tuple_decl_31.txt            current: false  fix: true
+sep_tuple_decl_8.txt             current: false  fix: true
+sep_tuple_index_16.txt           current: false  fix: true
+sep_tuple_index_31.txt           current: false  fix: true
+sep_tuple_index_8.txt            current: false  fix: true
+sep_tuple_minus_16.txt           current: false  fix: true
+sep_tuple_minus_31.txt           current: false  fix: true
+sep_tuple_minus_8.txt            current: false  fix: true
+sep_tuple_pipe_16.txt            current: false  fix: true
+sep_tuple_pipe_31.txt            current: false  fix: true
+sep_tuple_pipe_8.txt             current: false  fix: true
+sep_tuple_where_16.txt           current: false  fix: true
+sep_tuple_where_31.txt           current: false  fix: true
+sep_tuple_where_8.txt            current: false  fix: true
+sep_vcat_minus_16.txt            current: false  fix: true
+sep_vcat_minus_31.txt            current: false  fix: true
+sep_vcat_minus_8.txt             current: false  fix: true
+sep_vect_minus_16.txt            current: false  fix: true
+sep_vect_minus_31.txt            current: false  fix: true
+sep_vect_minus_8.txt             current: false  fix: true
+mm_bracket_paren_1e5.txt         current: true   fix: true
+mm_chain_1e4.txt                 current: true   fix: true
+mm_fcall_1e5.txt                 current: true   fix: true
+mm_paren_bracket_1e5.txt         current: true   fix: true
+mm_topclose_1e4.txt              current: true   fix: true
+semi_braces_1e5.txt              current: false  fix: false
+semi_curly_1e5.txt               current: false  fix: false
+semi_dict_1e5.txt                current: false  fix: false
+semi_dict_1e6.txt                current: false  fix: false
+semi_ncat_1e5.txt                current: false  fix: false
+sep_tuple_adj_1e3x31.txt         current: false  fix: true
+sep_tuple_adj_2.txt              current: false  fix: true
+sep_tuple_adj_3.txt              current: false  fix: true
+sep_tuple_adj_4.txt              current: false  fix: true
+sep_tuple_adj_5.txt              current: false  fix: true
+sep_tuple_adj_6.txt              current: false  fix: true
+sep_tuple_index_2.txt            current: false  fix: true
+sep_tuple_index_3.txt            current: false  fix: true
+sep_tuple_index_4.txt            current: false  fix: true
+sep_tuple_index_5.txt            current: false  fix: true
+sep_tuple_index_6.txt            current: false  fix: true
+sep_tuple_minus_2.txt            current: false  fix: true
+sep_tuple_minus_3.txt            current: false  fix: true
+sep_tuple_minus_4.txt            current: false  fix: true
+sep_tuple_minus_5.txt            current: false  fix: true
+sep_tuple_minus_6.txt            current: false  fix: true
+"x :~ 1, "         depth(50) = 3            fix(2000) = false
+"a ? b :~ c, "     depth(50) = parse error  fix(2000) = false
+"x : = 1, "        depth(50) = parse error  fix(2000) = false
+":(=) = 1, "       depth(50) = 51           fix(2000) = true
+":~ = 1, "         depth(50) = 51           fix(2000) = true
+":(= 1, "          depth(50) = parse error  fix(2000) = true
+"[:~ 1, "          depth(50) = parse error  fix(2000) = false
+":+= 1, "          depth(50) = parse error  fix(2000) = false
+"(x):~1, "         depth(50) = 3            fix(2000) = false
+"x:+=1, "          depth(50) = parse error  fix(2000) = false

@@ -1,0 +1,15 @@
+# Mismatched closers, `;` parameters, and smaller sizes of the separator-reset family (into lit2/, not to be committed)
+d = joinpath(@__DIR__, "lit2"); mkpath(d)
+w(name, s) = write(joinpath(d, name), s)
+lv(L, chain; open = "(", sep = ", ", close = ")") = foldl((inner, _) -> open * inner * chain * sep * "1" * close, 1:L; init = "1")
+w("mm_paren_bracket_1e5.txt", "(]"^10^5 * "1"); w("mm_bracket_paren_1e5.txt", "[)"^10^5 * "1")
+w("mm_fcall_1e5.txt", "f(]"^10^5 * "1"); w("mm_chain_1e4.txt", ("(" * "1^"^500 * "1]")^10^4)
+w("mm_topclose_1e4.txt", ("1^"^1000 * "1)")^100)
+w("semi_dict_1e5.txt", "Dict(" * "1; "^10^5 * "1)"); w("semi_dict_1e6.txt", "Dict(" * "1; "^10^6 * "1)")
+w("semi_curly_1e5.txt", "T{" * "1; "^10^5 * "1}"); w("semi_braces_1e5.txt", "{" * "1; "^10^5 * "1}")
+w("semi_ncat_1e5.txt", "[" * "1;; "^10^5 * "1]")
+for L in (2, 3, 4, 5, 6)
+    w("sep_tuple_adj_$L.txt", lv(L, "'"^1022)); w("sep_tuple_index_$L.txt", lv(L, "[1]"^1022))
+    w("sep_tuple_minus_$L.txt", lv(L, "-1"^511))
+end
+w("sep_tuple_adj_1e3x31.txt", lv(31, "'"^1000))   # same at 31 levels
