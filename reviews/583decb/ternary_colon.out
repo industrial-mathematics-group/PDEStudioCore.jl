@@ -1,0 +1,131 @@
+"c ? a =>:b"               T=false  :($(Expr(:incomplete, Base.Meta.ParseError("ParseError:\n# Error @ none:1:11\nc ? a =>:b\n#         └ ── space required 
+"c ? a =>:return 1"        T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:16\nc ? a =>:return 1\n#              └ ── `:` expe
+"c ? a,:return 1"          T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:6\nc ? a,:return 1\n#    └ ── space required before
+"c ? a;:return 1"          T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:6\nc ? a;:return 1\n#    └ ── space required before
+"(c ? a;:return 1)"        T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:7\n(c ? a;:return 1)\n#     └ ── space required bef
+"[c ? a;:return 1]"        T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:7\n[c ? a;:return 1]\n#     └ ── space required bef
+"c ? (:return"             T=false  :($(Expr(:incomplete, Base.Meta.ParseError("ParseError:\n# Error @ none:1:13\nc ? (:return\n#           └ ── Expected `)
+"c ? [:return 1]"          T=false  :($(Expr(:incomplete, Base.Meta.ParseError("ParseError:\n# Error @ none:1:16\nc ? [:return 1]\n#              └ ── space
+"c ?(:begin)"              T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:4\nc ?(:begin)\n#  └ ── space required after `?` op
+"c ? a =>:(=) 1"           T=false  :($(Expr(:error, Base.Meta.ParseError("ParseError:\n# Error @ none:1:13\nc ? a =>:(=) 1\n#           └ ── `:` expected i
+PASS T: "c ? a =>:return 1, "       ""    overflow(1 MB)=false
+PASS T: "c ? a =>:return 1, "       "("   overflow(1 MB)=false
+PASS T: "c ? a =>:return 1, "       "["   overflow(1 MB)=false
+PASS T: "c ? a =>:return 1, "       "f("  overflow(1 MB)=false
+PASS T: "c ? a =>:return 1; "       ""    overflow(1 MB)=false
+PASS T: "c ? a =>:return 1; "       "("   overflow(1 MB)=false
+PASS T: "c ? a =>:return 1; "       "["   overflow(1 MB)=false
+PASS T: "c ? a =>:return 1; "       "f("  overflow(1 MB)=false
+PASS T: "c ? a,:return 1, "         ""    overflow(1 MB)=false
+PASS T: "c ? a,:return 1, "         "("   overflow(1 MB)=false
+PASS T: "c ? a,:return 1, "         "["   overflow(1 MB)=false
+PASS T: "c ? a,:return 1, "         "f("  overflow(1 MB)=false
+PASS T: "c ? a,:return 1; "         ""    overflow(1 MB)=false
+PASS T: "c ? a,:return 1; "         "("   overflow(1 MB)=false
+PASS T: "c ? a,:return 1; "         "["   overflow(1 MB)=false
+PASS T: "c ? a,:return 1; "         "f("  overflow(1 MB)=false
+PASS T: "c ? a,:return 1\n"         ""    overflow(1 MB)=false
+PASS T: "c ? a,:return 1\n"         "("   overflow(1 MB)=false
+PASS T: "c ? a,:return 1\n"         "["   overflow(1 MB)=false
+PASS T: "c ? a,:return 1\n"         "f("  overflow(1 MB)=false
+PASS T: "c ? a,:return 1 "          ""    overflow(1 MB)=false
+PASS T: "c ? a,:return 1 "          "("   overflow(1 MB)=false
+PASS T: "c ? a,:return 1 "          "["   overflow(1 MB)=false
+PASS T: "c ? a,:return 1 "          "f("  overflow(1 MB)=false
+PASS T: "c ? a;:return 1, "         ""    overflow(1 MB)=false
+PASS T: "c ? a;:return 1, "         "("   overflow(1 MB)=false
+PASS T: "c ? a;:return 1, "         "["   overflow(1 MB)=false
+PASS T: "c ? a;:return 1, "         "f("  overflow(1 MB)=false
+PASS T: "c ? a;:return 1; "         ""    overflow(1 MB)=false
+PASS T: "c ? a;:return 1; "         "("   overflow(1 MB)=false
+PASS T: "c ? a;:return 1; "         "["   overflow(1 MB)=false
+PASS T: "c ? a;:return 1; "         "f("  overflow(1 MB)=false
+PASS T: "c ? a;:return 1\n"         ""    overflow(1 MB)=false
+PASS T: "c ? a;:return 1\n"         "("   overflow(1 MB)=false
+PASS T: "c ? a;:return 1\n"         "["   overflow(1 MB)=false
+PASS T: "c ? a;:return 1\n"         "f("  overflow(1 MB)=false
+PASS T: "c ? a;:return 1 "          ""    overflow(1 MB)=false
+PASS T: "c ? a;:return 1 "          "("   overflow(1 MB)=false
+PASS T: "c ? a;:return 1 "          "["   overflow(1 MB)=false
+PASS T: "c ? a;:return 1 "          "f("  overflow(1 MB)=false
+PASS T: "c ? a =>:begin 1, "        ""    overflow(1 MB)=false
+PASS T: "c ? a =>:begin 1, "        "("   overflow(1 MB)=false
+PASS T: "c ? a =>:begin 1, "        "["   overflow(1 MB)=false
+PASS T: "c ? a =>:begin 1, "        "f("  overflow(1 MB)=false
+PASS T: "c ? a =>:begin 1; "        ""    overflow(1 MB)=false
+PASS T: "c ? a =>:begin 1; "        "("   overflow(1 MB)=false
+PASS T: "c ? a =>:begin 1; "        "["   overflow(1 MB)=false
+PASS T: "c ? a =>:begin 1; "        "f("  overflow(1 MB)=false
+PASS T: "c ? a;:begin 1, "          ""    overflow(1 MB)=false
+PASS T: "c ? a;:begin 1, "          "("   overflow(1 MB)=false
+PASS T: "c ? a;:begin 1, "          "["   overflow(1 MB)=false
+PASS T: "c ? a;:begin 1, "          "f("  overflow(1 MB)=false
+PASS T: "c ? a;:begin 1; "          ""    overflow(1 MB)=false
+PASS T: "c ? a;:begin 1; "          "("   overflow(1 MB)=false
+PASS T: "c ? a;:begin 1; "          "["   overflow(1 MB)=false
+PASS T: "c ? a;:begin 1; "          "f("  overflow(1 MB)=false
+PASS T: "c ? a;:begin 1\n"          ""    overflow(1 MB)=false
+PASS T: "c ? a;:begin 1\n"          "("   overflow(1 MB)=false
+PASS T: "c ? a;:begin 1\n"          "["   overflow(1 MB)=false
+PASS T: "c ? a;:begin 1\n"          "f("  overflow(1 MB)=false
+PASS T: "c ? a;:begin 1 "           ""    overflow(1 MB)=false
+PASS T: "c ? a;:begin 1 "           "("   overflow(1 MB)=false
+PASS T: "c ? a;:begin 1 "           "["   overflow(1 MB)=false
+PASS T: "c ? a;:begin 1 "           "f("  overflow(1 MB)=false
+PASS T: "c ? a =>:local x, "        ""    overflow(1 MB)=false
+PASS T: "c ? a =>:local x, "        "("   overflow(1 MB)=false
+PASS T: "c ? a =>:local x, "        "["   overflow(1 MB)=false
+PASS T: "c ? a =>:local x, "        "f("  overflow(1 MB)=false
+PASS T: "c ? a =>:local x; "        ""    overflow(1 MB)=false
+PASS T: "c ? a =>:local x; "        "("   overflow(1 MB)=false
+PASS T: "c ? a =>:local x; "        "["   overflow(1 MB)=false
+PASS T: "c ? a =>:local x; "        "f("  overflow(1 MB)=false
+PASS T: "c ? a, :return 1, "        ""    overflow(1 MB)=false
+PASS T: "c ? a, :return 1, "        "("   overflow(1 MB)=false
+PASS T: "c ? a, :return 1, "        "["   overflow(1 MB)=false
+PASS T: "c ? a, :return 1, "        "f("  overflow(1 MB)=false
+PASS T: "c ? a, :return 1; "        ""    overflow(1 MB)=false
+PASS T: "c ? a, :return 1; "        "("   overflow(1 MB)=false
+PASS T: "c ? a, :return 1; "        "["   overflow(1 MB)=false
+PASS T: "c ? a, :return 1; "        "f("  overflow(1 MB)=false
+PASS T: "c ? a, :return 1\n"        ""    overflow(1 MB)=false
+PASS T: "c ? a, :return 1\n"        "("   overflow(1 MB)=false
+PASS T: "c ? a, :return 1\n"        "["   overflow(1 MB)=false
+PASS T: "c ? a, :return 1\n"        "f("  overflow(1 MB)=false
+PASS T: "c ? a, :return 1 "         ""    overflow(1 MB)=false
+PASS T: "c ? a, :return 1 "         "("   overflow(1 MB)=false
+PASS T: "c ? a, :return 1 "         "["   overflow(1 MB)=false
+PASS T: "c ? a, :return 1 "         "f("  overflow(1 MB)=false
+PASS T: "c ? a =>:~ 1, "            ""    overflow(1 MB)=false
+PASS T: "c ? a =>:~ 1, "            "("   overflow(1 MB)=false
+PASS T: "c ? a =>:~ 1, "            "["   overflow(1 MB)=false
+PASS T: "c ? a =>:~ 1, "            "f("  overflow(1 MB)=false
+PASS T: "c ? a =>:~ 1; "            ""    overflow(1 MB)=false
+PASS T: "c ? a =>:~ 1; "            "("   overflow(1 MB)=false
+PASS T: "c ? a =>:~ 1; "            "["   overflow(1 MB)=false
+PASS T: "c ? a =>:~ 1; "            "f("  overflow(1 MB)=false
+PASS T: "c ? a =>:.= 1, "           ""    overflow(1 MB)=false
+PASS T: "c ? a =>:.= 1, "           "("   overflow(1 MB)=false
+PASS T: "c ? a =>:.= 1, "           "["   overflow(1 MB)=false
+PASS T: "c ? a =>:.= 1, "           "f("  overflow(1 MB)=false
+PASS T: "c ? a =>:.= 1; "           ""    overflow(1 MB)=false
+PASS T: "c ? a =>:.= 1; "           "("   overflow(1 MB)=false
+PASS T: "c ? a =>:.= 1; "           "["   overflow(1 MB)=false
+PASS T: "c ? a =>:.= 1; "           "f("  overflow(1 MB)=false
+PASS T: "c ? a,:.return 1, "        ""    overflow(1 MB)=false
+PASS T: "c ? a,:.return 1, "        "("   overflow(1 MB)=false
+PASS T: "c ? a,:.return 1, "        "["   overflow(1 MB)=false
+PASS T: "c ? a,:.return 1, "        "f("  overflow(1 MB)=false
+PASS T: "c ? a,:.return 1; "        ""    overflow(1 MB)=false
+PASS T: "c ? a,:.return 1; "        "("   overflow(1 MB)=false
+PASS T: "c ? a,:.return 1; "        "["   overflow(1 MB)=false
+PASS T: "c ? a,:.return 1; "        "f("  overflow(1 MB)=false
+PASS T: "c ? a,:.return 1\n"        ""    overflow(1 MB)=false
+PASS T: "c ? a,:.return 1\n"        "("   overflow(1 MB)=false
+PASS T: "c ? a,:.return 1\n"        "["   overflow(1 MB)=false
+PASS T: "c ? a,:.return 1\n"        "f("  overflow(1 MB)=false
+PASS T: "c ? a,:.return 1 "         ""    overflow(1 MB)=false
+PASS T: "c ? a,:.return 1 "         "("   overflow(1 MB)=false
+PASS T: "c ? a,:.return 1 "         "["   overflow(1 MB)=false
+PASS T: "c ? a,:.return 1 "         "f("  overflow(1 MB)=false
+done

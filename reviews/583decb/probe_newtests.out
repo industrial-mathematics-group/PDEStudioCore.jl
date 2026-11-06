@@ -1,0 +1,73 @@
+== /home/agent/.claude/jobs/d2d299f1/tmp/review-psc1g/repo/test
+Test Summary: | Pass  Total  Time
+one           |    1      1  1.2s
+@test str2val(val2str(Symbol(".="))) === Symbol(".=") && str2val(val2str([:.~, :begin])) == [:.~, :b   PASS  (1.41 s)
+   stack overflow lines in stderr: 0
+Test Summary: | Pass  Total  Time
+one           |    1      1  0.0s
+@test T(":@a 1, "^2000 * "1") && T("1:@a 1, "^2000 * "1")                                              PASS  (0.27 s)
+   stack overflow lines in stderr: 0
+Test Summary: | Pass  Total  Time
+one           |    1      1  0.0s
+@test T("x : return 1, "^2000 * "1") && T("1:local x, "^2000 * "1") && T("x : begin 1; "^2000 * "1")   PASS  (0.27 s)
+   stack overflow lines in stderr: 0
+Test Summary: | Pass  Total  Time
+one           |    1      1  0.2s
+@test !T("[:begin, :end, :~, :(=)]") && !T(val2str(Dict(:~ => 1)))                                     PASS  (0.37 s)
+   stack overflow lines in stderr: 0
+== /home/agent/.claude/jobs/d2d299f1/tmp/review-psc1g/wt-fbae/test
+
+one: Test Failed at none:5
+  Expression: str2val(val2str(Symbol(".="))) === Symbol(".=") && str2val(val2str([:.~, :begin])) == [:.~, :begin]
+  Stacktrace:
+   [1] top-level scope
+     @ none:2
+   [2] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [3] macro expansion
+     @ none:5 [inlined]
+   [4] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+Test Summary: | Fail  Total  Time
+one           |    1      1  1.7s
+RNG of the outermost testset: Random.Xoshiro(0xe7a68fc75cd30556, 0xda5d79b49aa4851f, 0x31534f41c9506da0, 0x8764e7df88d81152, 0x2121e04ad93b3211)
+@test str2val(val2str(Symbol(".="))) === Symbol(".=") && str2val(val2str([:.~, :begin])) == [:.~, :b   FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (2.24 s)
+   stack overflow lines in stderr: 0
+
+one: Test Failed at none:5
+  Expression: T(":@a 1, " ^ 2000 * "1") && T("1:@a 1, " ^ 2000 * "1")
+  Stacktrace:
+   [1] top-level scope
+     @ none:2
+   [2] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [3] macro expansion
+     @ none:5 [inlined]
+   [4] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+Test Summary: | Fail  Total  Time
+one           |    1      1  0.7s
+RNG of the outermost testset: Random.Xoshiro(0x5c0757f9a2c556c3, 0x2996a7999ef80b26, 0xcee7b864fb8a4eec, 0xe0ace9c2e65157c6, 0x080c4d13b59a693b)
+@test T(":@a 1, "^2000 * "1") && T("1:@a 1, "^2000 * "1")                                              FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.25 s)
+   stack overflow lines in stderr: 0
+
+one: Test Failed at none:5
+  Expression: T("x : return 1, " ^ 2000 * "1") && (T("1:local x, " ^ 2000 * "1") && T("x : begin 1; " ^ 2000 * "1"))
+  Stacktrace:
+   [1] top-level scope
+     @ none:2
+   [2] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [3] macro expansion
+     @ none:5 [inlined]
+   [4] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+Test Summary: | Fail  Total  Time
+one           |    1      1  0.7s
+RNG of the outermost testset: Random.Xoshiro(0xd6e3041387654d17, 0x6604ec245a8a5b59, 0x7ce0b85dc6bcb931, 0x3cde5add4ea358fe, 0x2369de629f2b6c09)
+@test T("x : return 1, "^2000 * "1") && T("1:local x, "^2000 * "1") && T("x : begin 1; "^2000 * "1")   FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.25 s)
+   stack overflow lines in stderr: 0
+Test Summary: | Pass  Total  Time
+one           |    1      1  0.2s
+@test !T("[:begin, :end, :~, :(=)]") && !T(val2str(Dict(:~ => 1)))                                     PASS  (0.37 s)
+   stack overflow lines in stderr: 0
