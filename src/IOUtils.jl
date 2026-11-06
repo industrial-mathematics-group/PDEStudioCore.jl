@@ -8,13 +8,15 @@
 #   "params"     normalised parameters              (fast metadata)
 #   "stat_keys"  available statistics (incl. :Solution)
 #   "registry"   kept dimensions of every statistic
-#   "shape"      size of `u` (Eulerian only)
+#   "shape"      size of `u` (Eulerian), (time steps, particles) (Lagrangian)
+#   "dim_keys", "time_dim"  the axes of the data (fast metadata; files written before Nov 2026 have none)
 #   "evaluated_stats"  statistics already evaluated for this raw data (incl. dropped all-NaN ones)
 #   "conv_*"     cached conversions ("conv_L", "conv_E_<n1>x<n2>...")
 
 const _ENABLE_CONV_CACHE = Ref{Bool}(false)
 # Entries tied to the content of "raw": never carried over when the raw data is rewritten.
-const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shape", "evaluated_stats")
+const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shape", "dim_keys", "time_dim",
+                       "evaluated_stats")
 
 """
     enable_cache!(val::Bool)
@@ -170,19 +172,65 @@ function _write_metadata!(file, data::AbstractSimData)
     file["stat_keys"] = collect(keys(data.stats))
     file["registry"] = data.domain.stat_registry
     file["shape"] = collect(_data_shape(data))
+    file["dim_keys"] = collect(data.domain.dim_keys)
+    file["time_dim"] = data.domain.time_dim   # (nothing for static data)
     return nothing
 end
 
-# Whether JLD2 had to reconstruct a value (or a type parameter of it, e.g. the element type of a vector) because
-# its type isn't loaded in this session. Best effort: elements of untyped containers are not inspected.
-_is_reconstructed(value) = occursin(r"JLD2\.(Reconstructed|Serialized)", string(typeof(value)))
+# The type JLD2 had to reconstruct in a value because it isn't loaded in this session (as a string), or `nothing`:
+# the value's own type or a type parameter of it (e.g. the element type of a vector), a type stored as a value
+# (`JLD2.UnknownType`), or such a value inside containers that can hold values of any type (`Any[…]`,
+# `Dict{Symbol, Any}`, sets, tuples, NamedTuples, pairs, also nested in typed ones such as `Vector{Vector{Any}}`). The
+# check runs on every rewrite of the data, so its cost is bounded per entry: at most 10^5 values are visited, at most
+# 4 levels deep, and each type is checked once (its name, and whether its elements can hide other types).
+const _RECONSTRUCTED = r"(?<![\w.])JLD2\.(Reconstructed|Serialized|UnknownType)"
+const _RECONSTRUCTED_VISITS = 10^5
+
+function _reconstructed_type(value, depth::Int = 4,
+                             state = (budget = Ref(_RECONSTRUCTED_VISITS), seen = Dict{Any, Union{Nothing, String}}(),
+                                      hides = Dict{Any, Bool}()))
+    state.budget[] -= 1
+    T = value isa Type ? value : typeof(value)   # a type stored as a value comes back as `JLD2.UnknownType{…}`
+    found = get!(state.seen, T) do               # (once per type: values of the same type cost a lookup)
+        text = string(T)
+        occursin(_RECONSTRUCTED, text) ? text : nothing
+    end
+    found === nothing || return found
+    (depth > 0 && state.budget[] > 0) || return nothing
+    hides(E) = get!(() -> _may_hide(E), state.hides, E)
+    items = value isa AbstractDict ? (hides(keytype(value)) ? Iterators.flatten((k, v) for (k, v) in value) :
+                                      hides(valtype(value)) ? values(value) : ()) :
+            value isa Pair ? (value.first, value.second) :
+            value isa Union{Tuple, NamedTuple} ? value :
+            value isa Union{AbstractArray, AbstractSet} && hides(eltype(value)) ? value : ()
+    for item in items
+        state.budget[] > 0 || break
+        found = _reconstructed_type(item, depth - 1, state)
+        found === nothing || return found
+    end
+    return nothing
+end
+_is_reconstructed(value) = _reconstructed_type(value) !== nothing
+
+# Whether elements of type `T` can be (or contain) values of other types than `T` says: abstract types, and containers
+# whose elements can be (checked a few levels down).
+function _may_hide(T, depth::Int = 4)
+    T isa Type || return false
+    isconcretetype(T) || return true
+    depth > 0 || return false
+    T <: AbstractDict && return _may_hide(keytype(T), depth - 1) || _may_hide(valtype(T), depth - 1)
+    T <: Union{AbstractArray, AbstractSet, Pair, Tuple, NamedTuple} &&
+        return any(P -> _may_hide(P, depth - 1), T <: Union{AbstractArray, AbstractSet} ? (eltype(T),) : fieldtypes(T))
+    return false
+end
 
 # Copies an entry (recursively for groups) from one open JLD2 file to another. Entries are loaded and stored
 # again, so an entry whose type isn't loaded in this session is stored as JLD2's reconstruction (warned).
 function _copy_entry!(dest, src, key::AbstractString)
     value = src[key]
-    _is_reconstructed(value) && @warn "Entry '$key' has a type that isn't loaded in this session " *
-        "($(typeof(value))); it is kept as such. Load the package that defines it before rewriting the data."
+    found = _reconstructed_type(value)
+    found === nothing || @warn "Entry '$key' contains a type that isn't loaded in this session ($found); it is " *
+        "kept as JLD2's reconstruction. Load the package that defines it before rewriting the data."
     if value isa JLD2.Group
         for sub in keys(value)
             _copy_entry!(dest, src, string(key, "/", sub))
@@ -307,6 +355,43 @@ function _is_native_representation(path::AbstractString, data::AbstractSimData)
     native === _data_kind(data) || return false
     shape == _data_shape(data) || return false
     return _same_solution(_load_key(path, "raw"), data)
+end
+
+"""
+    get_sim_data_info(params) -> NamedTuple
+
+Describes the stored dataset of `params` without loading it: `(path, kind, shape, dim_keys, time_dim, n_steps)`,
+where `kind` is `:eulerian` or `:lagrangian` (the native representation), `shape` the size of `u` (Eulerian) or
+`(time steps, particles)` (Lagrangian), `dim_keys`/`time_dim` the axes (`time_dim` is `nothing` for static data)
+and `n_steps` the number of stored time steps (0 for static data). Files written by PDEStudioCore before
+November 2026 lack the axes in their metadata: for them the data is loaded on every call to read them (rewriting the
+data, e.g. with `rehash_sim_data`, adds them). Throws a [`SimFileNotFoundError`](@ref) if nothing is stored for
+`params`, and an `ArgumentError` for files of much older versions (without `"native"`/`"shape"`).
+"""
+function get_sim_data_info(params::AbstractDict)
+    path = get_file_name(params)
+    # (one opening, so a concurrent overwrite can't pair the shape of one file with the axes of another)
+    kind, shape, dim_keys, time_dim = jldopen(path, "r") do file
+        (haskey(file, "native") && haskey(file, "shape")) || throw(ArgumentError(
+            "$(basename(path)) was written by an older PDEStudioCore version (no \"native\"/\"shape\" metadata). " *
+            "Run its configuration again (`run_all_simulations` recomputes outdated files) or delete it."))
+        keys_ = haskey(file, "dim_keys") ? file["dim_keys"] : nothing
+        tdim = haskey(file, "time_dim") ? file["time_dim"] : missing   # (not an axis name: falls back)
+        file["native"], Tuple(file["shape"]), keys_, tdim
+    end
+    # The stored axes, if they are what this version writes: distinct names, the time axis last (older files may
+    # hold user metadata of the same names; Symbols that look exactly like axes can't be told apart without loading)
+    valid = dim_keys isa AbstractVector{Symbol} && allunique(dim_keys) &&
+            (time_dim === nothing || (time_dim isa Symbol && !isempty(dim_keys) && last(dim_keys) === time_dim)) &&
+            (kind !== :eulerian || length(dim_keys) == length(shape))
+    if valid
+        dim_keys = Tuple(dim_keys)
+    else
+        domain = _load_key(path, "raw").domain
+        dim_keys, time_dim = domain.dim_keys, domain.time_dim
+    end
+    n_steps = time_dim === nothing ? 0 : kind === :lagrangian ? shape[1] : shape[end]
+    return (path = path, kind = kind, shape = shape, dim_keys = dim_keys, time_dim = time_dim, n_steps = n_steps)
 end
 
 _same_solution(a::ESimData, b::ESimData) = isequal(a.axes, b.axes) && isequal(a.u, b.u)

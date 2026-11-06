@@ -1,0 +1,122 @@
+== new files
+new E1D_t                                                             ok
+  new E1D_t has dim_keys/time_dim                                     ok
+   (kind = :eulerian, shape = (10, 7), dim_keys = (:x, :t), time_dim = :t, n_steps = 7)
+new E2D_iter                                                          ok
+  new E2D_iter has dim_keys/time_dim                                  ok
+   (kind = :eulerian, shape = (4, 5, 3), dim_keys = (:a, :b, :iteration), time_dim = :iteration, n_steps = 3)
+new E3D_static_f32                                                    ok
+  new E3D_static_f32 has dim_keys/time_dim                            ok
+   (kind = :eulerian, shape = (4, 5, 2), dim_keys = (:x, :y, :z), time_dim = nothing, n_steps = 0)
+new E2D_static                                                        ok
+  new E2D_static has dim_keys/time_dim                                ok
+   (kind = :eulerian, shape = (4, 5), dim_keys = (:x, :y), time_dim = nothing, n_steps = 0)
+new E1D_t1                                                            ok
+  new E1D_t1 has dim_keys/time_dim                                    ok
+   (kind = :eulerian, shape = (10, 1), dim_keys = (:x, :t), time_dim = :t, n_steps = 1)
+new E4D_t                                                             ok
+  new E4D_t has dim_keys/time_dim                                     ok
+   (kind = :eulerian, shape = (4, 5, 2, 2, 3), dim_keys = (:x1, :x2, :x3, :x4, :t), time_dim = :t, n_steps = 3)
+new L2D_t                                                             ok
+  new L2D_t has dim_keys/time_dim                                     ok
+   (kind = :lagrangian, shape = (3, 18), dim_keys = (:x, :y, :t), time_dim = :t, n_steps = 3)
+new L1D_static_f32                                                    ok
+  new L1D_static_f32 has dim_keys/time_dim                            ok
+   (kind = :lagrangian, shape = (1, 6), dim_keys = (:x,), time_dim = nothing, n_steps = 0)
+new L1D_t1_iter                                                       ok
+  new L1D_t1_iter has dim_keys/time_dim                               ok
+   (kind = :lagrangian, shape = (1, 4), dim_keys = (:x, :iter), time_dim = :iter, n_steps = 1)
+new L1D_empty_steps                                                   ok
+  new L1D_empty_steps has dim_keys/time_dim                           ok
+   (kind = :lagrangian, shape = (2, 1), dim_keys = (:x, :t), time_dim = :t, n_steps = 2)
+== old files (written by 6e36904)
+old E1D_t lacks dim_keys                                              ok
+old E1D_t                                                             ok
+old E2D_iter lacks dim_keys                                           ok
+old E2D_iter                                                          ok
+old E3D_static_f32 lacks dim_keys                                     ok
+old E3D_static_f32                                                    ok
+old E2D_static lacks dim_keys                                         ok
+old E2D_static                                                        ok
+old E1D_t1 lacks dim_keys                                             ok
+old E1D_t1                                                            ok
+old E4D_t lacks dim_keys                                              ok
+old E4D_t                                                             ok
+old L2D_t lacks dim_keys                                              ok
+old L2D_t                                                             ok
+old L1D_static_f32 lacks dim_keys                                     ok
+old L1D_static_f32                                                    ok
+old L1D_t1_iter lacks dim_keys                                        ok
+old L1D_t1_iter                                                       ok
+old L1D_empty_steps lacks dim_keys                                    ok
+old L1D_empty_steps                                                   ok
+== bookkeeping updates on old files keep the fallback working
+after stats/caches E1D_t (dim_keys? (false, false))                   ok
+after stats/caches E2D_iter (dim_keys? (false, false))                ok
+after stats/caches E3D_static_f32 (dim_keys? (false, false))          ok
+after stats/caches E2D_static (dim_keys? (false, false))              ok
+after stats/caches E1D_t1 (dim_keys? (false, false))                  ok
+after stats/caches E4D_t (dim_keys? (false, false))                   ok
+after stats/caches L2D_t (dim_keys? (false, false))                   ok
+after stats/caches L1D_static_f32 (dim_keys? (false, false))          ok
+after stats/caches L1D_t1_iter (dim_keys? (false, false))             ok
+after stats/caches L1D_empty_steps (dim_keys? (false, false))         ok
+== save_sim_data(...; overwrite = true) on old files adds the entries
+overwrite E1D_t has entries                                           ok
+overwrite E1D_t                                                       ok
+overwrite E2D_iter has entries                                        ok
+overwrite E2D_iter                                                    ok
+overwrite E3D_static_f32 has entries                                  ok
+overwrite E3D_static_f32                                              ok
+overwrite E2D_static has entries                                      ok
+overwrite E2D_static                                                  ok
+overwrite E1D_t1 has entries                                          ok
+overwrite E1D_t1                                                      ok
+overwrite E4D_t has entries                                           ok
+overwrite E4D_t                                                       ok
+overwrite L2D_t has entries                                           ok
+overwrite L2D_t                                                       ok
+overwrite L1D_static_f32 has entries                                  ok
+overwrite L1D_static_f32                                              ok
+overwrite L1D_t1_iter has entries                                     ok
+overwrite L1D_t1_iter                                                 ok
+overwrite L1D_empty_steps has entries                                 ok
+overwrite L1D_empty_steps                                             ok
+== rehash of old files
+   rehashed 10 (same hash: rewritten in place)
+rehash E1D_t has entries                                              ok
+rehash E1D_t                                                          ok
+rehash E2D_iter has entries                                           ok
+rehash E2D_iter                                                       ok
+rehash E3D_static_f32 has entries                                     ok
+rehash E3D_static_f32                                                 ok
+rehash E2D_static has entries                                         ok
+rehash E2D_static                                                     ok
+rehash E1D_t1 has entries                                             ok
+rehash E1D_t1                                                         ok
+rehash E4D_t has entries                                              ok
+rehash E4D_t                                                          ok
+rehash L2D_t has entries                                              ok
+rehash L2D_t                                                          ok
+rehash L1D_static_f32 has entries                                     ok
+rehash L1D_static_f32                                                 ok
+rehash L1D_t1_iter has entries                                        ok
+rehash L1D_t1_iter                                                    ok
+rehash L1D_empty_steps has entries                                    ok
+rehash L1D_empty_steps                                                ok
+== overwrite with a different layout under the same params: nothing stale
+layout v1 transient :t                                                ok
+layout v2 static (:r,:s)                                              ok
+  v2 time_dim nothing, n_steps 0                                      ok
+layout v3 Lagrangian :τ                                               ok
+  v3                                                                  ok
+  save without overwrite keeps v3                                     ok
+== reserved metadata keys
+   save_sim_data(metadata = "time_dim" => ...) -> ArgumentError: metadata key 'time_dim' is reserved for the data file layout; choose another name
+== an old file whose user metadata was named "dim_keys"/"time_dim" (allowed by 6e36904)
+   info: (path = "/tmp/jl_9ThoDe/meta/data/2026-11-06_11-13-00_086_95aaa83aea068e1c3c7a512567615dcf4878946533a52cb00ad839310a719add.jld2", kind = :eulerian, shape = (3, 2), dim_keys = ("user",), time_dim = "user value", n_steps = 2)
+   data: dim_keys = (:x, :t), time_dim = t
+   after overwrite: user entries = ([:x, :t], :t)
+== errors
+   missing data dir/file -> SimFileNotFoundError
+FAILURES: 0

@@ -1,0 +1,222 @@
+[ Info: Module save root path set to: /tmp/jl_Q3NeY6
+[ Info: Module save root path set to: /tmp/jl_4Gx1WY
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Eulerian representation conv_E_9x6 not cached; generating it on the fly...
+[ Info: Resampling Eulerian data from (10, 7) to (9, 6) (linear in space, nearest in time)...
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Eulerian representation conv_E_3x4x2 not cached; generating it on the fly...
+[ Info: Resampling Eulerian data from (4, 5, 3) to (3, 4, 2) (linear in space, nearest in time)...
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Eulerian representation conv_E_3x4x1 not cached; generating it on the fly...
+[ Info: Resampling Eulerian data from (4, 5, 2) to (3, 4, 1) (linear in space, nearest in time)...
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Eulerian representation conv_E_3x4 not cached; generating it on the fly...
+[ Info: Resampling Eulerian data from (4, 5) to (3, 4) (linear in space, nearest in time)...
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Eulerian representation conv_E_9x1 not cached; generating it on the fly...
+[ Info: Resampling Eulerian data from (10, 1) to (9, 1) (linear in space, nearest in time)...
+[ Info: Lagrangian representation not cached; generating it on the fly...
+[ Info: Eulerian representation conv_E_3x4x1x1x2 not cached; generating it on the fly...
+[ Info: Resampling Eulerian data from (4, 5, 2, 2, 3) to (3, 4, 1, 1, 2) (linear in space, nearest in time)...
+[ Info: Module save root path set to: /tmp/jl_J1Mwqf
+[ Info: Processing matched file: 2026-11-06_11-28-23_643_68182e3478c2b3db38c4a337db4520b2ecc7ff075243f1da5b61dca363772c3a.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-23_643_68182e3478c2b3db38c4a337db4520b2ecc7ff075243f1da5b61dca363772c3a.jld2
+[ Info: Processing matched file: 2026-11-06_11-28-25_026_6b60f2d722e1ea1b3da360bb21afc6991f8389e678d8c8d2a5cc83f9fcd729bf.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-25_026_6b60f2d722e1ea1b3da360bb21afc6991f8389e678d8c8d2a5cc83f9fcd729bf.jld2
+[ Info: Processing matched file: 2026-11-06_11-28-25_284_f12d1acd22322a6ad72aed8cf304c178f3aadf5f6b076b81c065f2ef55f42b34.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-25_284_f12d1acd22322a6ad72aed8cf304c178f3aadf5f6b076b81c065f2ef55f42b34.jld2
+[ Info: Processing matched file: 2026-11-06_11-28-25_550_a3eed51b2e3bed7ddd4058cefe62e1b9201a5a4b1f8b404ed752cd235527bae0.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-25_550_a3eed51b2e3bed7ddd4058cefe62e1b9201a5a4b1f8b404ed752cd235527bae0.jld2
+[ Info: Processing matched file: 2026-11-06_11-28-25_612_17cae6b4a755048dd13567df1d9db7895f217c307ff5a35187698d1baac6430f.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-25_612_17cae6b4a755048dd13567df1d9db7895f217c307ff5a35187698d1baac6430f.jld2
+[ Info: Processing matched file: 2026-11-06_11-28-25_662_16a605fb618e8e976711d86de894ca438f7d3ab68b1fb2b686afc6247a1b93c4.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-25_662_16a605fb618e8e976711d86de894ca438f7d3ab68b1fb2b686afc6247a1b93c4.jld2
+[ Info: Processing matched file: 2026-11-06_11-28-25_934_9ef2c20f6314481e8ac47093df599a45fbf599edaddc75a80d5cb7807b5ac30a.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-25_934_9ef2c20f6314481e8ac47093df599a45fbf599edaddc75a80d5cb7807b5ac30a.jld2
+[ Info: Processing matched file: 2026-11-06_11-28-26_135_886963d4d7387b127530f2cb115f04589feea8b0bba12cd5ee733f0d5f59ccca.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-26_135_886963d4d7387b127530f2cb115f04589feea8b0bba12cd5ee733f0d5f59ccca.jld2
+[ Info: Processing matched file: 2026-11-06_11-28-26_323_f31d4401a03eb44b1b3dff7502787a2151af6d66c8fc3484b36e32b4dcaafdde.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-26_323_f31d4401a03eb44b1b3dff7502787a2151af6d66c8fc3484b36e32b4dcaafdde.jld2
+[ Info: Processing matched file: 2026-11-06_11-28-26_495_a04f5f8f4bda768c324c772aeac13e90f58cd9bc6ac41f5d6168dbc81e9efa2c.jld2
+[ Info: Rehashed in place (hash unchanged): 2026-11-06_11-28-26_495_a04f5f8f4bda768c324c772aeac13e90f58cd9bc6ac41f5d6168dbc81e9efa2c.jld2
+[ Info: Module save root path set to: /tmp/jl_dGRohr
+[ Info: Module save root path set to: /tmp/jl_fRf6mp/meta
+[ Info: Module save root path set to: /tmp/jl_OQX9si
+[ Info: Module save root path set to: /tmp/jl_fRf6mp/meta
+[ Info: Module save root path set to: /tmp/jl_OxGTo5
+== new files
+new E1D_t                                                             ok
+  new E1D_t has dim_keys/time_dim                                     ok
+  new E1D_t fast path (no raw load)                                   ok
+   (kind = :eulerian, shape = (10, 7), dim_keys = (:x, :t), time_dim = :t, n_steps = 7)
+new E2D_iter                                                          ok
+  new E2D_iter has dim_keys/time_dim                                  ok
+  new E2D_iter fast path (no raw load)                                ok
+   (kind = :eulerian, shape = (4, 5, 3), dim_keys = (:a, :b, :iteration), time_dim = :iteration, n_steps = 3)
+new E3D_static_f32                                                    ok
+  new E3D_static_f32 has dim_keys/time_dim                            ok
+  new E3D_static_f32 fast path (no raw load)                          ok
+   (kind = :eulerian, shape = (4, 5, 2), dim_keys = (:x, :y, :z), time_dim = nothing, n_steps = 0)
+new E2D_static                                                        ok
+  new E2D_static has dim_keys/time_dim                                ok
+  new E2D_static fast path (no raw load)                              ok
+   (kind = :eulerian, shape = (4, 5), dim_keys = (:x, :y), time_dim = nothing, n_steps = 0)
+new E1D_t1                                                            ok
+  new E1D_t1 has dim_keys/time_dim                                    ok
+  new E1D_t1 fast path (no raw load)                                  ok
+   (kind = :eulerian, shape = (10, 1), dim_keys = (:x, :t), time_dim = :t, n_steps = 1)
+new E4D_t                                                             ok
+  new E4D_t has dim_keys/time_dim                                     ok
+  new E4D_t fast path (no raw load)                                   ok
+   (kind = :eulerian, shape = (4, 5, 2, 2, 3), dim_keys = (:x1, :x2, :x3, :x4, :t), time_dim = :t, n_steps = 3)
+new L2D_t                                                             ok
+  new L2D_t has dim_keys/time_dim                                     ok
+  new L2D_t fast path (no raw load)                                   ok
+   (kind = :lagrangian, shape = (3, 18), dim_keys = (:x, :y, :t), time_dim = :t, n_steps = 3)
+new L1D_static_f32                                                    ok
+  new L1D_static_f32 has dim_keys/time_dim                            ok
+  new L1D_static_f32 fast path (no raw load)                          ok
+   (kind = :lagrangian, shape = (1, 6), dim_keys = (:x,), time_dim = nothing, n_steps = 0)
+new L1D_t1_iter                                                       ok
+  new L1D_t1_iter has dim_keys/time_dim                               ok
+  new L1D_t1_iter fast path (no raw load)                             ok
+   (kind = :lagrangian, shape = (1, 4), dim_keys = (:x, :iter), time_dim = :iter, n_steps = 1)
+new L1D_empty_steps                                                   ok
+  new L1D_empty_steps has dim_keys/time_dim                           ok
+  new L1D_empty_steps fast path (no raw load)                         ok
+   (kind = :lagrangian, shape = (2, 1), dim_keys = (:x, :t), time_dim = :t, n_steps = 2)
+== old files (written by 6e36904)
+old E1D_t lacks dim_keys                                              ok
+old E1D_t                                                             ok
+  old E1D_t uses the fallback                                         ok
+old E2D_iter lacks dim_keys                                           ok
+old E2D_iter                                                          ok
+  old E2D_iter uses the fallback                                      ok
+old E3D_static_f32 lacks dim_keys                                     ok
+old E3D_static_f32                                                    ok
+  old E3D_static_f32 uses the fallback                                ok
+old E2D_static lacks dim_keys                                         ok
+old E2D_static                                                        ok
+  old E2D_static uses the fallback                                    ok
+old E1D_t1 lacks dim_keys                                             ok
+old E1D_t1                                                            ok
+  old E1D_t1 uses the fallback                                        ok
+old E4D_t lacks dim_keys                                              ok
+old E4D_t                                                             ok
+  old E4D_t uses the fallback                                         ok
+old L2D_t lacks dim_keys                                              ok
+old L2D_t                                                             ok
+  old L2D_t uses the fallback                                         ok
+old L1D_static_f32 lacks dim_keys                                     ok
+old L1D_static_f32                                                    ok
+  old L1D_static_f32 uses the fallback                                ok
+old L1D_t1_iter lacks dim_keys                                        ok
+old L1D_t1_iter                                                       ok
+  old L1D_t1_iter uses the fallback                                   ok
+old L1D_empty_steps lacks dim_keys                                    ok
+old L1D_empty_steps                                                   ok
+  old L1D_empty_steps uses the fallback                               ok
+== bookkeeping updates on old files keep the fallback working
+after stats/caches E1D_t (dim_keys? (false, false))                   ok
+after stats/caches E2D_iter (dim_keys? (false, false))                ok
+after stats/caches E3D_static_f32 (dim_keys? (false, false))          ok
+after stats/caches E2D_static (dim_keys? (false, false))              ok
+after stats/caches E1D_t1 (dim_keys? (false, false))                  ok
+after stats/caches E4D_t (dim_keys? (false, false))                   ok
+after stats/caches L2D_t (dim_keys? (false, false))                   ok
+after stats/caches L1D_static_f32 (dim_keys? (false, false))          ok
+after stats/caches L1D_t1_iter (dim_keys? (false, false))             ok
+after stats/caches L1D_empty_steps (dim_keys? (false, false))         ok
+== save_sim_data(...; overwrite = true) on old files adds the entries
+overwrite E1D_t has entries                                           ok
+overwrite E1D_t                                                       ok
+  overwrite E1D_t fast path                                           ok
+overwrite E2D_iter has entries                                        ok
+overwrite E2D_iter                                                    ok
+  overwrite E2D_iter fast path                                        ok
+overwrite E3D_static_f32 has entries                                  ok
+overwrite E3D_static_f32                                              ok
+  overwrite E3D_static_f32 fast path                                  ok
+overwrite E2D_static has entries                                      ok
+overwrite E2D_static                                                  ok
+  overwrite E2D_static fast path                                      ok
+overwrite E1D_t1 has entries                                          ok
+overwrite E1D_t1                                                      ok
+  overwrite E1D_t1 fast path                                          ok
+overwrite E4D_t has entries                                           ok
+overwrite E4D_t                                                       ok
+  overwrite E4D_t fast path                                           ok
+overwrite L2D_t has entries                                           ok
+overwrite L2D_t                                                       ok
+  overwrite L2D_t fast path                                           ok
+overwrite L1D_static_f32 has entries                                  ok
+overwrite L1D_static_f32                                              ok
+  overwrite L1D_static_f32 fast path                                  ok
+overwrite L1D_t1_iter has entries                                     ok
+overwrite L1D_t1_iter                                                 ok
+  overwrite L1D_t1_iter fast path                                     ok
+overwrite L1D_empty_steps has entries                                 ok
+overwrite L1D_empty_steps                                             ok
+  overwrite L1D_empty_steps fast path                                 ok
+== rehash of old files
+   rehashed 10 (same hash: rewritten in place)
+rehash E1D_t has entries                                              ok
+rehash E1D_t                                                          ok
+  rehash E1D_t fast path                                              ok
+rehash E2D_iter has entries                                           ok
+rehash E2D_iter                                                       ok
+  rehash E2D_iter fast path                                           ok
+rehash E3D_static_f32 has entries                                     ok
+rehash E3D_static_f32                                                 ok
+  rehash E3D_static_f32 fast path                                     ok
+rehash E2D_static has entries                                         ok
+rehash E2D_static                                                     ok
+  rehash E2D_static fast path                                         ok
+rehash E1D_t1 has entries                                             ok
+rehash E1D_t1                                                         ok
+  rehash E1D_t1 fast path                                             ok
+rehash E4D_t has entries                                              ok
+rehash E4D_t                                                          ok
+  rehash E4D_t fast path                                              ok
+rehash L2D_t has entries                                              ok
+rehash L2D_t                                                          ok
+  rehash L2D_t fast path                                              ok
+rehash L1D_static_f32 has entries                                     ok
+rehash L1D_static_f32                                                 ok
+  rehash L1D_static_f32 fast path                                     ok
+rehash L1D_t1_iter has entries                                        ok
+rehash L1D_t1_iter                                                    ok
+  rehash L1D_t1_iter fast path                                        ok
+rehash L1D_empty_steps has entries                                    ok
+rehash L1D_empty_steps                                                ok
+  rehash L1D_empty_steps fast path                                    ok
+== overwrite with a different layout under the same params: nothing stale
+layout v1 transient :t                                                ok
+layout v2 static (:r,:s)                                              ok
+  v2 time_dim nothing, n_steps 0                                      ok
+layout v3 Lagrangian :τ                                               ok
+  v3 fast path                                                        ok
+  v3                                                                  ok
+  save without overwrite keeps v3                                     ok
+== reserved metadata keys
+   save_sim_data(metadata = "time_dim" => ...) -> ArgumentError: metadata key 'time_dim' is reserved for the data file layout; choose another name
+== an old file whose user metadata was named "dim_keys"/"time_dim" (allowed by 6e36904)
+   info: (path = "/tmp/jl_fRf6mp/meta/data/2026-11-06_11-28-26_635_95aaa83aea068e1c3c7a512567615dcf4878946533a52cb00ad839310a719add.jld2", kind = :eulerian, shape = (3, 2), dim_keys = (:x, :t), time_dim = :t, n_steps = 2)
+   data: dim_keys = (:x, :t), time_dim = t
+   after overwrite: user entries = ([:x, :t], :t)
+== errors
+   missing data dir/file -> SimFileNotFoundError
+usermeta: info axes are the data's                                    ok
+== crafted 'older files' with user entries under the reserved names (raw kept, axes stripped and replaced)
+   E: Vector{String}                                                  axes from data
+   E: Symbols, wrong length                                           axes from data
+   E: Symbols, time not in keys                                       axes from data
+   E: dim_keys only (no time_dim entry)                               axes from data
+   E: time_dim only                                                   axes from data
+   E: Symbols, right length, other names                              TRUSTED user entries: (:u, :v), :v, n_steps = 2
+   E: time first, not last                                            TRUSTED user entries: (:t, :x), :t, n_steps = 2
+   S static: user (:x, :t) with time                                  TRUSTED user entries: (:x, :t), :t, n_steps = 3
+   S static: tuple of Symbols                                         axes from data
+   L: one key, time = it                                              TRUSTED user entries: (:a,), :a, n_steps = 2
+   L: dim_keys [:missing], no time_dim                                TRUSTED user entries: (:missing,), :missing, n_steps = 2
+FAILURES: 0

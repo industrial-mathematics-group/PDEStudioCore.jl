@@ -145,7 +145,8 @@ recomputes the hash and stores the data under its new name. Use it after renamin
 parameters, or after changes to the hashing.
 
 # Keywords
-- `delete_old`: remove the old file once the new one has been written.
+- `delete_old`: remove the old file once the new one has been written. For a symlink only the link is removed
+  (with a warning naming its target, which may be shared).
 - `filter_pairs`: only process files whose parameters contain these exact pairs.
 - `remove_keys`: parameter keys to drop before rehashing.
 - `prompt_keys`: interactively ask (in the REPL) for new values of these keys for every file.
@@ -241,6 +242,11 @@ function _rehash_single_file(path::String, delete_old::Bool, filter_pairs, remov
     if same_file
         @info "Rehashed in place (hash unchanged): $bname"
     elseif delete_old
+        # A symlinked file: the rehashed data is a regular file now and only the link is removed. Its target may be
+        # shared (e.g. a fetched result linked into several save paths), so it is never deleted here.
+        islink(path) && @warn "$bname is a symlink: the rehashed data is written to $(basename(new_path)) and the link " *
+            "is removed; its target $(realpath(path)) is not deleted by this rehash of the link. Delete it yourself if " *
+            "nothing else uses it."
         rm(path; force = true)
         @info "Rehashed and renamed: $bname -> $(basename(new_path))"
     else

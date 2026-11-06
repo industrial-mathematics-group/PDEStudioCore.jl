@@ -1,0 +1,8 @@
+PDEStudioCore at /home/agent/.claude/jobs/d2d299f1/tmp/review-psc2b/repo/src/PDEStudioCore.jl
+string(typeof(deep NT 4x10))                                241.0 ms, 70.8 MiB
+rt(deep NT 4x10)                                            143.0 ms, 78.7 MiB
+rt(Any[deep NT 4x10])                                       234.0 ms, 78.8 MiB
+string.(typeof.(2000 Val types))                            279.0 ms, 126.0 MiB
+rt(Any[2000 Val types])                                     434.0 ms, 126.0 MiB
+rt(Any[NTuple{n,Float64} for n in 1:300])                   1.76 ms, 0.22 MiB
+rt(Any[2000 NamedTuples with distinct names])               237.0 ms, 127.0 MiB
