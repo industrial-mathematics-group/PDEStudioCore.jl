@@ -1,0 +1,30 @@
+Dict{SArray{Tuple{},SArray{Tuple{},SArray{Tuple{},Int,0,64},…(78 chars)  -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 995 ms] Dict{SArray{Tuple{},SArray{Tuple{},SArray{Tuple{},Int,0,64},0,64},0,64},Int}()
+Dict{SArray{Tuple{0}, SArray{Tuple{0}, SArray{Tuple{0}, Int,…(91 chars)  -> String                                   str2val 0.05 s, maxrss 0.49 GiB
+   [exit 0, wall 1037 ms] Dict{SArray{Tuple{0}, SArray{Tuple{0}, SArray{Tuple{0}, Int, 1, 64}, 1, 64}, 1, 
+Pair{SArray{Tuple{},SArray{Tuple{},SArray{Tuple{},Int,0,64},…(78 chars)  -> String                                   str2val 0.03 s, maxrss 0.48 GiB
+   [exit 0, wall 1004 ms] Pair{SArray{Tuple{},SArray{Tuple{},SArray{Tuple{},Int,0,64},0,64},0,64},Int}[]
+Dict{SArray{Tuple{1}, SArray{Tuple{1}, SArray{Tuple{1}, Int,…(91 chars)  -> String                                   str2val 0.05 s, maxrss 0.49 GiB
+   [exit 0, wall 1011 ms] Dict{SArray{Tuple{1}, SArray{Tuple{1}, SArray{Tuple{1}, Int, 1, 64}, 1, 64}, 1, 
+Dict{SArray{Tuple{0}, SArray{Tuple{0}, Int, 1, 256}, 1, 256}, Int}()     -> String                                   str2val 0.05 s, maxrss 0.48 GiB
+   [exit 0, wall 1010 ms] Dict{SArray{Tuple{0}, SArray{Tuple{0}, Int, 1, 256}, 1, 256}, Int}()
+Dict{SArray{Tuple{0}, Int, 1, 1000}, Int}()                              -> Dict{StaticArraysCore.SArray{Tuple{0}, Int64, 1, 1000}, Int6 str2val 0.46 s, maxrss 0.5 GiB
+   [exit 0, wall 1455 ms] Dict{SArray{Tuple{0}, Int, 1, 1000}, Int}()
+Dict{SArray{Tuple{0}, Int, 1, 1.0e6}, Int}()                             -> Dict{StaticArraysCore.SArray{Tuple{0}, Int64, 1, 1.0e6}, Int str2val 0.07 s, maxrss 0.48 GiB
+   [exit 0, wall 1039 ms] Dict{SArray{Tuple{0}, Int, 1, 1.0e6}, Int}()
+Dict{SArray{Tuple{0}, SArray{Tuple{0}, SArray{Tuple{0}, Int,…(97 chars)  -> Dict{StaticArraysCore.SArray{Tuple{0}, StaticArraysCore.SArr str2val 0.06 s, maxrss 0.48 GiB
+   [exit 0, wall 1035 ms] Dict{SArray{Tuple{0}, SArray{Tuple{0}, SArray{Tuple{0}, Int, 1, 64.0}, 1, 64.0},
+Pair{SArray{Tuple{0}, Int, 1, 1.0e6}, Int}[]                             -> Vector{Pair{StaticArraysCore.SArray{Tuple{0}, Int64, 1, 1.0e str2val 0.06 s, maxrss 0.49 GiB
+   [exit 0, wall 1054 ms] Pair{SArray{Tuple{0}, Int, 1, 1.0e6}, Int}[]
+SArray{Tuple{0}, Int, 1, 1.0e6}[]                                        -> Vector{StaticArraysCore.SArray{Tuple{0}, Int64, 1, 1.0e6}} str2val 0.06 s, maxrss 0.49 GiB
+   [exit 0, wall 1023 ms] SArray{Tuple{0}, Int, 1, 1.0e6}[]
+Dict{SArray{Tuple{0}, Int, 1, -5}, Int}()                                -> Dict{StaticArraysCore.SArray{Tuple{0}, Int64, 1, -5}, Int64} str2val 0.07 s, maxrss 0.49 GiB
+   [exit 0, wall 1058 ms] Dict{SArray{Tuple{0}, Int, 1, -5}, Int}()
+Tuple{SArray{Tuple{0}, Int, 1, 1.0e6}}[]                                 -> Vector{Tuple{StaticArraysCore.SArray{Tuple{0}, Int64, 1, 1.0 str2val 0.06 s, maxrss 0.49 GiB
+   [exit 0, wall 1050 ms] Tuple{SArray{Tuple{0}, Int, 1, 1.0e6}}[]
+Dict{SArray{Tuple{0}, Int, 1, 300}, SArray{Tuple{0}, Int, 1, 300}}()     -> Dict{StaticArraysCore.SArray{Tuple{0}, Int64, 1, 300}, Stati str2val 0.07 s, maxrss 0.49 GiB
+   [exit 0, wall 1012 ms] Dict{SArray{Tuple{0}, Int, 1, 300}, SArray{Tuple{0}, Int, 1, 300}}()
+Dict{SArray{Tuple{2}, Int, 1, 2}, Int}(SA[1, 2] => 1)                    -> Dict{StaticArraysCore.SVector{2, Int64}, Int64} str2val 0.21 s, maxrss 0.5 GiB
+   [exit 0, wall 1167 ms] Dict{SArray{Tuple{2}, Int, 1, 2}, Int}(SA[1, 2] => 1)
+SMatrix{2, 2, Float64, 4}[]                                              -> Vector{StaticArraysCore.SMatrix{2, 2, Float64, 4}} str2val 0.04 s, maxrss 0.49 GiB
+   [exit 0, wall 1027 ms] SMatrix{2, 2, Float64, 4}[]

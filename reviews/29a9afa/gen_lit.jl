@@ -1,0 +1,42 @@
+# Writes the long probe literals into probes/lit/ (generated, not to be committed)
+d = joinpath(@__DIR__, "lit"); mkpath(d)
+w(name, s) = write(joinpath(d, name), s)
+w("nest200.txt", "["^100 * "1" * "]"^100)
+w("nest32.txt", "["^31 * "1" * "]"^31)
+w("nest_dict.txt", "Dict(1 => "^33 * "1" * ")"^33)
+w("paren1e5.txt", "("^100_000 * "1" * ")"^100_000)
+w("minus1e5.txt", "-"^100_000 * "1")
+w("sa1e4.txt", "Dict(SA[" * join(fill("1", 10^4), ", ") * "] => 1)")
+w("tuple1000.txt", "("^1000 * "1" * ",)"^1000)
+# bypasses of _too_nested: brackets after a Char '"'
+for n in (10^3, 10^4, 10^5, 10^6)
+    w("charquote_paren_$n.txt", "('\"', " * "("^n * "1" * ")"^n * ")")
+end
+# nesting without brackets or counted operators
+for n in (10^4, 10^5, 10^6)
+    w("begin_$n.txt", "begin "^n * "1" * " end"^n)
+    w("arrow_$n.txt", "1" * " → 1"^n)
+    w("adjoint_$n.txt", "1" * "'"^n)
+    w("dot_$n.txt", "a" * ".a"^n)
+    w("dollar_$n.txt", "\$"^n * "1")
+    w("pm_$n.txt", "±"^n * "1")
+    w("comment_paren_$n.txt", "# \"\n(" * "("^n * "1" * ")"^n * ")")
+    w("times_$n.txt", "1" * " × 1"^n)
+    w("in_$n.txt", "1" * " ∈ 1"^n)
+end
+# hand-typed 1×n matrix and spaced element lists
+w("hcat_neg_2000.txt", "[" * join([isodd(i) ? "$i" : "-$i" for i in 1:2000], " ") * "]")
+w("vec_e_2000.txt", "Float64[" * join(fill("1.0e-5", 2000), ", ") * "]")
+w("hcat_e_2000.txt", "[" * join(fill("1.0e-5", 2000), " ") * "]")
+# static arrays built from values (types never named)
+w("sa_sa_100.txt", "SA[" * join(fill("SA[" * join(fill("1", 100), ", ") * "]", 100), ", ") * "]")
+w("sa3_16.txt", "SA[" * join(fill("SA[" * join(fill("SA[" * join(fill("1", 16), ", ") * "]", 16), ", ") * "]", 16), ", ") * "]")
+w("sa3_10.txt", "SA[" * join(fill("SA[" * join(fill("SA[" * join(fill("1", 10), ", ") * "]", 10), ", ") * "]", 10), ", ") * "]")
+w("vec_sa_1e4.txt", "[SA[" * join(fill("1", 10^4), ", ") * "]]")
+# flat heterogeneous tuples
+for n in (10^3, 10^4)
+    w("hettuple_$n.txt", "(" * join([isodd(i) ? "1" : "1.0" for i in 1:n], ", ") * ")")
+    w("hetany_$n.txt", "Any[" * join([isodd(i) ? "1" : "1.0" for i in 1:n], ", ") * "]")
+end
+# deepest allowed mixed nesting (32 levels)
+w("mix32.txt", "("^15 * "Dict(1 => [" * "1" * "])" * ", 1.0)"^15)

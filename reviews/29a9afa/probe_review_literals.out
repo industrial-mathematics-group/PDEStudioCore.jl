@@ -1,0 +1,26 @@
+1'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''…(10001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1027 ms] @lit/r_adjoint_1e4.txt
+1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → 1 → …(400001 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 991 ms] @lit/r_arrow_1e5.txt
+begin begin begin begin begin begin begin begin begin begin …(30001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 989 ms] @lit/r_begin_3000.txt
+('"', [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[…(4008 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 975 ms] @lit/r_charquote_2000.txt
+[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]…(87 chars)   -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1007 ms] @lit/r_comment_40.txt
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$…(10001 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 998 ms] @lit/r_dollar_1e4.txt
+a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.…(20001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 981 ms] @lit/r_dot_1e4.txt
+------------------------------------------------------------…(100001 chars) -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 985 ms] @lit/r_minus1e5.txt
+…(30001 chars)                   -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 989 ms] @lit/r_minusnl_1e4.txt
+((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((…(200001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 1003 ms] @lit/r_paren1e5.txt
+±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±…(100001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 997 ms] @lit/r_pm_1e5.txt
+…(30001 chars)                   -> String                                   str2val 0.0 s, maxrss 0.48 GiB
+   [exit 0, wall 987 ms] @lit/r_pownl_1e4.txt
+1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × 1 × …(400001 chars) -> String                                   str2val 0.0 s, maxrss 0.49 GiB
+   [exit 0, wall 977 ms] @lit/r_times_1e5.txt

@@ -1,0 +1,35 @@
+"\"\"\"a\"(((((((((((((((((((((((((((((((((((" too_nested=true   new: "\"\"a\"((((((((((((((((((   old: "a\"((((((((((((((((((((((  DIFF
+"\"\"\"a\"b\"\"\""                             too_nested=false  new: "a\"b"                       old: "a\"b"                      
+"'\"'"                                         too_nested=false  new: '"'                          old: '"'                         
+"('\"', 1)"                                    too_nested=false  new: ('"', 1)                     old: ('"', 1)                    
+"\"a#b\""                                      too_nested=false  new: "a#b"                        old: "a#b"                       
+"1 # c"                                        too_nested=true   new: "1 # c"                      old: 1                           DIFF
+"1 #= c =#"                                    too_nested=true   new: "1 #= c =#"                  old: 1                           DIFF
+"x'"                                           too_nested=false  new: "x'"                         old: "x'"                        
+"[1, 2]'"                                      too_nested=false  new: "[1, 2]'"                    old: "[1, 2]'"                   
+"1'"                                           too_nested=false  new: "1'"                         old: "1'"                        
+"'"                                            too_nested=false  new: "'"                          old: "'"                         
+"a'"                                           too_nested=false  new: "a'"                         old: "a'"                        
+"'a'"                                          too_nested=false  new: 'a'                          old: 'a'                         
+"'''"                                          too_nested=false  new: '\''                         old: '\''                        
+"('\\'','\"')"                                 too_nested=false  new: ('\'', '"')                  old: ('\'', '"')                 
+"\"\$x\""                                      too_nested=false  new: "\$x"                        old: "\$x"                       
+"\"\$(1 + 1)\""                                too_nested=false  new: "\$(1 + 1)"                  old: "\$(1 + 1)"                 
+"raw\"a\\\\\""                                 too_nested=false  new: "raw\"a\\\\"                 old: "raw\"a\\\\"                
+"1e5"                                          too_nested=false  new: 100000.0                     old: 100000.0                    
+"0x1f"                                         too_nested=false  new: 0x1f                         old: 0x1f                        
+"2π"                                           too_nested=false  new: 6.283185307179586            old: 6.283185307179586           
+"1.5f0"                                        too_nested=false  new: 1.5f0                        old: 1.5f0                       
+"2im"                                          too_nested=false  new: 0 + 2im                      old: 0 + 2im                     
+"1.e5"                                         too_nested=false  new: 100000.0                     old: 100000.0                    
+"a.b"                                          too_nested=false  new: "a.b"                        old: "a.b"                       
+"Float64[1.5, -2.0]"                           too_nested=false  new: [1.5, -2.0]                  old: [1.5, -2.0]                 
+"\$x"                                          too_nested=false  new: "\$x"                        old: "\$x"                       
+"√2"                                           too_nested=false  new: "√2"                         old: "√2"                        
+"2 × 3"                                        too_nested=false  new: "2 × 3"                      old: "2 × 3"                     
+"1 ± 2"                                        too_nested=false  new: "1 ± 2"                      old: "1 ± 2"                     
+"begin 1 end"                                  too_nested=false  new: "begin 1 end"                old: "begin 1 end"               
+"let x = 1; x end"                             too_nested=false  new: "let x = 1; x end"           old: "let x = 1; x end"          
+":a!"                                          too_nested=false  new: :a!                          old: :a!                         
+"x!"                                           too_nested=false  new: "x!"                         old: "x!"                        
+"-1.5e-5 - 2.5e-5im"                           too_nested=false  new: -1.5e-5 - 2.5e-5im           old: -1.5e-5 - 2.5e-5im          
