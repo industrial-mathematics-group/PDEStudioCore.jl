@@ -180,14 +180,15 @@ end
 # The type JLD2 had to reconstruct in a value because it isn't loaded in this session (as a string), or `nothing`:
 # the value's own type or a type parameter of it (e.g. the element type of a vector), a type stored as a value
 # (`JLD2.UnknownType`), or such a value inside containers that can hold values of any type (`Any[…]`,
-# `Dict{Symbol, Any}`, tuples, NamedTuples, pairs, also nested in typed ones such as `Vector{Vector{Any}}`). The check
-# runs on every rewrite of the data, so its cost is bounded per entry: at most 10^5 values are visited (each type is
-# checked once), at most 4 levels deep.
+# `Dict{Symbol, Any}`, sets, tuples, NamedTuples, pairs, also nested in typed ones such as `Vector{Vector{Any}}`). The
+# check runs on every rewrite of the data, so its cost is bounded per entry: at most 10^5 values are visited, at most
+# 4 levels deep, and each type is checked once (its name, and whether its elements can hide other types).
 const _RECONSTRUCTED = r"(?<![\w.])JLD2\.(Reconstructed|Serialized|UnknownType)"
 const _RECONSTRUCTED_VISITS = 10^5
 
 function _reconstructed_type(value, depth::Int = 4,
-                             state = (budget = Ref(_RECONSTRUCTED_VISITS), seen = Dict{Any, Union{Nothing, String}}()))
+                             state = (budget = Ref(_RECONSTRUCTED_VISITS), seen = Dict{Any, Union{Nothing, String}}(),
+                                      hides = Dict{Any, Bool}()))
     state.budget[] -= 1
     T = value isa Type ? value : typeof(value)   # a type stored as a value comes back as `JLD2.UnknownType{…}`
     found = get!(state.seen, T) do               # (once per type: values of the same type cost a lookup)
@@ -196,11 +197,12 @@ function _reconstructed_type(value, depth::Int = 4,
     end
     found === nothing || return found
     (depth > 0 && state.budget[] > 0) || return nothing
-    items = value isa AbstractDict ? (_may_hide(keytype(value)) ? Iterators.flatten((k, v) for (k, v) in value) :
-                                      _may_hide(valtype(value)) ? values(value) : ()) :
+    hides(E) = get!(() -> _may_hide(E), state.hides, E)
+    items = value isa AbstractDict ? (hides(keytype(value)) ? Iterators.flatten((k, v) for (k, v) in value) :
+                                      hides(valtype(value)) ? values(value) : ()) :
             value isa Pair ? (value.first, value.second) :
             value isa Union{Tuple, NamedTuple} ? value :
-            value isa AbstractArray && _may_hide(eltype(value)) ? value : ()
+            value isa Union{AbstractArray, AbstractSet} && hides(eltype(value)) ? value : ()
     for item in items
         state.budget[] > 0 || break
         found = _reconstructed_type(item, depth - 1, state)
@@ -217,8 +219,8 @@ function _may_hide(T, depth::Int = 4)
     isconcretetype(T) || return true
     depth > 0 || return false
     T <: AbstractDict && return _may_hide(keytype(T), depth - 1) || _may_hide(valtype(T), depth - 1)
-    T <: Union{AbstractArray, Pair, Tuple, NamedTuple} &&
-        return any(P -> _may_hide(P, depth - 1), T <: AbstractArray ? (eltype(T),) : fieldtypes(T))
+    T <: Union{AbstractArray, AbstractSet, Pair, Tuple, NamedTuple} &&
+        return any(P -> _may_hide(P, depth - 1), T <: Union{AbstractArray, AbstractSet} ? (eltype(T),) : fieldtypes(T))
     return false
 end
 
@@ -374,11 +376,13 @@ function get_sim_data_info(params::AbstractDict)
             "$(basename(path)) was written by an older PDEStudioCore version (no \"native\"/\"shape\" metadata). " *
             "Run its configuration again (`run_all_simulations` recomputes outdated files) or delete it."))
         keys_ = haskey(file, "dim_keys") ? file["dim_keys"] : nothing
-        tdim = haskey(file, "time_dim") ? file["time_dim"] : :missing
+        tdim = haskey(file, "time_dim") ? file["time_dim"] : missing   # (not an axis name: falls back)
         file["native"], Tuple(file["shape"]), keys_, tdim
     end
-    # The stored axes, if they are what this version writes (older files may hold user metadata of the same names)
-    valid = dim_keys isa AbstractVector{Symbol} && (time_dim === nothing || (time_dim isa Symbol && time_dim in dim_keys)) &&
+    # The stored axes, if they are what this version writes: distinct names, the time axis last (older files may
+    # hold user metadata of the same names; Symbols that look exactly like axes can't be told apart without loading)
+    valid = dim_keys isa AbstractVector{Symbol} && allunique(dim_keys) &&
+            (time_dim === nothing || (time_dim isa Symbol && !isempty(dim_keys) && last(dim_keys) === time_dim)) &&
             (kind !== :eulerian || length(dim_keys) == length(shape))
     if valid
         dim_keys = Tuple(dim_keys)

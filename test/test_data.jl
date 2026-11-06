@@ -128,15 +128,23 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         big = Dict{Symbol, Any}(Symbol("k", i) => i for i in 1:10^4)
         big[:z] = H
         PDEStudioCore.JLD2.jldsave(hidden_file; vv = [Any[H]], dd = Dict("run" => Dict{Symbol, Any}(:h => anon.Hidden)),
-                                   nt = (a = 1, b = Any[H]), pr = :p => Any[H], big = big)
-        for k in ("vv", "dd", "nt", "pr", "big")
+                                   nt = (a = 1, b = Any[H]), pr = :p => Any[H], big = big, st = Set{Any}([H]),
+                                   sd = Dict{Symbol, Any}(:s => Set{Any}([H])))
+        for k in ("vv", "dd", "nt", "pr", "big", "st", "sd")
             @test PDEStudioCore._is_reconstructed(PDEStudioCore.JLD2.load(hidden_file, k))
         end
         # the cost is bounded per entry (nested untyped data with 8·10^5 leaves took seconds and GiBs on every rewrite)
         nested = Any[Any[Any[Any[0.0 for _ in 1:30] for _ in 1:30] for _ in 1:30] for _ in 1:30]
         PDEStudioCore._reconstructed_type(nested)
         @test @elapsed(PDEStudioCore._reconstructed_type(nested)) < 0.5
-        @test !PDEStudioCore._is_reconstructed("JLD2.ReconstructedStatic") && !PDEStudioCore._is_reconstructed(:MyJLD2)
+        # ... also for many containers of a wide element type (whether it can hide other types is checked once)
+        wide = Any[Dict{Symbol, NTuple{20, NTuple{20, NTuple{20, Float64}}}}() for _ in 1:10^5]
+        PDEStudioCore._reconstructed_type(wide)
+        @test @elapsed(PDEStudioCore._reconstructed_type(wide)) < 0.5
+        # the pattern is anchored: a type `Reconstructed` of a module whose name ends in JLD2 is no reconstruction
+        M = Module(:MyJLD2)
+        Core.eval(M, :(struct Reconstructed end))
+        @test !PDEStudioCore._is_reconstructed(Base.invokelatest(M.Reconstructed))
         # the warning on a rewrite names the missing type
         dest = joinpath(mktempdir(), "dest.jld2")
         PDEStudioCore.JLD2.jldopen(dest, "w") do d
@@ -297,6 +305,21 @@ end
         f["dim_keys"] = ["user"]
         f["time_dim"] = "user value"
     end
+    @test get_sim_data_info(PARAMS_CONV) == info
+    # ... or that look like axes but not like what this version writes (time axis not last, repeated names, no
+    # "time_dim" entry)
+    for (keys_, tdim) in (([:t, :x], :t), ([:x, :x], nothing), ([:missing], nothing))
+        JLD2.jldopen(path, "a+") do f
+            delete!(f, "dim_keys"); delete!(f, "time_dim")
+            f["dim_keys"] = keys_
+            isnothing(tdim) || (f["time_dim"] = tdim)
+        end
+        @test get_sim_data_info(PARAMS_CONV) == info
+    end
+    # the axes this version writes are read without loading the data: also found in a copy without "raw"
+    save_sim_data(load_sim_data(PARAMS_CONV); overwrite = true, verbose = false)
+    path = get_file_name(PARAMS_CONV)
+    JLD2.jldopen(f -> delete!(f, "raw"), path, "a+")
     @test get_sim_data_info(PARAMS_CONV) == info
     @test_throws SimFileNotFoundError get_sim_data_info(create_param_dict(:N => 1, :test_mode => "info_missing"))
 end
