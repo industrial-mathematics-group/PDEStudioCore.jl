@@ -1,0 +1,26 @@
+== repo
+@test T("('\\'','\"', $deep)") && T("(''','\"', $deep)") && T("('\\xf0\\x80\\x80\\x80','\"   PASS  (0.25 s)
+   [exit 0]
+@test T("(\"\"\" \" \"\"\", $deep)") && T("\"\$($deep)\"")                                   PASS  (0.25 s)
+   [exit 0]
+@test T("(1)^"^2000 * "1") && T("(a)->"^2000 * "1") && T("begin; "^20 * "1" * "; end"^20)    PASS  (0.25 s)
+   [exit 0]
+@test !T("[:begin, :end, :if]") && !T("var\"#a\"") && !T(val2str(Any['\'', '"', "\$x", "a'   PASS  (0.31 s)
+   [exit 0]
+@test str2val("1 # c") === 1 && str2val("[:begin, :end]") == [:begin, :end]                  PASS  (1.32 s)
+   [exit 0]
+@test str2val(val2str(Symbol("x" * "′"^1100))) == Symbol("x" * "′"^1100)                     PASS  (1.24 s)
+   [exit 0]
+== wt-29a9afa
+@test T("('\\'','\"', $deep)") && T("(''','\"', $deep)") && T("('\\xf0\\x80\\x80\\x80','\"   FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.25 s)
+   [exit 0]
+@test T("(\"\"\" \" \"\"\", $deep)") && T("\"\$($deep)\"")                                   FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.26 s)
+   [exit 0]
+@test T("(1)^"^2000 * "1") && T("(a)->"^2000 * "1") && T("begin; "^20 * "1" * "; end"^20)    FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.27 s)
+   [exit 0]
+@test !T("[:begin, :end, :if]") && !T("var\"#a\"") && !T(val2str(Any['\'', '"', "\$x", "a'   PASS  (0.34 s)
+   [exit 0]
+@test str2val("1 # c") === 1 && str2val("[:begin, :end]") == [:begin, :end]                  FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.28 s)
+   [exit 0]
+@test str2val(val2str(Symbol("x" * "′"^1100))) == Symbol("x" * "′"^1100)                     FAIL (Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 br)  (1.28 s)
+   [exit 0]
