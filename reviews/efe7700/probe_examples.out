@@ -1,0 +1,58 @@
+cfl=1  upwind  max error = 7.771561172376096e-16
+cfl=1  lax_friedrichs  max error = 7.771561172376096e-16
+cfl=1  lax_wendroff  max error = 7.771561172376096e-16
+cfl=0.25  [(:upwind, 0.138), (:lax_friedrichs, 0.523), (:lax_wendroff, 0.00387)]
+cfl=0.5  [(:upwind, 0.094), (:lax_friedrichs, 0.256), (:lax_wendroff, 0.0031)]
+cfl=0.75  [(:upwind, 0.0489), (:lax_friedrichs, 0.111), (:lax_wendroff, 0.00183)]
+Test Summary:                                                    | Pass  Total  Time
+advection docstring: 'at cfl = 1 ... Lax–Friedrichs isn't' exact |    1      1  2.2s
+N=50 godunov: relative mass change = 1.42e-14 %, shock at x≈0.3
+N=50 lax_friedrichs: relative mass change = -1.42e-14 %, shock at x≈0.3
+N=50 nonconservative_upwind: relative mass change = -7.2 %, shock at x≈0.2
+N=100 godunov: relative mass change = 7.11e-14 %, shock at x≈0.3
+N=100 lax_friedrichs: relative mass change = 7.11e-14 %, shock at x≈0.3
+N=100 nonconservative_upwind: relative mass change = -6.54 %, shock at x≈0.22
+N=200 godunov: relative mass change = -2.13e-13 %, shock at x≈0.3
+N=200 lax_friedrichs: relative mass change = -1.56e-13 %, shock at x≈0.3
+N=200 nonconservative_upwind: relative mass change = -6.18 %, shock at x≈0.225
+Test Summary:                                                         | Total  Time
+burgers docstring: ~7% mass drift by t=0.8 at N=50, wrong shock speed |     0  0.3s
+heat1d r=0.25 explicit err=5.96e-5
+heat1d r=0.25 implicit err=0.000298
+heat1d r=0.25 crank_nicolson err=0.000119
+heat1d r=0.4 explicit err=0.000167
+heat1d r=0.4 implicit err=0.000405
+heat1d r=0.4 crank_nicolson err=0.000119
+heat1d r=0.5 explicit err=0.000239
+heat1d r=0.5 implicit err=0.000476
+heat1d r=0.5 crank_nicolson err=0.000119
+heat1d r=0.6 explicit err=1.79e43
+heat1d r=0.6 implicit err=0.000547
+heat1d r=0.6 crank_nicolson err=0.000119
+heat2d r=0.1 explicit err=6.72e-5
+heat2d r=0.1 adi err=0.000344
+heat2d r=0.25 explicit err=0.000682
+heat2d r=0.25 adi err=0.000343
+heat2d r=0.3 explicit err=13000.0
+heat2d r=0.3 adi err=0.000343
+Test Summary:               | Total  Time
+heat 1d/2d stability claims |     0  1.2s
+poisson N=16 jacobi err=0.0175
+poisson N=16 gauss_seidel err=0.00279
+poisson N=16 sor err=0.00322
+poisson N=32 jacobi err=0.38
+poisson N=32 gauss_seidel err=0.145
+poisson N=32 sor err=0.000804
+Test Summary:                   | Total  Time
+poisson: levels off at O(1/N^2) |     0  0.2s
+particles dt=0.05 euler: mean radial drift = 4.72
+particles dt=0.05 rk2: mean radial drift = 0.0422
+particles dt=0.05 rk4: mean radial drift = -0.000223
+particles dt=0.02 euler: mean radial drift = 1.01
+particles dt=0.02 rk2: mean radial drift = 0.00264
+particles dt=0.02 rk4: mean radial drift = -2.31e-6
+particles dt=0.01 euler: mean radial drift = 0.409
+particles dt=0.01 rk2: mean radial drift = 0.00033
+particles dt=0.01 rk4: mean radial drift = -7.24e-8
+Test Summary:                                | Total  Time
+particles: euler out, rk2 out slowly, rk4 in |     0  0.4s

@@ -1,0 +1,7 @@
+Dict{NTuple{256, NTuple{256, Real}}, Int}()                              -> Dict{NTuple{256, NTuple{256, Real}}, Int64} str2val 0.12 s, maxrss 0.44 GiB
+                                                                            hash 0.55 s, maxrss 0.46 GiB
+Dict{NTuple{256, NTuple{256, Union{Int, Nothing}}}, Int}()               -> Dict{NTuple{256, NTuple{256, Union{Nothing, Int64}}}, Int64} str2val 0.29 s, maxrss 0.44 GiB
+                                                                            hash 1.03 s, maxrss 0.46 GiB
+[122557] signal 6 (-6): Aborted
+[122557] signal 11 (1): Segmentation fault
+    [exit code 139 for: Dict{Int, NTuple{256, NTuple{256, NTuple{256, Int}}}}()]

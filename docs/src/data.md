@@ -79,9 +79,9 @@ Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed
 | `"sources"` | SHA-256 digests of the source files (pipeline runs with `sources`) |
 | `"conv_L"`, `"conv_E_<n1>x<n2>…"` | cached conversions |
 
-Writes are atomic: a file is written to a temporary path and renamed into place, so an interrupted run never corrupts existing data, and rewriting a file does not grow it. Rewriting the raw data drops stale conversion caches but keeps any other entries (including groups) you stored yourself.
+Writes are atomic: a file is written to a temporary path and renamed into place, so an interrupted run never corrupts existing data, and rewriting the data does not grow the file. This includes the bookkeeping entries of the statistics pass and cached conversions: they are written into a copy of the file that then replaces it (a changed bookkeeping entry grows the file by about its own size, a few hundred bytes to a few kB). When the data itself is rewritten, the other entries are loaded and stored again: load the packages that define the types of entries you stored yourself first, otherwise they are kept as JLD2's reconstructions (with a warning). Writers in several processes are not coordinated: if two of them rewrite the same file at once, the last rename wins. Rewriting the raw data drops stale conversion caches but keeps any other entries (including groups) you stored yourself.
 
-Converted and reference datasets carry the parameters of the native run, so they map to the same file. [`calculate_all_stats!`](@ref) detects this (by representation and shape) and does not save them over the native data; an explicit `save_sim_data(...; overwrite = true)` of such a dataset does replace it.
+Converted and reference datasets carry the parameters of the native run, so they map to the same file. [`calculate_all_stats!`](@ref) detects this (by representation, shape and the solution itself) and does not save them over the native data; an explicit `save_sim_data(...; overwrite = true)` of such a dataset does replace it.
 
 ## 4. Loading and Converting
 

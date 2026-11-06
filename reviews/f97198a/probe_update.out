@@ -1,0 +1,12 @@
+sizes: [17746, 22153, 22291, 22429, 22567, 22705, 22843, 22981, 23119, 23257, 23395, 23533, 23671, 23809, 23947, 24085, 24223, 24361, 24499, 24637, 24775, 24913, 29195, 33491, 37803, 42131, 46475]
+diffs: [4407, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 138, 4282, 4296, 4312, 4328, 4344]
+Test Summary:     | Pass  Total  Time
+growth per update |    2      2  1.3s
+unwritable value: ok
+Test Summary:                              | Pass  Total  Time
+error while writing leaves file and no tmp |    1      1  0.2s
+update: ArgumentError: 'src' and 'dst' refer to the same file/dir. T
+tmp left: String[]
+after update: islink(f) = true, target modified in place = true, flag in target = true
+Test Summary:       | Total  Time
+symlinked data file |     0  0.2s

@@ -1,0 +1,123 @@
+(BigInt(3)//1)^(2^62)                    -> String  0.212 s
+(BigInt(3)+0im)^(2^62)                   -> String  0.113 s
+BigInt(3)^(2^62)                         -> String  0.002 s
+(BigInt(3)//1)^(2^63)                    -> String  0.016 s
+(BigInt(3)//1)^(-2^63)                   -> String  0.0 s
+(BigInt(3)+0im)^(2^63)                   -> String  0.018 s
+(BigInt(3)+0im)^(-2^63)                  -> String  0.0 s
+BigInt(3)^(2^63)                         -> String  0.002 s
+(BigInt(3)//1)^(Int128(2)^127)           -> String  0.082 s
+(BigInt(3)+0im)^(Int128(2)^127)          -> String  0.026 s
+(BigInt(3)//1)^(big(2)^100)              -> String  0.0 s
+(BigInt(3)//1)^(-(big(2)^100))           -> String  0.0 s
+BigInt(3)^1e7                            -> String  0.018 s
+BigInt(3)^NaN                            -> BigFloat  0.003 s
+BigInt(3)^Inf                            -> String  0.0 s
+(BigInt(3)//1)^NaN                       -> BigFloat  0.062 s
+(BigInt(3)//1)^(10^7+0im)                -> String  0.045 s
+(BigInt(3)//1)^(10^7//1)                 -> String  0.067 s
+(BigInt(3)//1)^(2^62//1)                 -> String  0.0 s
+(BigInt(3)+0im)^(2^62+0im)               -> String  0.045 s
+2.0^(2^62)                               -> Float64  0.026 s
+2.0^NaN                                  -> Float64  0.011 s
+big(2.0)^(2^62)                          -> String  0.0 s
+2^-3                                     -> String  0.0 s
+(BigInt(2)//1)^-3                        -> Rational{BigInt}  0.0 s
+BigInt(10)^(2^18)                        -> BigInt  0.001 s
+(1+2im)^3                                -> Complex{Int64}  0.053 s
+1.5^(10^7)                               -> Float64  0.0 s
+(BigInt(3)//1)^(2^20)                    -> String  0.0 s
+(BigInt(3)//1)^(2^19)                    -> Rational{BigInt}  0.001 s
+UInt64(2)^63                             -> UInt64  0.056 s
+Test Summary: | Pass  Total  Time
+power bound   |   31     31  1.2s
+(1:typemax(Int), 1:typemax(Int))                   -> String  size = -
+(1:9223372036854775807, 1:9223372036854775807)     -> Tuple{UnitRange{Int64}, UnitRange{Int64}}  size = -2
+
+whole-value size: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29
+  Expression: v isa String
+   Evaluated: (1:9223372036854775807, 1:9223372036854775807) isa String
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:22
+(1:2^62, 1:2^62, 1:2^62)                           -> Tuple{UnitRange{Int64}, UnitRange{Int64}, UnitRange{Int64}}  size = -4611686018427387904
+
+whole-value size: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29
+  Expression: v isa String
+   Evaluated: (1:4611686018427387904, 1:4611686018427387904, 1:4611686018427387904) isa String
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:22
+(1:2^62, 1:2^62, 1:2^62, 1:2^62)                   -> NTuple{4, UnitRange{Int64}}  size = 0
+
+whole-value size: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29
+  Expression: v isa String
+   Evaluated: (1:4611686018427387904, 1:4611686018427387904, 1:4611686018427387904, 1:4611686018427387904) isa String
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:22
+Any[1:9223372036854775807, 1:9223372036854775807]  -> Vector{Any}  size = -2
+
+whole-value size: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29
+  Expression: v isa String
+   Evaluated: Any[1:9223372036854775807, 1:9223372036854775807] isa String
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:22
+Dict(1 => 1:9223372036854775807, 2 => 1:9223372036854775807) -> Dict{Int64, UnitRange{Int64}}  size = 0
+
+whole-value size: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29
+  Expression: v isa String
+   Evaluated: Dict{Int64, UnitRange{Int64}}(2 => 1:9223372036854775807, 1 => 1:9223372036854775807) isa String
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:22
+(1:9223372036854775807, 1:9223372036854775807, 1:2) -> Tuple{UnitRange{Int64}, UnitRange{Int64}, UnitRange{Int64}}  size = 0
+
+whole-value size: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29
+  Expression: v isa String
+   Evaluated: (1:9223372036854775807, 1:9223372036854775807, 1:2) isa String
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:29 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:22
+Test Summary:    | Pass  Fail  Total  Time
+whole-value size |    1     6      7  1.1s
+RNG of the outermost testset: Random.Xoshiro(0xb14c922ea0b8cb88, 0x6e7cc6f5bc89fcb9, 0x432eec49c5ea647b, 0x0eb5085f103280b8, 0xb3a0bf1a254c3d22)
+ERROR: LoadError: Some tests did not pass: 1 passed, 6 failed, 0 errored, 0 broken.
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round4/psc/probe_literals.jl:21

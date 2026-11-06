@@ -1,0 +1,19 @@
+[ Info: Module save root path set to: /tmp/jl_PhuIx1/save
+[ Info: Lagrangian representation not cached; generating it on the fly...
+Test Summary: | Pass  Total  Time
+absolute link |    9      9  5.2s
+[ Info: Module save root path set to: /tmp/jl_ZNg53c/save
+[ Info: Lagrangian representation not cached; generating it on the fly...
+Test Summary: | Pass  Total  Time
+relative link |    9      9  0.1s
+[ Info: Module save root path set to: /tmp/jl_474XXM/save
+[ Info: Lagrangian representation not cached; generating it on the fly...
+Test Summary: | Pass  Total  Time
+chained links |    9      9  0.0s
+[ Info: Module save root path set to: /tmp/jl_cIz76k/save
+Test Summary:                                   | Pass  Total  Time
+symlinked data directory and relative save path |    3      3  0.1s
+[ Info: Module save root path set to: /tmp/jl_FFXSEt/save
+dangling link, overwrite save: ok; islink = false, isfile = true
+Test Summary:                    | Total  Time
+dangling link with the hash name |     0  0.1s

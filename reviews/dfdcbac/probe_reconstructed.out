@@ -1,0 +1,29 @@
+anyvec   detected=false  Vector{Any}
+dict     detected=true   JLD2.SerializedDict
+mnote    detected=true   JLD2.ReconstructedStatic{:MNote, (:a,), Tuple{Int64}}
+note     detected=true   JLD2.ReconstructedStatic{:Note, (:a,), Tuple{Int64}}
+pnote    detected=true   JLD2.ReconstructedStatic{Symbol("PNote{Float64}"), (:a,), Tuple{Float64}}
+some     detected=true   Some{JLD2.ReconstructedStatic{:Note, (:a,), Tuple{Int64}}}
+tup      detected=true   Tuple{JLD2.ReconstructedStatic{:Note, (:a,), Tuple{Int64}}, Int64}
+type     detected=false  (type value) JLD2.UnknownType{Symbol("Main.ForeignMod.Note"), Tuple{}}
+typevec  detected=false  Vector{Any}
+vec      detected=true   Vector{JLD2.ReconstructedStatic{:Note, (:a,), Tuple{Int64}}}
+Test Summary:                     | Pass  Total  Time
+nested reconstruction is detected |    7      7  1.7s
+ref    -> Base.RefValue{Int64}  detected=false
+t      -> Tuple{Int64, Symbol, String}  detected=false
+mref   -> MemoryRef{Int64}  detected=false
+v      -> Matrix{Float64}  detected=false
+n      -> Nothing  detected=false
+r      -> UnitRange{Int64}  detected=false
+d      -> Dict{String, Any}  detected=false
+type   -> DataType  detected=false
+s      -> String  detected=false
+mem    -> Memory{Int64}  detected=false
+sym    -> Symbol  detected=false
+Test Summary:                         | Pass  Total  Time
+no false positives on ordinary values |   12     12  1.1s
+PDEStudioCore warnings: ["Entry 'vec' has a type that isn't loaded in this session (Array); it is kept as such. Load the package that defines it before rewriting the data.", "Entry 'dict' has a type that isn't loaded in this session (SerializedDict); it is kept as such. Load the package that defines it before rewriting the data."]
+Test Summary:                                  | Pass  Total  Time
+warning through _copy_entry! for nested values |    2      2  0.3s
+cost of _is_reconstructed on a 10^6-element Vector{Float64}: 0.000214369 s

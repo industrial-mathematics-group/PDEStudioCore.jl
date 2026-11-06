@@ -1,0 +1,27 @@
+f97198a Vector{Float16}[0:2^26]                    -> String  0.0 s  0 MiB
+f97198a Dict{Int, Vector{Float16}}(1 => 0:2^26)    -> String  0.0 s  0 MiB
+8f39531 Vector{Float16}[0:2^26]                    -> String  0.012 s  128 MiB
+8f39531 Dict{Int, Vector{Float16}}(1 => 0:2^26)    -> String  0.01 s  128 MiB
+dfdcbac Vector{Float16}[0:2^24]                    -> String  0.003 s  32 MiB
+dfdcbac Vector{Float16}[0:2^26]                    -> String  0.009 s  128 MiB
+dfdcbac Vector{Float16}[0:2^28]                    -> String  0.038 s  512 MiB
+dfdcbac Vector{Float32}[1:2^62]                    -> String  0.014 s
+dfdcbac Vector{Float16}[0:2^40]                    -> String  0.0 s
+
+eager collection of a range is bounded: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round5/psc/probe_eager.jl:28
+  Expression: #= /home/agent/.claude/jobs/b26d185e/tmp/reviews/round5/psc/probe_eager.jl:28 =# @allocated(str2val("Vector{Float16}[0:2^26]")) < 2 ^ 20
+   Evaluated: 134227616 < 1048576
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round5/psc/probe_eager.jl:28 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round5/psc/probe_eager.jl:28
+Test Summary:                          | Fail  Total  Time
+eager collection of a range is bounded |    1      1  0.7s
+RNG of the outermost testset: Random.Xoshiro(0xb04ba628f3fd8438, 0xa5c8a4390331a0ab, 0xc80f1f60d396b40c, 0x591db99091fe80b0, 0xf9c142ac1d796f45)
+ERROR: LoadError: Some tests did not pass: 0 passed, 1 failed, 0 errored, 0 broken.
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round5/psc/probe_eager.jl:27

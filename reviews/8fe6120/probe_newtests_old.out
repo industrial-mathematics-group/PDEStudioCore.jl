@@ -1,0 +1,36 @@
+HEAD: Vector{Float16}[0:2^26] allocates 10431384 (first call), 5200 (second call)
+HEAD: 50 ranges in Vector{Float64}[...] -> String, allocated 0.1 MiB
+HEAD: reshape(1:6, (-2, -3)) -> String
+Test Summary:     | Pass  Total  Time
+new tests at HEAD |    6      6  0.5s
+2cef67f: Vector{Float16}[0:2^26] allocates 7259816 (first call), 5200 (second call)
+2cef67f: 50 ranges in Vector{Float64}[...] -> String, allocated 381.7 MiB
+
+new tests at 2cef67f: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_newtests_old.jl:21
+  Expression: f("[1:3, 4:6]") isa String && f("1:3") == 1:3
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_newtests_old.jl:21 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_newtests_old.jl:12
+2cef67f: reshape(1:6, (-2, -3)) -> Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}}
+
+new tests at 2cef67f: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_newtests_old.jl:27
+  Expression: r isa String
+   Evaluated: [;;] isa String
+  Stacktrace:
+   [1] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:758 [inlined]
+   [2] macro expansion
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_newtests_old.jl:27 [inlined]
+   [3] macro expansion
+     @ /opt/julia/share/julia/stdlib/v1.13/Test/src/Test.jl:1967 [inlined]
+   [4] top-level scope
+     @ ~/.claude/jobs/b26d185e/tmp/reviews/round7/psc/probe_newtests_old.jl:12
+Test Summary:        | Pass  Fail  Total  Time
+new tests at 2cef67f |    4     2      6  0.9s
+RNG of the outermost testset: Random.Xoshiro(0xb8337a803a9da9d5, 0x4701742c13a39259, 0x5afbdeb46b313702, 0x18a3926f7b25662d, 0x009c3196eb843f25)

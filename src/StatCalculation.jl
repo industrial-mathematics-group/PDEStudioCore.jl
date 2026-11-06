@@ -207,11 +207,22 @@ Evaluates every statistic of the global registry (see [`register_stat!`](@ref)) 
 from the dataset (or all of them with `force_overwrite = true`). `ref_func(x)` is the exact solution
 at the spacetime point `x::SVector{D}`; it is evaluated once per node/particle. Statistics that come
 out all-`NaN` (e.g. errors without a reference) are dropped. Statistics added with
-[`add_stat!`](@ref) are never touched. Saves the dataset when `save = true`. Returns `sim_data`.
+[`add_stat!`](@ref) are kept unless the global registry has a statistic of the same name (see there).
+With `save = true` the dataset is saved when a registered statistic changed (values attached with
+[`add_stat!`](@ref) alone don't trigger a save: use [`save_sim_data`](@ref) with `overwrite = true`), unless the
+file for its parameters holds a different solution: a conversion, a resampled grid or a reference dataset shares
+the parameters (and hash) of the native run, so saving it would replace the native data. Then nothing is saved
+and a warning is logged. Like [`save_sim_data`](@ref), saving normalises `sim_data.params`.
+Returns `sim_data`.
 """
 calculate_all_stats!(sim_data::NoSimData, ref_func = nothing; kwargs...) = sim_data
 
-function calculate_all_stats!(sim_data::AbstractSimData, ref_func = nothing; force_overwrite::Bool = false, save::Bool = true)
+calculate_all_stats!(sim_data::AbstractSimData, ref_func = nothing; force_overwrite::Bool = false, save::Bool = true) =
+    _calculate_all_stats!(sim_data, ref_func, force_overwrite, save, false)
+
+# `known_native = true`: `sim_data` was just loaded as "raw" from its file (the pipeline), so the comparison
+# with the stored solution can be skipped.
+function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwrite::Bool, save::Bool, known_native::Bool)
     names, changed = _sync_registry!(sim_data)
     raw = _raw_stats(sim_data)
     pending = force_overwrite ? names : filter(n -> !haskey(raw, n), names)
@@ -233,17 +244,17 @@ function calculate_all_stats!(sim_data::AbstractSimData, ref_func = nothing; for
     end
     if save
         path = _find_file(sim_data.params)
-        if path !== nothing && !_is_native_representation(path, sim_data)
-            # A conversion or reference dataset shares the parameters (and hash) of the native run;
-            # saving it would replace the native data on disk.
-            @warn "Statistics were not saved: the file for these parameters holds a different representation " *
-                  "(this looks like a converted or reference dataset). Pass `save = false` for derived datasets."
+        if path !== nothing && !known_native && !_is_native_representation(path, sim_data)
+            @warn "Statistics were not saved: the file for these parameters holds a different solution " *
+                  "(a converted or reference dataset, or data changed after loading). Pass `save = false` for " *
+                  "derived datasets, or use `save_sim_data(data; overwrite = true)` to replace the stored data."
         else
-            path = save_sim_data(sim_data; overwrite = changed, verbose = false)
             # Remember what was evaluated (and whether a reference was available), so the pipeline does
             # not reload data for stats that came out NaN, but retries them once a reference exists.
-            _set_key!(path, "evaluated_stats", names)
-            _set_key!(path, "evaluated_with_reference", ref_func !== nothing)
+            # Written together with the data if that is (re)written; otherwise only if the entries differ.
+            evaluated = Dict{String, Any}("evaluated_stats" => names, "evaluated_with_reference" => ref_func !== nothing)
+            path = _save_sim_data(sim_data, changed, false, evaluated)
+            _update_entries!(path, evaluated)
         end
     end
     return sim_data

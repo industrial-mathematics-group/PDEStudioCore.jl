@@ -1,0 +1,33 @@
+(BigInt(3)//1)^(10^7)          -> Rational{BigInt}  0.25 s  bits ≈ 15849625
+
+finding 9: big-number bound bypasses: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_fixes.jl:18
+  Expression: ok
+  Stacktrace:
+(BigInt(3) + 0im)^(10^6)       -> Complex{BigInt}  0.12 s  bits ≈ 1584963
+
+finding 9: big-number bound bypasses: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_fixes.jl:18
+  Expression: ok
+  Stacktrace:
+(BigInt(10)^10000)^10000       -> BigInt  0.55 s  bits ≈ 332192809
+
+finding 9: big-number bound bypasses: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_fixes.jl:18
+  Expression: ok
+  Stacktrace:
+
+finding 3: post-processing still rewrites every file on a cached rerun and drops conversion caches: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_fixes.jl:37
+  Expression: mtime(get_file_name(p)) == stamp
+   Evaluated: 1.7938967614354517e9 == 1.7938967613394485e9
+  Stacktrace:
+
+finding 3: post-processing still rewrites every file on a cached rerun and drops conversion caches: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_fixes.jl:38
+  Expression: "conv_E_9x2" in list_available_conversions(p)
+   Evaluated: "conv_E_9x2" in String[]
+  Stacktrace:
+Test Summary:                                                                                        | Pass  Fail  Total   Time
+probe_fixes                                                                                          |    3     5      8  11.2s
+  finding 9: big-number bound bypasses                                                               |          3      3   1.9s
+  finding 7: keeping nothing inside containers would not change hashes                               |    2            2   0.1s
+  finding 3: post-processing still rewrites every file on a cached rerun and drops conversion caches |    1     2      3   9.2s
+RNG of the outermost testset: Random.Xoshiro(0xe63cb8afb023ce60, 0x086df2d8d1729d99, 0x14ea562a2398c450, 0x24f1a2f46be60bf0, 0x6ab5b4bbc9c1d04b)
+ERROR: LoadError: Some tests did not pass: 3 passed, 5 failed, 0 errored, 0 broken.
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_fixes.jl:12

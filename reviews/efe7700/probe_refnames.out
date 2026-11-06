@@ -1,0 +1,4 @@
+cfg.defaults = [:godunov_exact_riemann, :upwind]
+[t[:flux] for t = tasks] = ["upwind"]
+Test Summary:              | Pass  Total  Time
+reference-method heuristic |    2      2  1.0s

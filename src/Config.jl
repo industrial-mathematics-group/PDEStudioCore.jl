@@ -13,7 +13,8 @@ Blueprint of a batch of simulation runs.
 - `defaults::Vector{Symbol}`: the methods [`run_all_simulations`](@ref) executes.
 - `varied::VariedDict`: the parameter sweep (Cartesian product).
 - `reference::Union{Symbol, Nothing}`: name of a reference *factory* `params -> (x -> u_exact)`.
-- `postprocess::Union{Symbol, Nothing}`: name of a function `data -> Bool` (return `true` to save).
+- `postprocess::Union{Symbol, Nothing}`: name of a function `data -> Bool` run on every dataset after the
+  statistics (return `true` to save the modified data; the data itself is saved either way).
 - `sources::Vector{String}`: files included into the target module before running.
 """
 mutable struct SimulationConfig

@@ -49,7 +49,8 @@ exact_advection_1d(params::ParamDict) = xt -> SVector(sin(2π * (xt[1] - params[
     test_advection_1d() -> SimulationConfig
 
 Linear advection of a sine wave ([`solve_advection_1d`](@ref)) with three schemes and the exact solution, swept
-over the CFL number (at `cfl = 1` upwind and Lax–Wendroff are exact; Lax–Friedrichs isn't).
+over the CFL number (at `cfl = 1` all three schemes are exact shifts; below it Lax–Wendroff is the most
+accurate and Lax–Friedrichs the most diffusive).
 """
 function test_advection_1d()
     shared = create_param_dict(:N => 100, :c => 1.0, :T => 1.0, :cfl => 0.5, :sim_func_name => :solve_advection_1d)

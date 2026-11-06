@@ -1,0 +1,23 @@
+reshape(1:6, (2, 3))                          -> Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}}  0.149 s
+reshape(1:10^6, (1000, 1000))                 -> Base.ReshapedArray{Int64, 2, UnitRange{Int64}, Tuple{}}  0.002 s
+reshape(1:(10^6+1000), (1001, 1000))          -> String  0.0 s
+reshape(1:10^8, (10^4, 10^4))                 -> String  0.0 s
+reshape(1:10^9, (10^4, 10^5))                 -> String  0.002 s
+_literal_size of 1e9-element reshape: 0.00227875 s -> 2^62 elements ≈ 0.33323438338696765 years
+Test Summary:                             | Total  Time
+reshape of ranges (cost of _literal_size) |     0  0.6s
+1000-element Vector{Float64}                  -> Vector{Float64}  roundtrip = true
+10×10 Matrix{Float64}                         -> Matrix{Float64}  roundtrip = true
+Tuple{Int64, Float64, String}                 -> Tuple{Int64, Float64, String}  roundtrip = true
+Dict{Symbol, Any} with 2 entries              -> Dict{Symbol, Any}  roundtrip = true
+0-element Vector{Any}                         -> Vector{Any}  roundtrip = true
+Tuple{}                                       -> Tuple{}  roundtrip = true
+Dict{Symbol, Any} with 0 entries              -> Dict{Symbol, Any}  roundtrip = true
+2-element Vector{Vector{Int64}}               -> Vector{Vector{Int64}}  roundtrip = true
+1000000-element Vector{Float64}               -> Vector{Float64}  roundtrip = true
+1000001-element Vector{Float64}               -> String  roundtrip = false
+1001×1000 Matrix{Float64}                     -> String  roundtrip = false
+2-element Vector{Vector{Float64}}             -> String  roundtrip = false
+str2val of a 1e6 Any vector: 0.608540107 s; _literal_size: 0.111886573
+Test Summary: | Pass  Total  Time
+legit values  |    6      6  3.6s

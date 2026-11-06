@@ -1,0 +1,19 @@
+u1 = 2.0
+u2 = 4.0
+m1 = 1.25
+(((load_sim_data(p)).stats[:mass])[1])[1] = 1.25
+
+post-processing runs on every call: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_post.jl:21
+  Expression: u2 == u1
+   Evaluated: 4.0 == 2.0
+  Stacktrace:
+
+post-processing runs on every call: Test Failed at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_post.jl:23
+  Expression: m1 ≈ sum((v[1] for v = (load_sim_data(p)).u[:, 1])) * 0.25
+   Evaluated: 1.25 ≈ 5.0
+  Stacktrace:
+Test Summary:                      | Fail  Total  Time
+post-processing runs on every call |    2      2  9.2s
+RNG of the outermost testset: Random.Xoshiro(0x69fd5d8b800cba2b, 0x1580f29189414059, 0x1a3505d9485a1787, 0x67477bd3c936fe07, 0x007db5490613e30a)
+ERROR: LoadError: Some tests did not pass: 0 passed, 2 failed, 0 errored, 0 broken.
+in expression starting at /home/agent/.claude/jobs/b26d185e/tmp/reviews/round2/psc/probe_post.jl:12

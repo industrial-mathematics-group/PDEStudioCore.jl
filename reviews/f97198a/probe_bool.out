@@ -1,0 +1,6 @@
+g((true, true), :p__y, [false]) = (true, false)
+g((true, true), :p__all, [false]) = (false, false)
+g((Int32(1), Int32(2)), :p__x, [Int32(5)]) = (5, 2)
+g((typemax(UInt64), UInt64(1)), :p__y, [UInt64(2)]) = InexactError
+g((true, false), :p__x, [0]) = (0, false)
+g([true, false], :p__x, [false]) = (false, false)

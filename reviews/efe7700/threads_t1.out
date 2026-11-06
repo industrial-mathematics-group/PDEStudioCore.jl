@@ -1,0 +1,31 @@
+nthreads=1
+E Solution d6b27650ef3a8e1b
+E l1error 9620df6ff50ba547
+E l1norm a1b78fd867dbdb75
+E l2error 0713fc617c0f88c6
+E l2norm 82476026b308e781
+E mass 8a2156e4c5e11baf
+E mass_error 84ac1baf4a679816
+E mass_signed_error 19e25942904b311e
+E relative_l1error b1597fc5b8254173
+E relative_l2error 7e82292c9f30d68b
+E relative_mass 8d53ae75017f081a
+E spacetime_relative_mass a5a35775de8359a3
+E wave_height 539c7108c9b2d594
+L Solution 9e96b667bc8141c3
+L l1error ee452e2a36896910
+L l1norm 29a05847a69e417f
+L l2error 19aa16dc863741e5
+L l2norm f3b898ef06aeffc2
+L mass 29a05847a69e417f
+L mass_error 0b35eef3fe4cef01
+L mass_signed_error 71f176c5a3817631
+L relative_l1error fb572024d225f3e3
+L relative_l2error a23df6e8b17c3392
+L relative_mass d52507ce39c58961
+L spacetime_relative_mass 3905d3d0742e367a
+L wave_height 30484377fbf53624
+scatter 0c3a103e4ef739cb
+resample 48ff1d0c9e7cf41f
+refE dd583e3c1335d207
+refL 4e219cd692f6a9d5

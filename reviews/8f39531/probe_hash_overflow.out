@@ -1,0 +1,5 @@
+str2val -> Tuple{UnitRange{Int64}, UnitRange{Int64}}
+error: ArgumentError
+hash took 0.257586391 s
+timeout 60 julia -t 1 --project=test   1.57s user 0.09s system 135% cpu 1.222 total
+exit 0

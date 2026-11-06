@@ -54,7 +54,7 @@ This holds for every dataset, however it was produced: `create_sim_data`, the `E
 | `defaults` | The methods that are executed (default: all methods). |
 | `varied` | The parameter sweep; the Cartesian product of all vectors is run. |
 | `reference` | Name of a reference factory `params -> (x -> u_exact)` used for error statistics. |
-| `postprocess` | Name of a function `data -> Bool` run on every dataset (`true` saves it). |
+| `postprocess` | Name of a function `data -> Bool` run on every dataset (`true` saves the changes it made). |
 | `sources` | Files included into the target module before running. |
 
 ```julia

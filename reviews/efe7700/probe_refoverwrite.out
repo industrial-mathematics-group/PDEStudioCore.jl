@@ -1,0 +1,4 @@
+on_disk.u[3, 2] = [0.10506887376594912]
+sim.u[3, 2] = [1.1052631578947367]
+Test Summary:                  | Pass  Total  Time
+reference at native resolution |    1      1  7.8s
