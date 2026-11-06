@@ -1,0 +1,9 @@
+Dict(1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7,…(1577794 chars) -> Dict{Int64, Int64}                       str2val 0.4 s, maxrss 0.54 GiB
+                                                                            hash 0.38 s, maxrss 0.54 GiB
+   [exit 0, wall 1723 ms] @lit/dict_1e5.txt
+Dict(1 => 1, 2.0 => "a", 3 => 3, 4.0 => "a", 5 => 5, 6.0 => …(143343 chars) -> Dict{Real, Any}                          str2val 0.37 s, maxrss 0.51 GiB
+                                                                            hash 0.38 s, maxrss 0.54 GiB
+   [exit 0, wall 1680 ms] @lit/dict_mixed_1e4.txt
+[1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, 1.0, 1, …(400000 chars) -> Vector{Float64}                          str2val 0.18 s, maxrss 0.5 GiB
+                                                                            hash 0.18 s, maxrss 0.53 GiB
+   [exit 0, wall 1292 ms] @lit/vect_mixed_1e5.txt

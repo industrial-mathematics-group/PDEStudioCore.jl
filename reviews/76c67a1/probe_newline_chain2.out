@@ -1,0 +1,4 @@
+minus_nl_10000: Warning: detected a stack overflow String 0.84 s, _too_nested=false 
+minus_nl_100000: Warning: detected a stack overflow Warning: detected a stack overflow String 1.11 s, _too_nested=false 
+pow_nl_10000: Warning: detected a stack overflow String 1.23 s, _too_nested=false 
+pow_nl_100000: Warning: detected a stack overflow Warning: detected a stack overflow String 1.47 s, _too_nested=false 
