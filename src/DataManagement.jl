@@ -245,7 +245,8 @@ function _rehash_single_file(path::String, delete_old::Bool, filter_pairs, remov
         # A symlinked file: the rehashed data is a regular file now and only the link is removed. Its target may be
         # shared (e.g. a fetched result linked into several save paths), so it is never deleted here.
         islink(path) && @warn "$bname is a symlink: the rehashed data is written to $(basename(new_path)) and the link " *
-            "is removed, but its target $(realpath(path)) is kept. Delete it yourself if nothing else uses it."
+            "is removed; its target $(realpath(path)) is not deleted by this rehash of the link. Delete it yourself if " *
+            "nothing else uses it."
         rm(path; force = true)
         @info "Rehashed and renamed: $bname -> $(basename(new_path))"
     else

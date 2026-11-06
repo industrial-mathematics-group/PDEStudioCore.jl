@@ -179,25 +179,48 @@ end
 
 # The type JLD2 had to reconstruct in a value because it isn't loaded in this session (as a string), or `nothing`:
 # the value's own type or a type parameter of it (e.g. the element type of a vector), a type stored as a value
-# (`JLD2.UnknownType`), or such a value inside an untyped container (`Any[…]`, `Dict{Symbol, Any}`, tuples; nested
-# containers up to a depth of 4, at most 10^4 elements each are inspected).
-const _RECONSTRUCTED = r"JLD2\.(Reconstructed|Serialized|UnknownType)"
-function _reconstructed_type(value, depth::Int = 4)
+# (`JLD2.UnknownType`), or such a value inside containers that can hold values of any type (`Any[…]`,
+# `Dict{Symbol, Any}`, tuples, NamedTuples, pairs, also nested in typed ones such as `Vector{Vector{Any}}`). The check
+# runs on every rewrite of the data, so its cost is bounded per entry: at most 10^5 values are visited (each type is
+# checked once), at most 4 levels deep.
+const _RECONSTRUCTED = r"(?<![\w.])JLD2\.(Reconstructed|Serialized|UnknownType)"
+const _RECONSTRUCTED_VISITS = 10^5
+
+function _reconstructed_type(value, depth::Int = 4,
+                             state = (budget = Ref(_RECONSTRUCTED_VISITS), seen = Dict{Any, Union{Nothing, String}}()))
+    state.budget[] -= 1
     T = value isa Type ? value : typeof(value)   # a type stored as a value comes back as `JLD2.UnknownType{…}`
-    text = string(T)
-    occursin(_RECONSTRUCTED, text) && return text
-    depth > 0 || return nothing
-    items = value isa AbstractDict && !(isconcretetype(keytype(value)) && isconcretetype(valtype(value))) ?
-                Iterators.flatten((keys(value), values(value))) :
-            value isa Union{Tuple, AbstractArray} && !isconcretetype(eltype(value)) ? value : ()
-    for (i, item) in enumerate(items)
-        i > 10^4 && break
-        found = _reconstructed_type(item, depth - 1)
+    found = get!(state.seen, T) do               # (once per type: values of the same type cost a lookup)
+        text = string(T)
+        occursin(_RECONSTRUCTED, text) ? text : nothing
+    end
+    found === nothing || return found
+    (depth > 0 && state.budget[] > 0) || return nothing
+    items = value isa AbstractDict ? (_may_hide(keytype(value)) ? Iterators.flatten((k, v) for (k, v) in value) :
+                                      _may_hide(valtype(value)) ? values(value) : ()) :
+            value isa Pair ? (value.first, value.second) :
+            value isa Union{Tuple, NamedTuple} ? value :
+            value isa AbstractArray && _may_hide(eltype(value)) ? value : ()
+    for item in items
+        state.budget[] > 0 || break
+        found = _reconstructed_type(item, depth - 1, state)
         found === nothing || return found
     end
     return nothing
 end
 _is_reconstructed(value) = _reconstructed_type(value) !== nothing
+
+# Whether elements of type `T` can be (or contain) values of other types than `T` says: abstract types, and containers
+# whose elements can be (checked a few levels down).
+function _may_hide(T, depth::Int = 4)
+    T isa Type || return false
+    isconcretetype(T) || return true
+    depth > 0 || return false
+    T <: AbstractDict && return _may_hide(keytype(T), depth - 1) || _may_hide(valtype(T), depth - 1)
+    T <: Union{AbstractArray, Pair, Tuple, NamedTuple} &&
+        return any(P -> _may_hide(P, depth - 1), T <: AbstractArray ? (eltype(T),) : fieldtypes(T))
+    return false
+end
 
 # Copies an entry (recursively for groups) from one open JLD2 file to another. Entries are loaded and stored
 # again, so an entry whose type isn't loaded in this session is stored as JLD2's reconstruction (warned).
@@ -339,16 +362,27 @@ Describes the stored dataset of `params` without loading it: `(path, kind, shape
 where `kind` is `:eulerian` or `:lagrangian` (the native representation), `shape` the size of `u` (Eulerian) or
 `(time steps, particles)` (Lagrangian), `dim_keys`/`time_dim` the axes (`time_dim` is `nothing` for static data)
 and `n_steps` the number of stored time steps (0 for static data). Files written by PDEStudioCore before
-November 2026 lack the axes in their metadata; for them the data is loaded once to read them.
-Throws a [`SimFileNotFoundError`](@ref) if nothing is stored for `params`.
+November 2026 lack the axes in their metadata: for them the data is loaded on every call to read them (rewriting the
+data, e.g. with `rehash_sim_data`, adds them). Throws a [`SimFileNotFoundError`](@ref) if nothing is stored for
+`params`, and an `ArgumentError` for files of much older versions (without `"native"`/`"shape"`).
 """
 function get_sim_data_info(params::AbstractDict)
     path = get_file_name(params)
-    kind, shape = _native_and_shape(path)
-    dim_keys, time_dim = jldopen(path, "r") do file
-        haskey(file, "dim_keys") && haskey(file, "time_dim") ? (Tuple(file["dim_keys"]), file["time_dim"]) : (nothing, nothing)
+    # (one opening, so a concurrent overwrite can't pair the shape of one file with the axes of another)
+    kind, shape, dim_keys, time_dim = jldopen(path, "r") do file
+        (haskey(file, "native") && haskey(file, "shape")) || throw(ArgumentError(
+            "$(basename(path)) was written by an older PDEStudioCore version (no \"native\"/\"shape\" metadata). " *
+            "Run its configuration again (`run_all_simulations` recomputes outdated files) or delete it."))
+        keys_ = haskey(file, "dim_keys") ? file["dim_keys"] : nothing
+        tdim = haskey(file, "time_dim") ? file["time_dim"] : :missing
+        file["native"], Tuple(file["shape"]), keys_, tdim
     end
-    if dim_keys === nothing   # (older file)
+    # The stored axes, if they are what this version writes (older files may hold user metadata of the same names)
+    valid = dim_keys isa AbstractVector{Symbol} && (time_dim === nothing || (time_dim isa Symbol && time_dim in dim_keys)) &&
+            (kind !== :eulerian || length(dim_keys) == length(shape))
+    if valid
+        dim_keys = Tuple(dim_keys)
+    else
         domain = _load_key(path, "raw").domain
         dim_keys, time_dim = domain.dim_keys, domain.time_dim
     end

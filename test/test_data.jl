@@ -123,6 +123,27 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         end
         @test !PDEStudioCore._is_reconstructed(Any[1, "a", (2, :b), Float64]) &&
               !PDEStudioCore._is_reconstructed(Dict{Symbol, Any}(:a => [1.0], :T => Float32))
+        # ... also untyped containers inside typed ones, NamedTuples, pairs, and the values of a large dictionary
+        H = Base.invokelatest(anon.Hidden, 3)
+        big = Dict{Symbol, Any}(Symbol("k", i) => i for i in 1:10^4)
+        big[:z] = H
+        PDEStudioCore.JLD2.jldsave(hidden_file; vv = [Any[H]], dd = Dict("run" => Dict{Symbol, Any}(:h => anon.Hidden)),
+                                   nt = (a = 1, b = Any[H]), pr = :p => Any[H], big = big)
+        for k in ("vv", "dd", "nt", "pr", "big")
+            @test PDEStudioCore._is_reconstructed(PDEStudioCore.JLD2.load(hidden_file, k))
+        end
+        # the cost is bounded per entry (nested untyped data with 8·10^5 leaves took seconds and GiBs on every rewrite)
+        nested = Any[Any[Any[Any[0.0 for _ in 1:30] for _ in 1:30] for _ in 1:30] for _ in 1:30]
+        PDEStudioCore._reconstructed_type(nested)
+        @test @elapsed(PDEStudioCore._reconstructed_type(nested)) < 0.5
+        @test !PDEStudioCore._is_reconstructed("JLD2.ReconstructedStatic") && !PDEStudioCore._is_reconstructed(:MyJLD2)
+        # the warning on a rewrite names the missing type
+        dest = joinpath(mktempdir(), "dest.jld2")
+        PDEStudioCore.JLD2.jldopen(dest, "w") do d
+            PDEStudioCore.JLD2.jldopen(hidden_file, "r") do src
+                @test_logs (:warn, r"contains a type that isn't loaded.*Hidden") match_mode = :any PDEStudioCore._copy_entry!(d, src, "vv")
+            end
+        end
         # A symlinked data file stays a symlink, and its target is updated
         link = foo_file * ".link.jld2"
         symlink(foo_file, link)
@@ -233,7 +254,7 @@ end
     target = joinpath(mktempdir(), basename(linked))
     mv(linked, target)
     symlink(target, linked)
-    @test_logs (:warn, r"is a symlink.*is kept"s) match_mode = :any rehash_sim_data(linked; remove_keys = [:obsolete])
+    @test_logs (:warn, r"is a symlink.*is not deleted"s) match_mode = :any rehash_sim_data(linked; remove_keys = [:obsolete])
     @test isfile(target) && !ispath(linked)
     p_new = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :test_mode => "link")
     @test does_sim_data_exist(p_new) && !islink(get_file_name(p_new))
@@ -270,6 +291,13 @@ end
         @test !JLD2.jldopen(f -> haskey(f, "dim_keys"), path, "r")
     end
     @test get_sim_data_info(PARAMS_CONV) == info && get_sim_data_info(pl) == li
+    # ... also when an older file holds user metadata under these names: the axes come from the data
+    path = get_file_name(PARAMS_CONV)
+    JLD2.jldopen(path, "a+") do f
+        f["dim_keys"] = ["user"]
+        f["time_dim"] = "user value"
+    end
+    @test get_sim_data_info(PARAMS_CONV) == info
     @test_throws SimFileNotFoundError get_sim_data_info(create_param_dict(:N => 1, :test_mode => "info_missing"))
 end
 

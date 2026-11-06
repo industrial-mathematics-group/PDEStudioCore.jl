@@ -73,7 +73,7 @@ Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed
 | Entry | Content |
 | :--- | :--- |
 | `"raw"` | the native dataset |
-| `"native"`, `"params"`, `"stat_keys"`, `"registry"`, `"shape"` | fast metadata, read without loading the data (`"shape"` is `size(u)`, or time steps and total particle count for Lagrangian data) |
+| `"native"`, `"params"`, `"stat_keys"`, `"registry"`, `"shape"`, `"dim_keys"`, `"time_dim"` | fast metadata, read without loading the data (`"shape"` is `size(u)`, or time steps and total particle count for Lagrangian data; the axes are stored since November 2026, see [`get_sim_data_info`](@ref)). These names, and the other entries of this table, are reserved: `save_sim_data(...; metadata)` refuses them |
 | `"evaluated_stats"` | statistics already evaluated for this data |
 | `"evaluated_with_reference"` | whether a reference function was available when they were evaluated |
 | `"sources"` | SHA-256 digests of the source files (pipeline runs with `sources`) |
