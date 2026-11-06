@@ -1,0 +1,4 @@
+[ Info: Saved simulation data to 2026-11-06_12-04-50_844_7f82ef09594e89178b7cf56eea595d4c28c9da06e046474bea900d5c8a2f93e6.jld2 (replaced; conversion caches cleared)
+[ Info: Manual load: 1 matching file(s); loading index 1: 2026-11-06_12-04-50_844_7f82ef09594e89178b7cf56eea595d4c28c9da06e046474bea900d5c8a2f93e6.jld2
+Test Summary:                                           | Pass  Total   Time
+data only (mutant: get_sim_data_info always falls back) |  124    124  26.6s

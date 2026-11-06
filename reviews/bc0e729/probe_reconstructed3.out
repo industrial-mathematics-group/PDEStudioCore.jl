@@ -1,0 +1,27 @@
+Any[] of 2000 distinct-type values (Val{i}())                     514.0 ms, 126.0 MiB
+deep NamedTuple 4 levels x 10 fields                              222.0 ms, 78.7 MiB
+NTuple{10^4, Float64} value                                       0.253 ms, 0.146 MiB
+-- _may_hide on wide/deep Tuple types
+   _may_hide(NTuple{1000,Float64})                                    false  0.0576 ms, 0.0383 MiB
+   _may_hide(NTuple{30,NTuple{30,NTuple{30,Float64}}})                false  2.94 ms, 0.739 MiB
+   _may_hide(NTuple{10,NTuple{10,NTuple{10,NTuple{10,NTuple{10,Float64}}}}})false  0.856 ms, 0.373 MiB
+   _may_hide(Tuple of 5000 distinct field types)                      false  0.474 ms, 0.221 MiB
+-- repeated _may_hide: Any[] of N vectors whose eltype is a wide tuple type (one _may_hide per inner vector)
+Any[10^4 x [NTuple{100,Float64}]]                                 115.0 ms, 17.1 MiB
+Any[10^4 x Vector{NTuple{10,NTuple{10,NTuple{10,Float64}}}}(undef,0)]1390.0 ms, 370.0 MiB
+Any[10^5 x Vector{NTuple{10,NTuple{10,NTuple{10,Float64}}}}(undef,0)]16700.0 ms, 3700.0 MiB
+Any[10^5 x Dict{Symbol,NTuple{20,NTuple{20,NTuple{20,Float64}}}}()]88200.0 ms, 23700.0 MiB
+== cycles
+   self-referential Any vector: nothing  0.336 ms
+   self-referential Dict: nothing
+   Any vector holding itself 50 times (50^4 paths): nothing  2.59 ms
+   self-referential Ref{Any}: nothing
+== end to end: carried-over metadata during save_sim_data(overwrite = true)
+   warned entries: SubString{String}["box", "nested", "nt", "top", "vv"]
+[ Info: Module save root path set to: /tmp/jl_pvENOr
+     nt: :a,), Tuple{Int64}}
+     box: :v,), Tuple{Any}}
+     vv: :a,), Tuple{Int64}}
+     nested: "Main.anonymous.Hidden"), Tuple{}}
+     top: "Main.anonymous.Hidden"), Tuple{}}
+exit=0

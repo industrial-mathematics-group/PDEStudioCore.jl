@@ -1,0 +1,26 @@
+[ Info: Module save root path set to: /tmp/jl_RITfxe
+== file argument, delete_old = true
+     [Warn] 2026-11-06_11-42-18_399_2ba23d2730bdefbe4c39c91c6643184b8804e600a74e8f396b440cc7cdb2baad.jld2 is a symlink: the rehashed data is written to 2026-11-06_11-42-18_399_f8fb29f8629973a5aa288c3da4177d4108539cbec2795299f7f65d7172433d6a.jld2 and the link is removed; its target /tmp/jl_RITfxe/store/2026-11-06_11-42-18_399_2ba23d2730bdefbe4c39c91c6643184b8804e600a74e8f396b440cc7cdb2baad.jld2 is not deleted by this rehash of the link. Delete it yourself if nothing else uses it.
+   link exists: false, islink: false, target exists: true, new file regular: true
+== directory argument, delete_old = true
+     [Warn] 2026-11-06_11-42-20_914_cdf392077edde8b5137463a56e3d87f9d28157351647e8645ee5159f2b8f4629.jld2 is a symlink: the rehashed data is written to 2026-11-06_11-42-20_914_d646b42cde9667d99615490630a290252eea0b93b56986504d076d61342d2724.jld2 and the link is removed; its target /tmp/jl_RITfxe/store/2026-11-06_11-42-20_914_cdf392077edde8b5137463a56e3d87f9d28157351647e8645ee5159f2b8f4629.jld2 is not deleted by this rehash of the link. Delete it yourself if nothing else uses it.
+   link exists: false, islink: false, target exists: true
+== delete_old = false
+   warned: false; link exists: true, islink: true, target exists: true
+== same hash (nothing removed)
+   warned: false; link exists: true, islink: true, target exists: true; target has dim_keys now: true
+== relative link
+   readlink: ../store/2026-11-06_11-42-21_170_ff3033270f10fa96fb84377c1f7b61762dd86ad51e7d8a26ba8a451acf147797.jld2
+     [Warn] 2026-11-06_11-42-21_170_ff3033270f10fa96fb84377c1f7b61762dd86ad51e7d8a26ba8a451acf147797.jld2 is a symlink: the rehashed data is written to 2026-11-06_11-42-21_170_ab43906fa12fd42f75d57f4c432f4a02c658a5d4488bd111c3883a1db8c6dadf.jld2 and the link is removed; its target /tmp/jl_RITfxe/store/2026-11-06_11-42-21_170_ff3033270f10fa96fb84377c1f7b61762dd86ad51e7d8a26ba8a451acf147797.jld2 is not deleted by this rehash of the link. Delete it yourself if nothing else uses it.
+   link exists: false, islink: false, target exists: true
+== dangling link
+     [Warn] Path is neither a .jld2 file nor a directory: /tmp/jl_RITfxe/data/2026-11-06_11-42-21_210_57227e698982ac92efbfd9fe33cac64c0b4daf19ea8965efb42af3f29b6c75c9.jld2
+     [Warn] Opening file with JLD2.MmapIO failed, falling back to IOStream
+     [Warn] Failed to open 2026-11-06_11-42-21_210_57227e698982ac92efbfd9fe33cac64c0b4daf19ea8965efb42af3f29b6c75c9.jld2
+   dangling link still there: true
+== link whose target is in the walked directory too (dedup inside data/)
+     [Warn] 2000-01-01_00-00-00_000_c4f9d9049b56a80b3c4cb5da42ff0d621956d9410a864adb6345fa481644a7c3.jld2 is a symlink: the rehashed data is written to 2000-01-01_00-00-00_000_5849b687a3ce963f31ad07fdf29ca30ecf860ce365f9067ea8639ad33a3fe5a7.jld2 and the link is removed; its target /tmp/jl_RITfxe/data/2026-11-06_11-42-21_250_c4f9d9049b56a80b3c4cb5da42ff0d621956d9410a864adb6345fa481644a7c3.jld2 is not deleted by this rehash of the link. Delete it yourself if nothing else uses it.
+   result pairs: 2; real exists: false; link exists: false; files for new params: 2
+== collision: the new name is an existing symlink to a shared target (pre-existing behaviour)
+     [Warn] 2026-11-06_11-42-21_327_c94f4c6d7af700e4bb5e8acc9d1bcffbbeedcfbf1747a3b4517a9f0c660b393f.jld2 already exists and is replaced by the rehashed 2026-11-06_11-42-21_327_275b7c23c786f92a0ef61a0eb24951b18f9e05b7991877d7332346c93d0ced89.jld2.
+   link still a link: true; shared target now holds u = 1.0 (was 7.0)

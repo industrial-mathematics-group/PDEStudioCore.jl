@@ -1,0 +1,3 @@
+Any[30 x Any[30 x Any[30 x Any[30 Float64]]]] (8.1e5 leaves)    4.9 s, 2090.0 MiB
+Any[1000 x Any[1000 Float64]] (1e6 leaves)                      0.401 s, 253.0 MiB
+Any[100 x Any[100 x Any[100 Float64]]] (1e6 leaves)             1.97 s, 885.0 MiB
