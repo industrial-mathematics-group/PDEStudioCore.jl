@@ -20,7 +20,9 @@ end
         for example in (test_advection_1d, test_burgers_1d, test_heat_1d, test_heat_2d, test_poisson_2d, test_particles_2d)
             config = example()
             @test config isa SimulationConfig
-            @test isnothing(run_all_simulations(config; parallel = true, calculate_stats = true))
+            summary = run_all_simulations(config; parallel = true, calculate_stats = true)
+            @test summary isa RunSummary && isempty(summary.failed) && length(summary.ran) == length(summary.tasks)
+            @test isempty(summary.stats_failed)
             # the solver and the reference are found by name, without set_target_module!
             @test PDEStudioCore.resolve_dynamic_function(config.shared[:sim_func_name]) isa Function
             isnothing(config.reference) || @test PDEStudioCore.resolve_dynamic_function(config.reference) isa Function

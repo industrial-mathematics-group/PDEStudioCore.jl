@@ -11,12 +11,24 @@
 #   "shape"      size of `u` (Eulerian), (time steps, particles) (Lagrangian)
 #   "dim_keys", "time_dim"  the axes of the data (fast metadata; files written before Nov 2026 have none)
 #   "evaluated_stats"  statistics already evaluated for this raw data (incl. dropped all-NaN ones)
+#   "format_version"   the layout of the file (`_FORMAT_VERSION`; files of 0.4 have none: version 1)
+#   "provenance"       how the data was made (versions, host, git commit, solver, wall time; see `_provenance`)
+#   "postprocessed"    the post-processor that ran on this raw data (see `run_all_simulations`)
 #   "conv_*"     cached conversions ("conv_L", "conv_E_<n1>x<n2>...")
 
 const _ENABLE_CONV_CACHE = Ref{Bool}(false)
 # Entries tied to the content of "raw": never carried over when the raw data is rewritten.
 const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shape", "dim_keys", "time_dim",
-                       "evaluated_stats")
+                       "evaluated_stats", "format_version")
+# Entries about how the raw data was made: carried over when the same data is rewritten (statistics,
+# post-processing, rehash), replaced when new data is saved (see `_new_data_entries`). Like the managed ones,
+# `save_sim_data(...; metadata)` refuses them.
+const _RECORD_KEYS = ("provenance", "postprocessed")
+const _RESERVED_KEYS = (_MANAGED_KEYS..., _RECORD_KEYS...)
+
+# The layout of the data files: 1 = PDEStudioCore 0.4 (no version entry), 2 = with "format_version", the axes
+# ("dim_keys", "time_dim") and the record entries. Files without the fast metadata of version 1 are version 0.
+const _FORMAT_VERSION = 2
 
 """
     enable_cache!(val::Bool)
@@ -75,14 +87,60 @@ function _filename_hash(name::AbstractString)
     return m === nothing ? nothing : String(m.captures[1])
 end
 
-function _data_files()
+# --- The index of the data directory -----------------------------------------------------------------------------
+# A lookup used to list the whole data directory (about 4 ms with 4500 files, several lookups per task). The index
+# lists it once per change: it is rebuilt when the directory's modification time changes, and dropped by every writer
+# here. File times come from a coarse clock (a few ms; a second on some file systems), so a change right after a
+# listing may leave the time as it was: like git's index, a listing made within `_INDEX_RACY` seconds of the
+# directory's last change is not trusted, the next lookup lists again. A file found in it is checked to exist; a
+# hash that isn't in it is looked up with a fresh listing, as before, so a missed change (e.g. a file system that
+# caches directory times) can only cost time, never a result.
+mutable struct _DataIndex
+    dir::String
+    stamp::Float64     # the directory's modification time
+    listed::Float64    # when it was listed
+    files::Vector{String}
+    by_hash::Dict{String, Vector{String}}
+end
+const _INDEX = Ref{Union{Nothing, _DataIndex}}(nothing)
+const _INDEX_RACY = 1.0
+const _INDEX_LOCK = ReentrantLock()   # (the pipeline looks files up from several threads)
+
+_invalidate_index!() = (lock(() -> (_INDEX[] = nothing), _INDEX_LOCK); nothing)
+
+function _data_index(; fresh::Bool = false)
     dir = _data_dir()
-    isdir(dir) || return String[]
-    return [joinpath(dir, f) for f in readdir(dir) if endswith(f, ".jld2")]
+    lock(_INDEX_LOCK) do
+        idx = _INDEX[]
+        stamp = isdir(dir) ? mtime(dir) : -1.0
+        if fresh || idx === nothing || idx.dir != dir || idx.stamp != stamp ||
+           idx.listed - idx.stamp < _INDEX_RACY
+            listed = time()
+            files = isdir(dir) ? [joinpath(dir, f) for f in readdir(dir) if endswith(f, ".jld2")] : String[]
+            by_hash = Dict{String, Vector{String}}()
+            for p in files
+                h = _filename_hash(basename(p))
+                h === nothing || push!(get!(by_hash, h, String[]), p)
+            end
+            idx = _INDEX[] = _DataIndex(dir, stamp, listed, files, by_hash)
+        end
+        return idx
+    end
 end
 
-_sort_newest!(paths::Vector{String}) = sort!(paths, by = mtime, rev = true)
-_files_with_hash(hash_val::AbstractString) = _sort_newest!(filter(p -> _filename_hash(basename(p)) == hash_val, _data_files()))
+_data_files() = copy(_data_index().files)
+
+# (ties of the coarse file clock: the newer name, which starts with the time the file was made)
+_sort_newest!(paths::Vector{String}) = sort!(paths, by = p -> (mtime(p), basename(p)), rev = true)
+
+# The files of a hash, newest first
+function _files_with_hash(hash_val::AbstractString)
+    hit = get(_data_index().by_hash, hash_val, nothing)
+    if hit === nothing || !all(isfile, hit)
+        hit = get(_data_index(fresh = true).by_hash, hash_val, String[])
+    end
+    return length(hit) > 1 ? _sort_newest!(copy(hit)) : copy(hit)
+end
 _param_hash(params::AbstractDict) = calculate_hash(_normalize_params(params))
 
 function _find_file(params::AbstractDict)
@@ -174,6 +232,7 @@ function _write_metadata!(file, data::AbstractSimData)
     file["shape"] = collect(_data_shape(data))
     file["dim_keys"] = collect(data.domain.dim_keys)
     file["time_dim"] = data.domain.time_dim   # (nothing for static data)
+    file["format_version"] = _FORMAT_VERSION
     return nothing
 end
 
@@ -253,12 +312,13 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, metadata::
             file["raw"] = data
             _write_metadata!(file, data)
             for (k, v) in metadata
-                file[String(k)] = v
+                v === nothing || (file[String(k)] = v)   # (`nothing`: drop the entry, also an old one)
             end
             if previous !== nothing && isfile(previous)
                 jldopen(previous, "r") do old
                     for k in keys(old)
-                        (k in _MANAGED_KEYS || startswith(k, "conv_") || haskey(file, k)) && continue
+                        (k in _MANAGED_KEYS || startswith(k, "conv_") || haskey(file, k) ||
+                         haskey(metadata, k)) && continue
                         try
                             _copy_entry!(file, old, k)
                         catch e
@@ -272,6 +332,8 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, metadata::
     catch
         rm(tmp; force = true)
         rethrow()
+    finally
+        _invalidate_index!()
     end
     return path
 end
@@ -287,12 +349,88 @@ Extra `metadata` entries are stored as top-level keys of the file.
 """
 function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbose::Bool = true,
                        metadata::AbstractDict = Dict{String, Any}())
+    _check_metadata_keys(metadata)
+    return _save_sim_data(sim_data, overwrite, verbose, merge(Dict{String, Any}(string(k) => v for (k, v) in metadata),
+                                                              _new_data_entries()))
+end
+
+function _check_metadata_keys(metadata::AbstractDict)
     for k in keys(metadata)
         key = string(k)
-        (key in _MANAGED_KEYS || startswith(key, "conv_")) && throw(ArgumentError(
+        (key in _RESERVED_KEYS || startswith(key, "conv_")) && throw(ArgumentError(
             "metadata key '$key' is reserved for the data file layout; choose another name"))
     end
-    return _save_sim_data(sim_data, overwrite, verbose, metadata)
+    return nothing
+end
+
+# The record entries of newly made data: its provenance, and no post-processing yet (an old record is dropped)
+_new_data_entries(; kwargs...) = Dict{String, Any}("provenance" => _provenance(; kwargs...), "postprocessed" => nothing)
+
+# --- Provenance ------------------------------------------------------------------------------------------------
+
+"""
+    _provenance(; solver = nothing, wall_time = nothing, commit = _git_commit())
+
+How data was made, stored in each data file (`"provenance"`): the versions of PDEStudioCore and Julia, the host, the
+time, the number of threads and the git commit of the active project, and for data a solver made, the solver (name,
+module, package version) and its wall time in seconds.
+"""
+function _provenance(; solver = nothing, wall_time = nothing, commit = _git_commit())
+    p = Dict{String, Any}("pdestudiocore" => string(pkgversion(@__MODULE__)), "julia" => string(VERSION),
+                          "host" => gethostname(), "created" => string(now()), "threads" => Threads.nthreads())
+    isnothing(commit) || (p["git_commit"] = commit)
+    if !isnothing(solver)
+        p["solver"] = string(nameof(solver))
+        root = Base.moduleroot(parentmodule(solver))
+        p["solver_module"] = string(nameof(root))
+        v = pkgversion(root)
+        isnothing(v) || (p["solver_version"] = string(v))
+    end
+    isnothing(wall_time) || (p["wall_time"] = Float64(wall_time))
+    return p
+end
+
+# The commit checked out in the git repository of `dir` (the active project's folder by default), read from the
+# repository's files (no git needed), or `nothing`.
+function _git_commit(dir::AbstractString = something(Base.active_project(), joinpath(pwd(), "Project.toml")) |> dirname)
+    try
+        d = abspath(dir)
+        while true
+            dotgit = joinpath(d, ".git")
+            ispath(dotgit) && return _head_commit(dotgit)
+            parent = dirname(d)
+            parent == d && return nothing
+            d = parent
+        end
+    catch
+        return nothing
+    end
+end
+
+function _head_commit(dotgit::AbstractString)
+    gitdir = isdir(dotgit) ? dotgit : begin   # a worktree or submodule: ".git" is a file "gitdir: <path>"
+        line = strip(read(dotgit, String))
+        startswith(line, "gitdir:") || return nothing
+        p = strip(line[8:end])
+        isabspath(p) ? p : normpath(joinpath(dirname(dotgit), p))
+    end
+    common = isfile(joinpath(gitdir, "commondir")) ?
+             normpath(joinpath(gitdir, strip(read(joinpath(gitdir, "commondir"), String)))) : gitdir
+    head = strip(read(joinpath(gitdir, "HEAD"), String))
+    startswith(head, "ref:") || return occursin(r"^[0-9a-f]{40,64}$", head) ? String(head) : nothing
+    ref = strip(head[5:end])
+    for root in unique((gitdir, common))
+        f = joinpath(root, ref)
+        isfile(f) && return String(strip(read(f, String)))
+    end
+    packed = joinpath(common, "packed-refs")
+    if isfile(packed)
+        for line in eachline(packed)
+            parts = split(line)
+            length(parts) == 2 && parts[2] == ref && return String(parts[1])
+        end
+    end
+    return nothing
 end
 
 # `save_sim_data` without the check of the metadata keys, so internal callers can write managed entries
@@ -462,12 +600,39 @@ loaded without recomputation, exists on disk.
 does_sim_data_exist(params::AbstractDict) = does_sim_data_exist(params, Val(:raw))
 does_sim_data_exist(params::AbstractDict, kind::Symbol, args...) = does_sim_data_exist(params, Val(kind), args...)
 
-# A file of this version: native data plus the metadata loading relies on. Files written by earlier versions
-# count as missing, so the pipeline recomputes (and replaces) them instead of failing on them.
-function _is_current_file(path::AbstractString)
+# A file the pipeline can use: native data plus the metadata loading relies on (format version 1 or later). A file
+# of version 0 (data without that metadata) is upgraded in place if its data loads; otherwise it counts as
+# missing, so the pipeline recomputes (and replaces) it instead of failing on it. (Lookups never write to files of
+# version 1: `upgrade_sim_data` brings them to the current version.)
+function _is_current_file(path::AbstractString; upgrade::Bool = true)
     ok, has_raw = jldopen(f -> (haskey(f, "raw") && haskey(f, "native") && haskey(f, "shape"), haskey(f, "raw")), path, "r")
-    has_raw && !ok && @info "$(basename(path)) was written by an older PDEStudioCore version; it is recomputed."
-    return ok
+    (ok || !has_raw || !upgrade) && return ok
+    _upgrade_file!(path) === :upgraded && return true
+    @info "$(basename(path)) was written by an older PDEStudioCore version and can't be read; it is recomputed."
+    return false
+end
+
+# The format version of an open data file (see `_FORMAT_VERSION`)
+_format_version(file) = haskey(file, "format_version") ? Int(file["format_version"]) :
+                        haskey(file, "native") && haskey(file, "shape") ? 1 : 0
+
+# Brings a file to the current format version by writing the metadata of its data (the data itself is kept).
+# Returns :current, :upgraded, or :unreadable (its data doesn't load as a dataset of this version).
+function _upgrade_file!(path::AbstractString)
+    version, raw = jldopen(path, "r") do file
+        v = _format_version(file)
+        v >= _FORMAT_VERSION && return v, nothing
+        return v, haskey(file, "raw") ? (try file["raw"] catch; nothing end) : nothing
+    end
+    version >= _FORMAT_VERSION && return :current
+    raw isa AbstractSimData || return :unreadable
+    entries = Dict{String, Any}("native" => _data_kind(raw), "params" => raw.params, "stat_keys" => collect(keys(raw.stats)),
+                                "registry" => raw.domain.stat_registry, "shape" => collect(_data_shape(raw)),
+                                "dim_keys" => collect(raw.domain.dim_keys), "time_dim" => raw.domain.time_dim,
+                                "format_version" => _FORMAT_VERSION)
+    _update_entries!(path, entries)
+    @info "Upgraded $(basename(path)) to file format version $_FORMAT_VERSION."
+    return :upgraded
 end
 
 function does_sim_data_exist(params::AbstractDict, ::Val{:raw})
