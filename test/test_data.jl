@@ -443,11 +443,18 @@ end
         @test JLD2.jldopen(f -> (f["format_version"], f["dim_keys"], f["time_dim"]), path, "r") ==
               (PDEStudioCore._FORMAT_VERSION, [:x, :t], :t)
         @test upgrade_sim_data()[:current] == [path]
+        # (an entry "format_version" a user stored in a file of 0.4, where the name wasn't reserved, doesn't count)
+        JLD2.jldopen(f -> (delete!(f, "format_version"); f["format_version"] = "mine"), path, "a+")
+        @test JLD2.jldopen(PDEStudioCore._format_version, path, "r") == 1 && sim_data_table().format_version == [1]
+        upgrade_sim_data(path)
         # a file of an earlier version (only the data): upgraded by the pipeline instead of recomputed
         sim = load_sim_data(p)
         rm(path)
         JLD2.jldopen(f -> (f["raw"] = sim), path, "w")
         SOLVER_CALLS[] = 0
+        s = run_all_simulations(SimulationConfig(p); dry_run = true)   # (says what the run does, writes nothing)
+        @test length(s.cached) == 1 && isempty(s.ran) && !JLD2.jldopen(f -> haskey(f, "native"), path, "r")
+        @test upgrade_sim_data(path; dry_run = true)[:upgraded] == [path]
         s = @test_logs (:info, r"Upgraded") match_mode = :any run_all_simulations(SimulationConfig(p))
         @test length(s.cached) == 1 && SOLVER_CALLS[] == 0
         @test JLD2.jldopen(PDEStudioCore._format_version, path, "r") == PDEStudioCore._FORMAT_VERSION
@@ -455,6 +462,8 @@ end
         # ... unless its data doesn't load as a dataset: recomputed
         rm(path)
         JLD2.jldopen(f -> (f["raw"] = "not a dataset"), path, "w")
+        @test upgrade_sim_data(path; dry_run = true)[:unreadable] == [path]
+        @test length(run_all_simulations(SimulationConfig(p); dry_run = true).ran) == 1
         @test upgrade_sim_data(path)[:unreadable] == [path]
         @test length(run_all_simulations(SimulationConfig(p)).ran) == 1 && SOLVER_CALLS[] == 1
         @test_throws ArgumentError upgrade_sim_data(joinpath(get_save_path(), "no such file.jld2"))
@@ -481,8 +490,23 @@ end
         # kept by rewrites of the same data (post-processing, statistics), replaced with new data
         run_all_simulations(cfg; calculate_stats = true, force_postprocess = true)
         @test JLD2.jldopen(f -> f["provenance"], get_file_name(q), "r") == prov
+        # ... also when the same data is saved again by hand (e.g. after add_stat!)
+        sim = load_sim_data(q)
+        add_stat!(sim, :extra, 1.0, Symbol[])
+        save_sim_data(sim; overwrite = true, verbose = false)
+        @test JLD2.jldopen(f -> (f["provenance"], f["postprocessed"]["name"]), get_file_name(q), "r") == (prov, "keep_post")
+        @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
         run_all_simulations(cfg; force_overwrite = true)
         @test JLD2.jldopen(f -> f["provenance"]["created"], get_file_name(q), "r") != prov["created"]
+        # new data saved by hand: a new provenance, no record
+        sim = advection_solver_1d(q)
+        sim.u[1] = SVector(5.0)
+        save_sim_data(sim; overwrite = true, verbose = false)
+        @test JLD2.jldopen(f -> (haskey(f["provenance"], "solver"), haskey(f, "postprocessed")), get_file_name(q), "r") == (false, false)
+        # a file calculate_all_stats! writes has a provenance, too
+        r = create_param_dict(:N => 8, :test_mode => "provenance-stats")
+        calculate_all_stats!(advection_solver_1d(r))
+        @test haskey(JLD2.jldopen(f -> f["provenance"], get_file_name(r), "r"), "pdestudiocore")
         # entries of the layout and the record are reserved
         for key in ("provenance", "postprocessed", "format_version", :provenance)
             @test_throws ArgumentError save_sim_data(advection_solver_1d(p); overwrite = true, metadata = Dict(key => 1))
@@ -540,8 +564,10 @@ end
         @test all(s -> :mass in s, t.stats) && all(==("count_post"), t.postprocessed) && all(==("advection_solver_1d"), t.solver)
         @test all(x -> x isa Float64, t.wall_time) && sort(unique(t.N)) == [8, 9] && all(==("tidy"), t.test_mode)
         @test size(sim_data_table(Dict(:N => 9)), 1) == 1
-        save_sim_data(advection_solver_1d(create_param_dict(:N => 5, :M => 3, :test_mode => "table")); verbose = false)
+        save_sim_data(advection_solver_1d(create_param_dict(:N => 5, :M => 3, :test_mode => "table", :file => "mesh.msh"));
+                      verbose = false)
         t = sim_data_table()
+        @test t.param_file[1] == "mesh.msh" && endswith(t.file[1], ".jld2") && all(ismissing, t.param_file[2:end])
         @test size(t, 1) == 4 && ismissing(t.wall_time[1]) && ismissing(t.postprocessed[1]) && ismissing(t.solver[1])
         @test t.M[1] == 3 && all(ismissing, t.M[2:end]) && ismissing(t.scheme[1])
 

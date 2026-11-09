@@ -278,7 +278,7 @@ function upgrade_sim_data(target::AbstractString = _data_dir(); dry_run::Bool = 
         outcome = try
             if dry_run
                 v = jldopen(_format_version, path, "r")
-                v >= _FORMAT_VERSION ? :current : jldopen(f -> haskey(f, "raw"), path, "r") ? :upgraded : :unreadable
+                v >= _FORMAT_VERSION ? :current : _raw_loads(path) ? :upgraded : :unreadable
             else
                 _upgrade_file!(path)
             end
@@ -333,10 +333,13 @@ One row per stored run whose parameters contain all pairs of `match_params` (as 
 first: `file`, `created` (from the file name), `size_mb`, `kind` (`:eulerian` / `:lagrangian`), `shape`,
 `format_version`, `stats` (the available statistics), `postprocessed` (the post-processor that ran, or `missing`),
 `wall_time` (seconds the solver took, if recorded), `solver`, then one column per parameter (`missing` where a
-run doesn't have it). Only the lightweight metadata of each file is read.
+run doesn't have it; a parameter named like one of the columns before gets the column `param_<name>`). Only the
+lightweight metadata of each file is read. Files of format version 0 (without metadata) are not listed:
+[`upgrade_sim_data`](@ref) brings them up to date.
 """
 function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
     rows = Dict{Symbol, Any}[]
+    fixed = [:file, :created, :size_mb, :kind, :shape, :format_version, :stats, :postprocessed, :wall_time, :solver]
     for (path, params) in _files_with_params(match_params)
         row = Dict{Symbol, Any}(:file => basename(path), :size_mb => round(filesize(path) / 2^20, digits = 3))
         stamp = match(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d{3})_", basename(path))
@@ -353,11 +356,11 @@ function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
             row[:solver] = prov isa AbstractDict ? get(prov, "solver", missing) : missing
         end
         for (k, v) in params
-            row[Symbol(k)] = v
+            key = Symbol(k)
+            row[key in fixed ? Symbol("param_", key) : key] = v   # (a parameter `solver`: column `param_solver`)
         end
         push!(rows, row)
     end
-    fixed = [:file, :created, :size_mb, :kind, :shape, :format_version, :stats, :postprocessed, :wall_time, :solver]
     pkeys = sort!(collect(setdiff(union(Set{Symbol}(), (keys(r) for r in rows)...), fixed)), by = string)
     cols = [fixed; pkeys]
     return DataFrame([c => Any[get(r, c, missing) for r in rows] for c in cols])

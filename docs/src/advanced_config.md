@@ -57,7 +57,7 @@ Methods whose name contains a word starting with `analytic`, `reference`, `exact
 
 ## 3. Custom Post-Processing
 
-`postprocess` names a function that receives every dataset after the statistics pass. Change the data and return `true` to save the changes; any other return value (including `nothing`) leaves the data untouched. Each file records the post-processor that ran on it (its name, the digests of the `sources` and its package's version), so the pass runs once per dataset: it skips files with the same record, and runs again on new data, with another post-processor, or when a source file changed. `run_all_simulations(config; force_postprocess = true)` runs it on every dataset. Return `true` only when it changed something: saving rewrites the file (and drops its cached conversions). Statistics stored in the file are not recomputed after a post-processor changed the solution.
+`postprocess` names a function that receives every dataset after the statistics pass. Change the data and return `true` to save the changes; any other return value (including `nothing`) leaves the data untouched. Each file records the post-processor that ran on it (its name, the digests of the `sources` and its package's version), so the pass runs once per dataset: on new data, and with a post-processor of another name. Data post-processed by another version of it (other `sources` or package version) is kept and counted as `outdated` in the summary, with a warning: `run_all_simulations(config; force_postprocess = true)` applies it to every dataset again, also to data it has processed already. So make the function idempotent where you can (e.g. set a statistic rather than accumulate into the solution). Files written before PDEStudioCore 0.5 have no record: the first run post-processes them. Return `true` only when it changed something: saving rewrites the file (and drops its cached conversions). Statistics stored in the file are not recomputed after a post-processor changed the solution.
 
 ```julia
 function add_maximum(data)
@@ -104,7 +104,7 @@ RunSummary: 12 task(s) in 41.3 s: 2 ran, 9 cached, 1 failed
   failed: N = 400, scheme = weno: DomainError with -0.1: …
 ```
 
-With `dry_run = true` nothing is run or written; the summary lists what would run.
+With `dry_run = true` no solver, statistic or post-processor runs and nothing is written (the `sources` are still included); the summary lists what would run.
 
 - Existing data is never recomputed unless `force_overwrite = true`; statistics are only evaluated for datasets that miss them (or whose kept dimensions changed, or that were evaluated without a reference that is now configured). `force_stats = true` recomputes the statistics only.
 - A failing solver, statistic or post-processing step is logged with its parameters, listed in the summary, and the batch continues.

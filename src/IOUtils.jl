@@ -94,7 +94,8 @@ end
 # listing may leave the time as it was: like git's index, a listing made within `_INDEX_RACY` seconds of the
 # directory's last change is not trusted, the next lookup lists again. A file found in it is checked to exist; a
 # hash that isn't in it is looked up with a fresh listing, as before, so a missed change (e.g. a file system that
-# caches directory times) can only cost time, never a result.
+# caches directory times) costs time; the one result it can miss is a newer duplicate of a stored run that another
+# process added meanwhile (the older file of the same parameters is found until the directory changes again).
 mutable struct _DataIndex
     dir::String
     stamp::Float64     # the directory's modification time
@@ -312,7 +313,12 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, metadata::
             file["raw"] = data
             _write_metadata!(file, data)
             for (k, v) in metadata
-                v === nothing || (file[String(k)] = v)   # (`nothing`: drop the entry, also an old one)
+                # (`nothing` for a record entry: drop it, also an old one)
+                (v === nothing && String(k) in _RECORD_KEYS) || (file[String(k)] = v)
+            end
+            # a new file always gets a provenance (e.g. one `calculate_all_stats!` writes)
+            if (previous === nothing || !isfile(previous)) && !haskey(metadata, "provenance")
+                file["provenance"] = _provenance()
             end
             if previous !== nothing && isfile(previous)
                 jldopen(previous, "r") do old
@@ -345,13 +351,19 @@ Saves the dataset under the hash of its (normalised) parameters and returns the 
 An existing file is only replaced when `overwrite = true` (which also drops stale conversion caches).
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 Extra `metadata` entries are stored as top-level keys of the file.
+New data gets a new provenance and no post-processing record; saving the data stored for its parameters again (e.g.
+after [`add_stat!`](@ref)) keeps both.
 `sim_data.params` is replaced by its normalised form (see [`get_clean_params`](@ref)), as stored in the file.
 """
 function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbose::Bool = true,
                        metadata::AbstractDict = Dict{String, Any}())
     _check_metadata_keys(metadata)
-    return _save_sim_data(sim_data, overwrite, verbose, merge(Dict{String, Any}(string(k) => v for (k, v) in metadata),
-                                                              _new_data_entries()))
+    entries = Dict{String, Any}(string(k) => v for (k, v) in metadata)
+    # New data gets a new record; the same data saved again (e.g. after `add_stat!`) keeps the one of the file.
+    path = overwrite ? _find_file(sim_data.params) : nothing
+    same = path !== nothing && (try _is_native_representation(path, sim_data) catch; false end)
+    same || merge!(entries, _new_data_entries())
+    return _save_sim_data(sim_data, overwrite, verbose, entries)
 end
 
 function _check_metadata_keys(metadata::AbstractDict)
@@ -380,14 +392,24 @@ function _provenance(; solver = nothing, wall_time = nothing, commit = _git_comm
                           "host" => gethostname(), "created" => string(now()), "threads" => Threads.nthreads())
     isnothing(commit) || (p["git_commit"] = commit)
     if !isnothing(solver)
-        p["solver"] = string(nameof(solver))
-        root = Base.moduleroot(parentmodule(solver))
-        p["solver_module"] = string(nameof(root))
-        v = pkgversion(root)
-        isnothing(v) || (p["solver_version"] = string(v))
+        p["solver"] = _func_name(solver)
+        root = _func_package(solver)
+        isnothing(root) || (p["solver_module"] = string(nameof(root)))
+        v = _func_version(solver)
+        isnothing(v) || (p["solver_version"] = v)
     end
     isnothing(wall_time) || (p["wall_time"] = Float64(wall_time))
     return p
+end
+
+# The name, the top module and its package version (a string or `nothing`) of a function or callable object; never
+# throw (bookkeeping must not discard a result)
+_func_name(f) = string(f isa Function ? nameof(f) : try nameof(typeof(f)) catch; typeof(f) end)
+_func_package(f) = try Base.moduleroot(f isa Function ? parentmodule(f) : parentmodule(typeof(f))) catch; nothing end
+function _func_version(f)
+    root = _func_package(f)
+    v = isnothing(root) ? nothing : try pkgversion(root) catch; nothing end
+    return isnothing(v) ? nothing : string(v)
 end
 
 # The commit checked out in the git repository of `dir` (the active project's folder by default), read from the
@@ -606,15 +628,23 @@ does_sim_data_exist(params::AbstractDict, kind::Symbol, args...) = does_sim_data
 # version 1: `upgrade_sim_data` brings them to the current version.)
 function _is_current_file(path::AbstractString; upgrade::Bool = true)
     ok, has_raw = jldopen(f -> (haskey(f, "raw") && haskey(f, "native") && haskey(f, "shape"), haskey(f, "raw")), path, "r")
-    (ok || !has_raw || !upgrade) && return ok
+    (ok || !has_raw) && return ok
+    upgrade || return _raw_loads(path)   # (what an upgrade would find, without writing)
     _upgrade_file!(path) === :upgraded && return true
     @info "$(basename(path)) was written by an older PDEStudioCore version and can't be read; it is recomputed."
     return false
 end
 
-# The format version of an open data file (see `_FORMAT_VERSION`)
-_format_version(file) = haskey(file, "format_version") ? Int(file["format_version"]) :
-                        haskey(file, "native") && haskey(file, "shape") ? 1 : 0
+# Whether the "raw" entry of a file loads as a dataset of this version
+_raw_loads(path::AbstractString) = jldopen(f -> haskey(f, "raw") && (try f["raw"] isa AbstractSimData catch; false end), path, "r")
+
+# The format version of an open data file (see `_FORMAT_VERSION`; a user entry of that name in a file of 0.4, where
+# it wasn't reserved, doesn't count)
+function _format_version(file)
+    v = haskey(file, "format_version") ? file["format_version"] : nothing
+    v isa Integer && v >= 2 && return Int(v)
+    return haskey(file, "native") && haskey(file, "shape") ? 1 : 0
+end
 
 # Brings a file to the current format version by writing the metadata of its data (the data itself is kept).
 # Returns :current, :upgraded, or :unreadable (its data doesn't load as a dataset of this version).

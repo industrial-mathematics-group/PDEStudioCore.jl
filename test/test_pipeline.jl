@@ -305,10 +305,14 @@ end
 
     # other source code: the stored results are kept with a warning (every run, until recomputed) ...
     write(src, solver_code * "# changed\n")
-    s = @test_logs (:warn, r"2 stored result\(s\) were made with other source code") match_mode = :any run_all_simulations(cfg)
+    s = @test_logs (:warn, r"2 stored result\(s\) were made with other source code") (:warn, r"2 dataset\(s\) were post-processed by another version of count_post") match_mode = :any run_all_simulations(cfg)
     @test length(s.changed) == 2 && length(s.cached) == 2 && isempty(s.ran)
-    @test occursin("changed code: 2", repr("text/plain", s))
-    @test s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 10   # (the record names the sources)
+    @test occursin("changed code: 2", repr("text/plain", s)) && occursin("2 outdated", repr("text/plain", s))
+    # (the post-processor may have changed with the sources: it isn't applied again to data it processed ...)
+    @test s.postprocessing == Dict(:outdated => 2) && POST_CALLS[] == 8
+    # (... unless forced)
+    s = @test_logs (:warn, r"other source code") match_mode = :any run_all_simulations(cfg; force_postprocess = true)
+    @test s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 10
     s = @test_logs (:warn, r"other source code") match_mode = :any run_all_simulations(cfg)
     @test length(s.changed) == 2 && s.postprocessing == Dict(:skipped => 2)
     # ... silently with :ignore ...
@@ -334,4 +338,24 @@ end
     @test !does_sim_data_exist(s.ran[1]) && POST_CALLS[] == 12
     # (the new task's data: it ran with the new sources)
     @test length(run_all_simulations(big).ran) == 1 && POST_CALLS[] == 13
+end
+
+# Callable objects as solver and post-processor (resolved by name like functions)
+struct ScaledSolver
+    scale::Float64
+end
+(s::ScaledSolver)(params) = create_sim_data(collect(range(0.0, 1.0, length = params[:n])), fill(s.scale, params[:n]), params)
+scaled_solver = ScaledSolver(2.0)
+struct MarkPost end
+(::MarkPost)(data) = nothing
+mark_post = MarkPost()
+
+@testset "Pipeline: callable objects as solver and post-processor" begin
+    cfg = SimulationConfig(Dict(:sim_func_name => :scaled_solver, :n => 4); postprocess = :mark_post)
+    s = run_all_simulations(cfg)
+    @test length(s.ran) == 1 && isempty(s.failed) && s.postprocessing == Dict(:ran => 1)
+    path = get_file_name(only(generate_tasks(cfg)))
+    @test PDEStudioCore.jldopen(f -> (f["provenance"]["solver"], f["postprocessed"]["name"]), path, "r") ==
+          ("ScaledSolver", "mark_post")
+    @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
 end

@@ -272,8 +272,8 @@ function _code_changed(path::AbstractString, params::AbstractDict, metadata::Abs
     end
     if stored_version !== nothing
         solver = try _resolve_solver(params) catch; nothing end
-        v = solver === nothing ? nothing : pkgversion(Base.moduleroot(parentmodule(solver)))
-        v !== nothing && string(v) != stored_version && return true
+        v = solver === nothing ? nothing : _func_version(solver)
+        v !== nothing && v != stored_version && return true
     end
     return false
 end
@@ -312,12 +312,14 @@ function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, f
 end
 
 # What identifies a post-processor in the record of a file ("postprocessed"): its name, the source files of the run
-# (their digests) and its package's version. A file with the same record is not post-processed again.
+# (their digests) and its package's version. A file with a record of the same name is not post-processed again:
+# with the same record it is `:skipped`, with another one (the post-processor changed) `:outdated` (applying it
+# again to post-processed data is only right for an idempotent post-processor: `force_postprocess`).
 function _postprocess_record(name, post_func, metadata::AbstractDict)
     sources = get(metadata, "sources", Dict{String, String}())
     record = Dict{String, Any}("name" => string(name), "sources" => sort!(collect(String, values(sources))))
-    v = pkgversion(Base.moduleroot(parentmodule(post_func)))
-    isnothing(v) || (record["version"] = string(v))
+    v = _func_version(post_func)
+    isnothing(v) || (record["version"] = v)
     return record
 end
 
@@ -326,7 +328,9 @@ function _post_task(params::ParamDict, post_func, record::AbstractDict, force::B
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
         done = jldopen(f -> haskey(f, "postprocessed") ? f["postprocessed"] : nothing, path, "r")
-        !force && isequal(done, record) && return (:skipped, nothing)
+        if !force && done isa AbstractDict && get(done, "name", nothing) == record["name"]
+            return (isequal(done, record) ? :skipped : :outdated, nothing)
+        end
         dry_run && return (:ran, nothing)
         sim_data = _load_key(path, "raw")
         if post_func(sim_data) === true
@@ -378,8 +382,9 @@ What [`run_all_simulations`](@ref) did (or, with `dry_run = true`, would do), sh
 - `tasks`: the parameter sets of the configuration;
 - `ran`, `cached`, `empty` (the solver returned nothing), `failed` (`params => error message`): pass 1;
 - `changed`: stored results made with other source code (other contents of the source files, or another version of
-  the solver's package); kept, recomputed or ignored by `on_changed_sources`;
-- `stats`, `postprocessing`: counts per outcome (`:ran`, `:cached` / `:skipped`, `:failed`, `:missing`), and
+  the solver's package), kept (`on_changed_sources = :warn`) or recomputed (`:recompute`); empty with `:ignore`;
+- `stats`, `postprocessing`: counts per outcome (`:ran`, `:cached` / `:skipped`, `:outdated` (post-processed by
+  another version of the post-processor, see [`run_all_simulations`](@ref)), `:failed`, `:missing`), and
   `stats_failed`, `postprocessing_failed` (`params => error message`);
 - `elapsed`: seconds; `dry_run`: whether nothing was run.
 """
@@ -442,9 +447,13 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
    every registered statistic without rerunning the simulations,
 3. with `post_process = true`, calls `config.postprocess(data)` for every dataset it hasn't post-processed yet and
    saves the (modified) data again when it returns `true`. Each file records the post-processor that ran (its name,
-   the source files of the run and its package's version), so the pass skips files with the same record; new data,
-   or other source code, makes it run again, and `force_postprocess = true` runs it on every dataset.
-With `dry_run = true` nothing is run or written: the summary lists what would run.
+   the source files of the run and its package's version), so it runs once per dataset: on new data, and with a
+   post-processor of another name. Data post-processed by another version of it (other source files or package
+   version) is kept and reported as `:outdated` with a warning; `force_postprocess = true` runs it on every dataset,
+   also on data it has processed already, so a post-processor should be idempotent (files of earlier versions have no
+   record: the first run post-processes them).
+With `dry_run = true` no solver, statistic or post-processor runs and nothing is written (the `sources` are still
+included): the summary lists what would run.
 Failures of individual tasks are logged, listed in the summary and do not abort the batch.
 """
 function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = false, calculate_stats::Bool = false,
@@ -504,7 +513,7 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
         progress = Progress(n; desc = "Calculating stats...", enabled = !dry_run)
         for (i, params) in enumerate(tasks)
             # (in a dry run, the tasks that would run would get their statistics and post-processing, too)
-            st, err = dry_run && would_run[i] ? (:ran, nothing) :
+            st, err = dry_run && would_run[i] ? (isempty(required) ? :cached : :ran, nothing) :
                       Base.invokelatest(_stats_task, params, ref_factory, required, force_overwrite || force_stats, dry_run)
             stats[st] = get(stats, st, 0) + 1
             st === :failed && push!(stats_failed, params => err)
@@ -525,6 +534,11 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
             post[st] = get(post, st, 0) + 1
             st === :failed && push!(post_failed, params => err)
             next!(progress)
+        end
+        if get(post, :outdated, 0) > 0
+            @warn "$(post[:outdated]) dataset(s) were post-processed by another version of $(config.postprocess) (other " *
+                  "source files or package version) and are kept. run_all_simulations(…; force_postprocess = true) " *
+                  "applies it again, to data it has processed already: only right for an idempotent post-processor."
         end
     end
 
