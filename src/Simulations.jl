@@ -311,10 +311,11 @@ function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, f
     end
 end
 
-# What identifies a post-processor in the record of a file ("postprocessed"): its name, the source files of the run
-# (their digests) and its package's version. A file with a record of the same name is not post-processed again:
-# with the same record it is `:skipped`, with another one (the post-processor changed) `:outdated` (applying it
-# again to post-processed data is only right for an idempotent post-processor: `force_postprocess`).
+# What identifies a post-processor in the records of a file ("postprocessed": name => record): its name, the source
+# files of the run (their digests) and its package's version. A file with a record of the same name is not
+# post-processed again: with the same record it is `:skipped`, with another one (the post-processor changed)
+# `:outdated` (applying it again to post-processed data is only right for an idempotent post-processor:
+# `force_postprocess`). With `on_changed_sources = :ignore` the sources don't count.
 function _postprocess_record(name, post_func, metadata::AbstractDict)
     sources = get(metadata, "sources", Dict{String, String}())
     record = Dict{String, Any}("name" => string(name), "sources" => sort!(collect(String, values(sources))))
@@ -323,26 +324,32 @@ function _postprocess_record(name, post_func, metadata::AbstractDict)
     return record
 end
 
-function _post_task(params::ParamDict, post_func, record::AbstractDict, force::Bool, dry_run::Bool)
+_without_sources(record::AbstractDict) = filter(p -> first(p) != "sources", record)
+
+function _post_task(params::ParamDict, post_func, record::AbstractDict, force::Bool, dry_run::Bool, ignore_sources::Bool)
     try
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
         done = jldopen(f -> haskey(f, "postprocessed") ? f["postprocessed"] : nothing, path, "r")
-        if !force && done isa AbstractDict && get(done, "name", nothing) == record["name"]
-            return (isequal(done, record) ? :skipped : :outdated, nothing)
+        records = done isa AbstractDict ? Dict{String, Any}(done) : Dict{String, Any}()
+        own = get(records, record["name"], nothing)
+        if !force && own isa AbstractDict
+            same = ignore_sources ? isequal(_without_sources(own), _without_sources(record)) : isequal(own, record)
+            return (same ? :skipped : :outdated, nothing)
         end
         dry_run && return (:ran, nothing)
+        records[record["name"]] = record
         sim_data = _load_key(path, "raw")
         if post_func(sim_data) === true
             # The rewrite keeps the record of evaluated statistics, so the next run doesn't redo them.
             entries = jldopen(path, "r") do f
-                e = Dict{String, Any}("postprocessed" => record)
+                e = Dict{String, Any}("postprocessed" => records)
                 haskey(f, "evaluated_stats") && (e["evaluated_stats"] = f["evaluated_stats"])
                 e
             end
             _save_sim_data(sim_data, true, false, entries)
         else
-            _set_key!(path, "postprocessed", record)   # (nothing changed: only the record)
+            _set_key!(path, "postprocessed", records)   # (nothing changed: only the record)
         end
         return (:ran, nothing)
     catch e
@@ -447,11 +454,12 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
    every registered statistic without rerunning the simulations,
 3. with `post_process = true`, calls `config.postprocess(data)` for every dataset it hasn't post-processed yet and
    saves the (modified) data again when it returns `true`. Each file records the post-processor that ran (its name,
-   the source files of the run and its package's version), so it runs once per dataset: on new data, and with a
-   post-processor of another name. Data post-processed by another version of it (other source files or package
-   version) is kept and reported as `:outdated` with a warning; `force_postprocess = true` runs it on every dataset,
-   also on data it has processed already, so a post-processor should be idempotent (files of earlier versions have no
-   record: the first run post-processes them).
+   the source files of the run and its package's version), so it runs once per dataset and post-processor: on new
+   data, and for a post-processor of another name. Data post-processed by another version of it (other source files
+   or package version; with `on_changed_sources = :ignore` only another package version) is kept and reported as
+   `:outdated` with a warning; `force_postprocess = true` runs it on every dataset, also on data it has processed
+   already, so a post-processor should be idempotent (files of earlier versions have no record: the first run
+   post-processes them).
 With `dry_run = true` no solver, statistic or post-processor runs and nothing is written (the `sources` are still
 included): the summary lists what would run.
 Failures of individual tasks are logged, listed in the summary and do not abort the batch.
@@ -530,7 +538,8 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
         progress = Progress(n; desc = "Post-processing...", enabled = !dry_run)
         for (i, params) in enumerate(tasks)
             st, err = dry_run && would_run[i] ? (:ran, nothing) :
-                      Base.invokelatest(_post_task, params, post_func, record, force_postprocess, dry_run)
+                      Base.invokelatest(_post_task, params, post_func, record, force_postprocess, dry_run,
+                                        on_changed_sources === :ignore)
             post[st] = get(post, st, 0) + 1
             st === :failed && push!(post_failed, params => err)
             next!(progress)

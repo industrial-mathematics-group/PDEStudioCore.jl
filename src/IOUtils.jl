@@ -359,10 +359,21 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
                        metadata::AbstractDict = Dict{String, Any}())
     _check_metadata_keys(metadata)
     entries = Dict{String, Any}(string(k) => v for (k, v) in metadata)
-    # New data gets a new record; the same data saved again (e.g. after `add_stat!`) keeps the one of the file.
+    # New data gets a new provenance and no post-processing record. The same data saved again keeps its provenance,
+    # and its record if it still has the statistics of the file (e.g. after `add_stat!`; not a recomputed dataset
+    # without what a post-processor added).
     path = overwrite ? _find_file(sim_data.params) : nothing
-    same = path !== nothing && (try _is_native_representation(path, sim_data) catch; false end)
-    same || merge!(entries, _new_data_entries())
+    same = path !== nothing && try
+        _is_native_representation(path, sim_data)
+    catch e
+        e isa InterruptException && rethrow()
+        false
+    end
+    if !same
+        merge!(entries, _new_data_entries())
+    elseif !issubset(_stored_stat_keys(path), keys(sim_data.stats))
+        entries["postprocessed"] = nothing
+    end
     return _save_sim_data(sim_data, overwrite, verbose, entries)
 end
 
@@ -404,8 +415,8 @@ end
 
 # The name, the top module and its package version (a string or `nothing`) of a function or callable object; never
 # throw (bookkeeping must not discard a result)
-_func_name(f) = string(f isa Function ? nameof(f) : try nameof(typeof(f)) catch; typeof(f) end)
-_func_package(f) = try Base.moduleroot(f isa Function ? parentmodule(f) : parentmodule(typeof(f))) catch; nothing end
+_func_name(f) = string(f isa Union{Function, Type} ? (try nameof(f) catch; f end) : try nameof(typeof(f)) catch; typeof(f) end)
+_func_package(f) = try Base.moduleroot(f isa Union{Function, Type} ? parentmodule(f) : parentmodule(typeof(f))) catch; nothing end
 function _func_version(f)
     root = _func_package(f)
     v = isnothing(root) ? nothing : try pkgversion(root) catch; nothing end
@@ -497,6 +508,10 @@ cached in the file when [`enable_cache!`](@ref) is on.
 load_sim_data(params::AbstractDict) = load_sim_data(params, Val(:raw))
 load_sim_data(params::AbstractDict, kind::Symbol, args...) = load_sim_data(params, Val(kind), args...)
 load_sim_data(params::AbstractDict, ::Val{:raw}) = _load_key(get_file_name(params), "raw")
+
+# The statistics stored with the data of a file (its metadata, without loading the data)
+_stored_stat_keys(path::AbstractString) =
+    jldopen(f -> haskey(f, "stat_keys") ? Symbol[Symbol(k) for k in f["stat_keys"]] : Symbol[], path, "r")
 
 function _native_and_shape(path::AbstractString)
     return jldopen(path, "r") do file
@@ -642,7 +657,7 @@ _raw_loads(path::AbstractString) = jldopen(f -> haskey(f, "raw") && (try f["raw"
 # it wasn't reserved, doesn't count)
 function _format_version(file)
     v = haskey(file, "format_version") ? file["format_version"] : nothing
-    v isa Integer && v >= 2 && return Int(v)
+    v isa Integer && v >= 2 && haskey(file, "dim_keys") && return Int(v)   # (written by this version)
     return haskey(file, "native") && haskey(file, "shape") ? 1 : 0
 end
 

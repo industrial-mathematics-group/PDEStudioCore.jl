@@ -331,9 +331,10 @@ end
 
 One row per stored run whose parameters contain all pairs of `match_params` (as [`find_sim_data`](@ref)), newest
 first: `file`, `created` (from the file name), `size_mb`, `kind` (`:eulerian` / `:lagrangian`), `shape`,
-`format_version`, `stats` (the available statistics), `postprocessed` (the post-processor that ran, or `missing`),
+`format_version`, `stats` (the available statistics), `postprocessed` (the names of the post-processors that ran, or `missing`),
 `wall_time` (seconds the solver took, if recorded), `solver`, then one column per parameter (`missing` where a
-run doesn't have it; a parameter named like one of the columns before gets the column `param_<name>`). Only the
+run doesn't have it; a parameter named like one of the columns before gets the column `param_<name>`, with more
+`param_` prefixes if that is a parameter, too). Only the
 lightweight metadata of each file is read. Files of format version 0 (without metadata) are not listed:
 [`upgrade_sim_data`](@ref) brings them up to date.
 """
@@ -350,14 +351,22 @@ function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
             row[:format_version] = _format_version(f)
             row[:stats] = haskey(f, "stat_keys") ? sort!(collect(Symbol, f["stat_keys"])) : missing
             post = haskey(f, "postprocessed") ? f["postprocessed"] : nothing
-            row[:postprocessed] = post isa AbstractDict ? get(post, "name", missing) : missing
+            row[:postprocessed] = post isa AbstractDict && !isempty(post) ? join(sort!(collect(String, keys(post))), ", ") : missing
             prov = haskey(f, "provenance") ? f["provenance"] : nothing
             row[:wall_time] = prov isa AbstractDict ? get(prov, "wall_time", missing) : missing
             row[:solver] = prov isa AbstractDict ? get(prov, "solver", missing) : missing
         end
+        names = Set(Symbol(k) for k in keys(params))
         for (k, v) in params
             key = Symbol(k)
-            row[key in fixed ? Symbol("param_", key) : key] = v   # (a parameter `solver`: column `param_solver`)
+            # (a parameter `solver`: column `param_solver`, or `param_param_solver` if there is a parameter `param_solver`)
+            if key in fixed
+                key = Symbol("param_", key)
+                while key in names || key in fixed
+                    key = Symbol("param_", key)
+                end
+            end
+            row[key] = v
         end
         push!(rows, row)
     end

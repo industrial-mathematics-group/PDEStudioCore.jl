@@ -76,13 +76,13 @@ Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed
 | `"native"`, `"params"`, `"stat_keys"`, `"registry"`, `"shape"`, `"dim_keys"`, `"time_dim"` | fast metadata, read without loading the data (`"shape"` is `size(u)`, or time steps and total particle count for Lagrangian data; the axes are stored since November 2026, see [`get_sim_data_info`](@ref)) |
 | `"format_version"` | the layout of the file (see below) |
 | `"provenance"` | how the data was made: versions of PDEStudioCore and Julia, host, time, number of threads, git commit of the active project (the repository its folder is in, read from `.git`; uncommitted changes are not recorded), and for pipeline runs the solver (name, module, package version) and the seconds it took |
-| `"postprocessed"` | the post-processor that ran on this data (its name, the digests of the source files and its package's version), so the pipeline doesn't run it again |
+| `"postprocessed"` | the post-processors that ran on this data (name => the digests of the source files and the package's version), so the pipeline doesn't run them again |
 | `"evaluated_stats"` | statistics already evaluated for this data |
 | `"evaluated_with_reference"` | whether a reference function was available when they were evaluated |
 | `"sources"` | SHA-256 digests of the source files (pipeline runs with `sources`) |
 | `"conv_L"`, `"conv_E_<n1>x<n2>…"` | cached conversions |
 
-The entries above, except `"evaluated_with_reference"` and `"sources"`, are reserved: `save_sim_data(...; metadata)` refuses them (and any other `conv_*` name). Other metadata entries are stored as they are and kept when the data is rewritten. `"provenance"` and `"postprocessed"` describe how the data was made: they are kept when the same data is written again (statistics, post-processing, [`rehash_sim_data`](@ref)) and replaced when new data is saved for the parameters.
+The entries above, except `"evaluated_with_reference"` and `"sources"`, are reserved: `save_sim_data(...; metadata)` refuses them (and any other `conv_*` name). Other metadata entries are stored as they are and kept when the data is rewritten. `"provenance"` and `"postprocessed"` describe how the data was made: they are kept when the same data is written again (statistics, post-processing, [`rehash_sim_data`](@ref), `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref); the post-processing record only if the data still has the stored statistics) and replaced when new data is saved for the parameters.
 
 The **format version** is 2 for files written by this version. Files of PDEStudioCore 0.4 (version 1: no version entry and no axes) are read as they are; [`upgrade_sim_data`](@ref) adds the entries they lack without rewriting the data. Files of earlier versions are upgraded by the pipeline when it finds them, or recomputed if their data doesn't load.
 

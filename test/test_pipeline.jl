@@ -286,8 +286,8 @@ end
     POST_CALLS[] = 0
     s = run_all_simulations(cfg)
     @test length(s.ran) == 2 && s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 2
-    record = PDEStudioCore.jldopen(f -> f["postprocessed"], files()[1], "r")
-    @test record["name"] == "count_post" && length(record["sources"]) == 1
+    records = PDEStudioCore.jldopen(f -> f["postprocessed"], files()[1], "r")
+    @test collect(keys(records)) == ["count_post"] && length(records["count_post"]["sources"]) == 1
 
     # the same post-processor on the same data: skipped; force_postprocess runs it again
     s = run_all_simulations(cfg)
@@ -301,7 +301,9 @@ end
     keep_cfg = config(post = :keep_post)
     @test run_all_simulations(keep_cfg).postprocessing == Dict(:ran => 2)
     @test run_all_simulations(keep_cfg).postprocessing == Dict(:skipped => 2)   # (its rewrite keeps the record)
-    @test run_all_simulations(cfg).postprocessing == Dict(:ran => 2) && POST_CALLS[] == 8
+    # (each post-processor is recorded: switching back doesn't apply the first one again)
+    @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 2) && POST_CALLS[] == 6
+    @test sort(collect(keys(PDEStudioCore.jldopen(f -> f["postprocessed"], files()[1], "r")))) == ["count_post", "keep_post"]
 
     # other source code: the stored results are kept with a warning (every run, until recomputed) ...
     write(src, solver_code * "# changed\n")
@@ -309,24 +311,25 @@ end
     @test length(s.changed) == 2 && length(s.cached) == 2 && isempty(s.ran)
     @test occursin("changed code: 2", repr("text/plain", s)) && occursin("2 outdated", repr("text/plain", s))
     # (the post-processor may have changed with the sources: it isn't applied again to data it processed ...)
-    @test s.postprocessing == Dict(:outdated => 2) && POST_CALLS[] == 8
+    @test s.postprocessing == Dict(:outdated => 2) && POST_CALLS[] == 6
     # (... unless forced)
     s = @test_logs (:warn, r"other source code") match_mode = :any run_all_simulations(cfg; force_postprocess = true)
-    @test s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 10
+    @test s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 8
     s = @test_logs (:warn, r"other source code") match_mode = :any run_all_simulations(cfg)
     @test length(s.changed) == 2 && s.postprocessing == Dict(:skipped => 2)
-    # ... silently with :ignore ...
+    # ... silently with :ignore (also for the post-processor: its record counts without the sources) ...
+    write(src, solver_code * "# changed again\n")
     s = @test_logs min_level = Base.CoreLogging.Warn run_all_simulations(cfg; on_changed_sources = :ignore)
-    @test isempty(s.changed) && length(s.cached) == 2
+    @test isempty(s.changed) && length(s.cached) == 2 && s.postprocessing == Dict(:skipped => 2)
     stamps = mtime.(files())
     # ... a dry run says what :recompute would do, and writes nothing ...
     s = run_all_simulations(cfg; on_changed_sources = :recompute, dry_run = true)
     @test s.dry_run && length(s.ran) == 2 && length(s.changed) == 2 && s.postprocessing == Dict(:ran => 2)
-    @test mtime.(files()) == stamps && POST_CALLS[] == 10
+    @test mtime.(files()) == stamps && POST_CALLS[] == 8
     @test occursin("(dry run)", repr("text/plain", s)) && occursin("2 would run", repr("text/plain", s))
     # ... and :recompute runs them again
     s = run_all_simulations(cfg; on_changed_sources = :recompute)
-    @test length(s.ran) == 2 && length(s.changed) == 2 && POST_CALLS[] == 12
+    @test length(s.ran) == 2 && length(s.changed) == 2 && POST_CALLS[] == 10
     s = @test_logs min_level = Base.CoreLogging.Warn run_all_simulations(cfg)
     @test isempty(s.changed) && length(s.cached) == 2
 
@@ -335,9 +338,9 @@ end
     s = run_all_simulations(big; dry_run = true)
     @test length(s.ran) == 1 && s.ran[1][:n] == 7 && length(s.cached) == 2
     @test s.postprocessing == Dict(:ran => 1, :skipped => 2)
-    @test !does_sim_data_exist(s.ran[1]) && POST_CALLS[] == 12
+    @test !does_sim_data_exist(s.ran[1]) && POST_CALLS[] == 10
     # (the new task's data: it ran with the new sources)
-    @test length(run_all_simulations(big).ran) == 1 && POST_CALLS[] == 13
+    @test length(run_all_simulations(big).ran) == 1 && POST_CALLS[] == 11
 end
 
 # Callable objects as solver and post-processor (resolved by name like functions)
@@ -355,7 +358,7 @@ mark_post = MarkPost()
     s = run_all_simulations(cfg)
     @test length(s.ran) == 1 && isempty(s.failed) && s.postprocessing == Dict(:ran => 1)
     path = get_file_name(only(generate_tasks(cfg)))
-    @test PDEStudioCore.jldopen(f -> (f["provenance"]["solver"], f["postprocessed"]["name"]), path, "r") ==
-          ("ScaledSolver", "mark_post")
+    @test PDEStudioCore.jldopen(f -> (f["provenance"]["solver"], haskey(f["postprocessed"], "mark_post")), path, "r") ==
+          ("ScaledSolver", true)
     @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
 end

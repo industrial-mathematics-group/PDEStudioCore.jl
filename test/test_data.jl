@@ -494,8 +494,16 @@ end
         sim = load_sim_data(q)
         add_stat!(sim, :extra, 1.0, Symbol[])
         save_sim_data(sim; overwrite = true, verbose = false)
-        @test JLD2.jldopen(f -> (f["provenance"], f["postprocessed"]["name"]), get_file_name(q), "r") == (prov, "keep_post")
+        @test JLD2.jldopen(f -> (f["provenance"], collect(keys(f["postprocessed"]))), get_file_name(q), "r") == (prov, ["keep_post"])
         @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
+        # ... but the same solution recomputed without the statistics of the file keeps only the provenance (what a
+        # post-processor added is gone)
+        save_sim_data(advection_solver_1d(q); overwrite = true, verbose = false)
+        @test JLD2.jldopen(f -> (f["provenance"], haskey(f, "postprocessed")), get_file_name(q), "r") == (prov, false)
+        @test run_all_simulations(cfg).postprocessing == Dict(:ran => 1)
+        # (functions, callable objects and types are named in the provenance)
+        @test PDEStudioCore._func_name.((advection_solver_1d, scaled_solver, ScaledSolver)) ==
+              ("advection_solver_1d", "ScaledSolver", "ScaledSolver")
         run_all_simulations(cfg; force_overwrite = true)
         @test JLD2.jldopen(f -> f["provenance"]["created"], get_file_name(q), "r") != prov["created"]
         # new data saved by hand: a new provenance, no record
@@ -564,10 +572,12 @@ end
         @test all(s -> :mass in s, t.stats) && all(==("count_post"), t.postprocessed) && all(==("advection_solver_1d"), t.solver)
         @test all(x -> x isa Float64, t.wall_time) && sort(unique(t.N)) == [8, 9] && all(==("tidy"), t.test_mode)
         @test size(sim_data_table(Dict(:N => 9)), 1) == 1
-        save_sim_data(advection_solver_1d(create_param_dict(:N => 5, :M => 3, :test_mode => "table", :file => "mesh.msh"));
+        save_sim_data(advection_solver_1d(create_param_dict(:N => 5, :M => 3, :test_mode => "table", :file => "mesh.msh",
+                                                       :param_file => "other.cfg"));
                       verbose = false)
         t = sim_data_table()
-        @test t.param_file[1] == "mesh.msh" && endswith(t.file[1], ".jld2") && all(ismissing, t.param_file[2:end])
+        @test t.param_param_file[1] == "mesh.msh" && t.param_file[1] == "other.cfg" && endswith(t.file[1], ".jld2")
+        @test all(ismissing, t.param_file[2:end])
         @test size(t, 1) == 4 && ismissing(t.wall_time[1]) && ismissing(t.postprocessed[1]) && ismissing(t.solver[1])
         @test t.M[1] == 3 && all(ismissing, t.M[2:end]) && ismissing(t.scheme[1])
 
