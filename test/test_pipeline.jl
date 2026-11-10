@@ -229,12 +229,134 @@ end
     @test does_sim_data_exist(p)
     sim = load_sim_data(p)
     @test sim isa ESimData{1, 1, 1, Float64} && !has_time(sim)
-    entries = load_sim_data(calculate_hash(get_clean_params(p))[1:12])
-    @test haskey(entries, "sources") && haskey(entries["sources"], abspath(src))
+    @test haskey(sim.metadata[:sources], abspath(src))   # (the digests of the sources, in the metadata)
     # with `load_sources = false` the caller has included the sources: they don't run again, the digests are stored
     write(src, "error(\"must not run\")")
     run_all_simulations(cfg; force_overwrite = true, load_sources = false)
-    entries = load_sim_data(calculate_hash(get_clean_params(p))[1:12])
-    @test haskey(entries["sources"], abspath(src))
+    @test haskey(load_sim_data(p).metadata[:sources], abspath(src))
     @test_throws LoadError run_all_simulations(cfg; force_overwrite = true)
+end
+
+@testset "Pipeline: run summary" begin
+    shared = Dict(:N => 6, :sim_func_name => :advection_solver_1d, :test_mode => "summary")
+    methods = Dict(:fail => Dict(:sim_func_name => :failing_solver), :empty => Dict(:sim_func_name => :empty_solver),
+                   :ok => Dict(:scheme => "upwind"))
+    cfg = SimulationConfig(shared, methods; postprocess = :count_post)
+    s = @test_logs (:error, r"Simulation failed") match_mode = :any run_all_simulations(cfg; calculate_stats = true)
+    @test s isa RunSummary && !s.dry_run && length(s.tasks) == 3 && s.elapsed >= 0
+    @test length(s.ran) == 1 && s.ran[1][:scheme] == "upwind" && isempty(s.cached) && isempty(s.changed)
+    @test length(s.empty) == 1 && s.empty[1][:sim_func_name] === :empty_solver
+    @test length(s.failed) == 1 && first(s.failed[1])[:sim_func_name] === :failing_solver
+    @test last(s.failed[1]) == "intentional failure"
+    @test s.stats == Dict(:ran => 1, :missing => 2) && s.postprocessing == Dict(:ran => 1, :missing => 2)
+    text = repr("text/plain", s)
+    @test occursin("3 task(s)", text) && occursin("1 ran", text) && occursin("1 failed", text)
+    @test occursin("failed: N = 6", text) && occursin("intentional failure", text) && !occursin("sim_func_name", text)
+    @test repr(s) == "RunSummary(3 tasks: 1 ran, 0 cached, 1 failed)"
+    # a rerun: the result is cached, its statistics and post-processing are done already
+    s2 = @test_logs (:error, r"Simulation failed") match_mode = :any run_all_simulations(cfg; calculate_stats = true)
+    @test isempty(s2.ran) && length(s2.cached) == 1 && s2.stats[:cached] == 1 && s2.postprocessing[:skipped] == 1
+    # failing statistics and post-processing are listed, too
+    s3 = @test_logs (:error, r"Statistics failed") (:error, r"Post-processing failed") match_mode = :any run_all_simulations(SimulationConfig(Dict(:N => 6, :sim_func_name => :advection_solver_1d, :scheme => "upwind",
+                                                   :test_mode => "summary"); reference = :failing_solver,
+                                              postprocess = :failing_solver);
+                             calculate_stats = true, force_stats = true)
+    @test length(s3.stats_failed) == 1 && last(s3.stats_failed[1]) == "intentional failure"
+    @test length(s3.postprocessing_failed) == 1 && s3.postprocessing == Dict(:failed => 1)
+    @test occursin("post-processing failed", repr("text/plain", s3))
+    @test run_all_simulations(SimulationConfig(shared; varied = Dict(:N => Int[]))) isa RunSummary
+    @test_throws ArgumentError run_all_simulations(cfg; on_changed_sources = :sometimes)
+end
+
+@testset "Pipeline: post-processing record, changed sources, dry run" begin
+    src = joinpath(mktempdir(), "record_solver.jl")
+    solver_code = """
+    function record_solver(params)
+        x = collect(range(0.0, 1.0, length = params[:n]))
+        return create_sim_data(x, fill(1.0, length(x)), params)
+    end
+    """
+    write(src, solver_code)
+    config(; post = :count_post, ns = [5, 6]) =
+        SimulationConfig(Dict(:sim_func_name => :record_solver, :n => 5); varied = Dict(:n => ns), sources = src, postprocess = post)
+    cfg = config()
+    files() = [get_file_name(p) for p in generate_tasks(cfg)]
+    POST_CALLS[] = 0
+    s = run_all_simulations(cfg)
+    @test length(s.ran) == 2 && s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 2
+    records = load_sim_data(generate_tasks(cfg)[1]).metadata[:postprocessed]
+    @test collect(keys(records)) == [:count_post] && length(records[:count_post][:sources]) == 1
+
+    # the same post-processor on the same data: skipped; force_postprocess runs it again
+    s = run_all_simulations(cfg)
+    @test length(s.cached) == 2 && s.postprocessing == Dict(:skipped => 2) && POST_CALLS[] == 2
+    run_all_simulations(cfg; force_postprocess = true)
+    @test POST_CALLS[] == 4
+    # new data: post-processed again
+    s = run_all_simulations(cfg; force_overwrite = true)
+    @test length(s.ran) == 2 && s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 6
+    # another post-processor
+    keep_cfg = config(post = :keep_post)
+    @test run_all_simulations(keep_cfg).postprocessing == Dict(:ran => 2)
+    @test run_all_simulations(keep_cfg).postprocessing == Dict(:skipped => 2)   # (its rewrite keeps the record)
+    # (each post-processor is recorded: switching back doesn't apply the first one again)
+    @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 2) && POST_CALLS[] == 6
+    @test sort(collect(keys(load_sim_data(generate_tasks(cfg)[1]).metadata[:postprocessed]))) == [:count_post, :keep_post]
+
+    # other source code: the stored results are kept with a warning (every run, until recomputed) ...
+    write(src, solver_code * "# changed\n")
+    s = @test_logs (:warn, r"2 stored result\(s\) were made with other source code") (:warn, r"2 dataset\(s\) were post-processed by another version of count_post") match_mode = :any run_all_simulations(cfg)
+    @test length(s.changed) == 2 && length(s.cached) == 2 && isempty(s.ran)
+    @test occursin("changed code: 2", repr("text/plain", s)) && occursin("2 outdated", repr("text/plain", s))
+    # (the post-processor may have changed with the sources: it isn't applied again to data it processed ...)
+    @test s.postprocessing == Dict(:outdated => 2) && POST_CALLS[] == 6
+    # (... unless forced)
+    s = @test_logs (:warn, r"other source code") match_mode = :any run_all_simulations(cfg; force_postprocess = true)
+    @test s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 8
+    s = @test_logs (:warn, r"other source code") match_mode = :any run_all_simulations(cfg)
+    @test length(s.changed) == 2 && s.postprocessing == Dict(:skipped => 2)
+    # ... silently with :ignore (also for the post-processor: its record counts without the sources) ...
+    write(src, solver_code * "# changed again\n")
+    s = @test_logs min_level = Base.CoreLogging.Warn run_all_simulations(cfg; on_changed_sources = :ignore)
+    @test isempty(s.changed) && length(s.cached) == 2 && s.postprocessing == Dict(:skipped => 2)
+    stamps = mtime.(files())
+    # ... a dry run says what :recompute would do, and writes nothing ...
+    s = run_all_simulations(cfg; on_changed_sources = :recompute, dry_run = true)
+    @test s.dry_run && length(s.ran) == 2 && length(s.changed) == 2 && s.postprocessing == Dict(:ran => 2)
+    @test mtime.(files()) == stamps && POST_CALLS[] == 8
+    @test occursin("(dry run)", repr("text/plain", s)) && occursin("2 would run", repr("text/plain", s))
+    # ... and :recompute runs them again
+    s = run_all_simulations(cfg; on_changed_sources = :recompute)
+    @test length(s.ran) == 2 && length(s.changed) == 2 && POST_CALLS[] == 10
+    s = @test_logs min_level = Base.CoreLogging.Warn run_all_simulations(cfg)
+    @test isempty(s.changed) && length(s.cached) == 2
+
+    # a dry run of a larger sweep: only the new task would run (and get its post-processing)
+    big = config(ns = [5, 6, 7])
+    s = run_all_simulations(big; dry_run = true)
+    @test length(s.ran) == 1 && s.ran[1][:n] == 7 && length(s.cached) == 2
+    @test s.postprocessing == Dict(:ran => 1, :skipped => 2)
+    @test !does_sim_data_exist(s.ran[1]) && POST_CALLS[] == 10
+    # (the new task's data: it ran with the new sources)
+    @test length(run_all_simulations(big).ran) == 1 && POST_CALLS[] == 11
+end
+
+# Callable objects as solver and post-processor (resolved by name like functions)
+struct ScaledSolver
+    scale::Float64
+end
+(s::ScaledSolver)(params) = create_sim_data(collect(range(0.0, 1.0, length = params[:n])), fill(s.scale, params[:n]), params)
+scaled_solver = ScaledSolver(2.0)
+struct MarkPost end
+(::MarkPost)(data) = nothing
+mark_post = MarkPost()
+
+@testset "Pipeline: callable objects as solver and post-processor" begin
+    cfg = SimulationConfig(Dict(:sim_func_name => :scaled_solver, :n => 4); postprocess = :mark_post)
+    s = run_all_simulations(cfg)
+    @test length(s.ran) == 1 && isempty(s.failed) && s.postprocessing == Dict(:ran => 1)
+    path = get_file_name(only(generate_tasks(cfg)))
+    md = load_sim_data(only(generate_tasks(cfg))).metadata
+    @test (md[:provenance][:solver], haskey(md[:postprocessed], :mark_post)) == ("ScaledSolver", true)
+    @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
 end

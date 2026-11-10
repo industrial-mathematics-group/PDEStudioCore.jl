@@ -72,6 +72,8 @@ function _bounds_tuple(DS::Int, transient::Bool, xbounds, tbound)
     return transient ? (s..., tbound) : s
 end
 
+_with_metadata!(data::AbstractSimData, metadata::AbstractDict) = (isempty(metadata) || (data.metadata = metadata); data)
+
 function _create_eulerian(axes_in::Tuple, u::AbstractArray, params::AbstractDict, dim_keys::NTuple{D, Symbol},
                           time_dim::Union{Nothing, Symbol}, mins_in::Tuple, maxs_in::Tuple) where {D}
     length(axes_in) == D || throw(DimensionMismatch("expected $D coordinate axes, got $(length(axes_in))"))
@@ -97,10 +99,10 @@ function _finish_eulerian(axes_in::Tuple, sol::Array{SVector{M, T}, D}, params::
 end
 
 """
-    create_sim_data(space, u, t, params; dims, time_dim = :t, xmins, xmaxs, tmin, tmax)   # transient Eulerian
-    create_sim_data(space, u, params; dims, xmins, xmaxs)                                 # static Eulerian
-    create_sim_data(x, u, t, params; dims, time_dim = :t, xmins, xmaxs, tmin, tmax)       # transient Lagrangian
-    create_sim_data(x, u, params; dims, xmins, xmaxs)                                     # static Lagrangian
+    create_sim_data(space, u, t, params; dims, time_dim = :t, xmins, xmaxs, tmin, tmax, metadata)   # transient Eulerian
+    create_sim_data(space, u, params; dims, xmins, xmaxs, metadata)                                 # static Eulerian
+    create_sim_data(x, u, t, params; dims, time_dim = :t, xmins, xmaxs, tmin, tmax, metadata)       # transient Lagrangian
+    create_sim_data(x, u, params; dims, xmins, xmaxs, metadata)                                     # static Lagrangian
 
 Builds an [`ESimData`](@ref) or [`LSimData`](@ref) of any spatial dimension. The global statistic
 registry is copied into the dataset and `:Solution` is coupled to `u` automatically.
@@ -123,6 +125,8 @@ registry is copied into the dataset and `:Solution` is coupled to `u` automatica
 - `time_dim`: name of the time axis (default `:t`).
 - `xmins`, `xmaxs`, `tmin`, `tmax`: override the bounding box (defaults: extent of the data).
   The integration measure (`domain.spacing`) is always derived from the axes themselves.
+- `metadata`: information about the run that isn't data (e.g. `Dict(:iterations => 412, :converged => true)`),
+  stored in the dataset's `metadata` field (copied) and saved with it; it is not plotted.
 
 The parameters are copied, so later changes to `params` do not affect the dataset.
 
@@ -137,24 +141,25 @@ create_sim_data(x_traj, u_traj, t, params)             # particles over time
 """
 function create_sim_data(space::Union{AbstractVector{<:Real}, Tuple}, u::AbstractArray, t::AbstractVector{<:Real},
                          params::AbstractDict; dims = nothing, time_dim::Union{Nothing, Symbol} = :t,
-                         xmins = nothing, xmaxs = nothing, tmin = nothing, tmax = nothing)
+                         xmins = nothing, xmaxs = nothing, tmin = nothing, tmax = nothing,
+                         metadata::AbstractDict = Dict{Symbol, Any}())
     time_dim === nothing && throw(ArgumentError(
         "a time vector was given, so `time_dim` must be a Symbol; use `create_sim_data(space, u, params)` for static data"))
     s_axes = _space_axes(space)
     DS = length(s_axes)
     dim_keys = (_space_keys(DS, dims)..., time_dim)
     time_dim in dim_keys[1:DS] && throw(ArgumentError("the time dimension :$time_dim is also used as a spatial dimension name"))
-    return _create_eulerian((s_axes..., t), u, params, dim_keys, time_dim,
-                            _bounds_tuple(DS, true, xmins, tmin), _bounds_tuple(DS, true, xmaxs, tmax))
+    return _with_metadata!(_create_eulerian((s_axes..., t), u, params, dim_keys, time_dim,
+                            _bounds_tuple(DS, true, xmins, tmin), _bounds_tuple(DS, true, xmaxs, tmax)), metadata)
 end
 
 function create_sim_data(space::Union{AbstractVector{<:Real}, Tuple}, u::AbstractArray, params::AbstractDict;
-                         dims = nothing, xmins = nothing, xmaxs = nothing)
+                         dims = nothing, xmins = nothing, xmaxs = nothing, metadata::AbstractDict = Dict{Symbol, Any}())
     s_axes = _space_axes(space)
     DS = length(s_axes)
     DS >= 1 || throw(ArgumentError("static data needs at least one spatial axis"))
-    return _create_eulerian(s_axes, u, params, _space_keys(DS, dims), nothing,
-                            _bounds_tuple(DS, false, xmins, nothing), _bounds_tuple(DS, false, xmaxs, nothing))
+    return _with_metadata!(_create_eulerian(s_axes, u, params, _space_keys(DS, dims), nothing,
+                            _bounds_tuple(DS, false, xmins, nothing), _bounds_tuple(DS, false, xmaxs, nothing)), metadata)
 end
 
 # ------------------------------------------------------------------------------
@@ -229,15 +234,17 @@ end
 function create_sim_data(x::AbstractVector{<:AbstractVector{<:SVector{DS}}}, u::AbstractVector{<:AbstractVector},
                          t::AbstractVector{<:Real}, params::AbstractDict;
                          dims = nothing, time_dim::Union{Nothing, Symbol} = :t,
-                         xmins = nothing, xmaxs = nothing, tmin = nothing, tmax = nothing) where {DS}
+                         xmins = nothing, xmaxs = nothing, tmin = nothing, tmax = nothing,
+                         metadata::AbstractDict = Dict{Symbol, Any}()) where {DS}
     time_dim === nothing && throw(ArgumentError(
         "a time vector was given, so `time_dim` must be a Symbol; use `create_sim_data(x, u, params)` for static particles"))
     isempty(t) && throw(ArgumentError("the time vector must not be empty"))
-    return _create_lagrangian(x, u, t, params, _space_keys(DS, dims), time_dim, xmins, xmaxs, tmin, tmax)
+    return _with_metadata!(_create_lagrangian(x, u, t, params, _space_keys(DS, dims), time_dim, xmins, xmaxs, tmin, tmax), metadata)
 end
 
 function create_sim_data(x::AbstractVector{<:SVector{DS}}, u::AbstractVector, params::AbstractDict;
-                         dims = nothing, xmins = nothing, xmaxs = nothing) where {DS}
+                         dims = nothing, xmins = nothing, xmaxs = nothing, metadata::AbstractDict = Dict{Symbol, Any}()) where {DS}
     T0 = float(promote_type(eltype(eltype(x)), _particle_scalar(eltype(u))))  # keeps e.g. Float32 data
-    return _create_lagrangian([x], [u], T0[0], params, _space_keys(DS, dims), nothing, xmins, xmaxs, nothing, nothing)
+    return _with_metadata!(_create_lagrangian([x], [u], T0[0], params, _space_keys(DS, dims), nothing, xmins, xmaxs, nothing,
+                                              nothing), metadata)
 end

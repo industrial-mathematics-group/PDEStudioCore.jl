@@ -57,7 +57,7 @@ Methods whose name contains a word starting with `analytic`, `reference`, `exact
 
 ## 3. Custom Post-Processing
 
-`postprocess` names a function that receives every dataset after the statistics pass. Change the data and return `true` to save the changes; any other return value (including `nothing`) leaves the file untouched. The pass runs on every `run_all_simulations` call, for cached datasets as well, so make the function idempotent (e.g. set a statistic rather than accumulate into the solution), and return `true` only when it changed something: saving rewrites the file (and drops its cached conversions). Statistics stored in the file are not recomputed after a post-processor changed the solution.
+`postprocess` names a function that receives every dataset after the statistics pass. Change the data and return `true` to save the changes; any other return value (including `nothing`) leaves the data untouched. Each file records the post-processors that ran on it (per name: the digests of the `sources` and the package's version), so each runs once per dataset: on new data, and for a post-processor of another name (configurations that differ only in the post-processor share their data files). Data post-processed by another version of it (other `sources` or package version; with `on_changed_sources = :ignore` only another package version) is kept and counted as `outdated` in the summary, with a warning: `run_all_simulations(config; force_postprocess = true)` applies it to every dataset again, also to data it has processed already. So make the function idempotent where you can (e.g. set a statistic rather than accumulate into the solution). Files written by earlier versions of PDEStudioCore have no record: the first run post-processes them. Return `true` only when it changed something (the data, its statistics or its `metadata`): saving rewrites the file (and drops its cached conversions). Statistics stored in the file are not recomputed after a post-processor changed the solution.
 
 ```julia
 function add_maximum(data)
@@ -70,7 +70,9 @@ config = SimulationConfig(shared, methods, [:upwind]; postprocess = :add_maximum
 
 ## 4. Source Files
 
-`sources` lists files that are included into the target module at the start of [`run_all_simulations`](@ref), so your solvers and reference functions are always defined and up to date (`load_sources = false` skips that, for a caller that includes them itself). For reproducibility, the SHA-256 digest of every source file is stored in each newly written data file (entry `"sources"`, mapping the absolute path to its digest).
+`sources` lists files that are included into the target module at the start of [`run_all_simulations`](@ref), so your solvers and reference functions are always defined and up to date (`load_sources = false` skips that, for a caller that includes them itself). For reproducibility, the SHA-256 digest of every source file is stored with each newly computed dataset (`data.metadata[:sources]`, mapping the absolute path to its digest).
+
+The digests are compared on later runs: a stored result made with other source code (other contents of the source files, or another version of the solver's package) is kept with a warning by default. `on_changed_sources = :recompute` runs these tasks again, `:ignore` keeps them silently. Every dataset written by this version also records its provenance in its metadata (`data.metadata[:provenance]`: versions, host, git commit, solver and wall time, see [Metadata](data.md#Metadata)).
 
 ```julia
 config = SimulationConfig(shared, methods, [:upwind];
@@ -86,12 +88,26 @@ run_all_simulations(config;
     calculate_stats = false,   # pass 2: evaluate registered statistics
     force_stats = false,       # recompute all statistics (solvers are not rerun)
     post_process    = true,    # pass 3: run `config.postprocess`
+    force_postprocess = false, # run it on datasets it ran on already
     parallel        = false,   # pass 1 over Julia threads
+    on_changed_sources = :warn,  # stored results of other source code: :warn, :recompute or :ignore
+    dry_run         = false,   # only report what would run
 )
 ```
 
+It returns a [`RunSummary`](@ref): the tasks that ran, were cached, produced nothing or failed (with the error message), the results made with other source code, and the outcome counts of the statistics and post-processing passes. It prints as a short report:
+
+```text
+RunSummary: 12 task(s) in 41.3 s: 2 ran, 9 cached, 1 failed
+  statistics: 2 ran, 10 cached
+  post-processing: 2 ran, 10 skipped
+  failed: N = 400, scheme = weno: DomainError with -0.1: …
+```
+
+With `dry_run = true` no solver, statistic or post-processor runs and nothing is written (the `sources` are still included); the summary lists what would run.
+
 - Existing data is never recomputed unless `force_overwrite = true`; statistics are only evaluated for datasets that miss them (or whose kept dimensions changed, or that were evaluated without a reference that is now configured). `force_stats = true` recomputes the statistics only.
-- A failing solver, statistic or post-processing step is logged with its parameters and the batch continues.
+- A failing solver, statistic or post-processing step is logged with its parameters, listed in the summary, and the batch continues.
 - Solvers may return `NoSimData()` (or `nothing`) when there is nothing to store.
 - If a solver modifies its parameters, the result is still stored under the parameters of the task (with a warning), so it can always be found again.
 - Functions defined while the pipeline runs (e.g. through `sources`) are called in the latest world age.

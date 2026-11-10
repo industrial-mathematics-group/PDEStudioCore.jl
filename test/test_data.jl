@@ -364,12 +364,332 @@ end
         entries = load_sim_data(prefix)
         @test entries["raw"] isa ESimData && entries["raw"].params[:test_id] == "format_E"
         @test load_sim_data(prefix; key = "raw") isa ESimData
-        # Extra metadata cannot clobber the file layout
-        @test_throws ArgumentError save_sim_data(sim_E; overwrite = true, metadata = Dict("raw" => 1))
-        @test_throws ArgumentError save_sim_data(sim_E; overwrite = true, metadata = Dict(:conv_L => 1))
-        save_sim_data(sim_E; overwrite = true, metadata = Dict(:note => "kept"))
-        @test load_sim_data(prefix; key = "note") == "kept"
+        # metadata is the dataset's own: any name, it can't clobber the file layout
+        save_sim_data(sim_E; overwrite = true, metadata = Dict("raw" => 1, :conv_L => 2, :note => "kept"))
+        @test load_sim_data(prefix; key = "raw").metadata[:note] == "kept" && load_sim_data(prefix)["raw"].metadata[:raw] == 1
+        @test load_sim_data(prefix)["metadata"][:conv_L] == 2
+        PDEStudioCore.JLD2.jldopen(f -> (f["grp/a"] = 1), get_file_name(params_E), "a+")   # (a group of the user's)
+        @test load_sim_data(prefix)["grp/a"] == 1
         @test_throws SimFileNotFoundError load_sim_data("00000000000000000")
         @test_throws SimFileNotFoundError load_sim_data("2026-10")  # timestamps are not matched
+    end
+end
+
+# A type with its own serialization whose reading can fail (a package type whose stored form changed)
+struct FragileEntry
+    s::String
+end
+PDEStudioCore.JLD2.writeas(::Type{FragileEntry}) = String
+PDEStudioCore.JLD2.wconvert(::Type{String}, x::FragileEntry) = x.s
+FRAGILE_FAILS = Ref(false)
+PDEStudioCore.JLD2.rconvert(::Type{FragileEntry}, s::String) = FRAGILE_FAILS[] ? error("changed format") : FragileEntry(s)
+
+# Runs `f` with a fresh, empty save path (so tests can look at the whole data directory)
+function with_fresh_save_path(f)
+    old = get_save_path()
+    set_save_path!(mktempdir())
+    try
+        f()
+    finally
+        set_save_path!(old)
+    end
+end
+
+@testset "Data management: directory index" begin
+    with_fresh_save_path() do
+        p = create_param_dict(:N => 8, :test_mode => "index")
+        save_sim_data(advection_solver_1d(p); verbose = false)
+        file = get_file_name(p)
+        h = PDEStudioCore._filename_hash(basename(file))
+        @test PDEStudioCore._files_with_hash(h) == [file] && does_sim_data_exist(p)
+        # files added and removed by others (another process, the shell) are seen, also right after a listing
+        older = joinpath(dirname(file), "2020-01-01_00-00-00_000_" * h * ".jld2")
+        cp(file, older); touch(file)
+        @test PDEStudioCore._files_with_hash(h) == [file, older]   # newest first
+        rm(file)
+        @test PDEStudioCore._files_with_hash(h) == [older] && get_file_name(p) == older
+        # ... and if the directory's time didn't change long after a listing (a file system caching it): a missing
+        # hash is looked up again, and a listed file is checked to exist
+        idx = PDEStudioCore._data_index()
+        fake = "f" ^ 64
+        added = joinpath(dirname(older), "2020-01-01_00-00-00_000_" * fake * ".jld2")
+        cp(older, added)
+        idx.stamp = mtime(dirname(older))
+        idx.listed = idx.stamp + 2 * PDEStudioCore._INDEX_RACY   # (as if listed long after)
+        @test PDEStudioCore._files_with_hash(fake) == [added]
+        idx = PDEStudioCore._data_index()
+        rm(older)
+        idx.stamp = mtime(dirname(added))
+        idx.listed = idx.stamp + 2 * PDEStudioCore._INDEX_RACY   # (as if listed long after)
+        @test isempty(PDEStudioCore._files_with_hash(h)) && !does_sim_data_exist(p)
+        # writers update it
+        save_sim_data(advection_solver_1d(p); verbose = false)
+        @test does_sim_data_exist(p) && length(PDEStudioCore._data_files()) == 2
+        delete_sim_data(Dict(:test_mode => "index"))
+        @test !does_sim_data_exist(p) && isempty(PDEStudioCore._data_files())   # (the copy has the same parameters)
+        # another save path has another index
+        set_save_path!(mktempdir())
+        @test isempty(PDEStudioCore._data_files())
+    end
+end
+
+@testset "Data management: file format version" begin
+    JLD2 = PDEStudioCore.JLD2
+    with_fresh_save_path() do
+        p = create_param_dict(:N => 8, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :counting_solver,
+                              :test_mode => "format")
+        save_sim_data(advection_solver_1d(p); verbose = false)
+        path = get_file_name(p)
+        @test JLD2.jldopen(f -> f["format_version"], path, "r") == PDEStudioCore._FORMAT_VERSION
+        @test upgrade_sim_data(path) == Dict(:upgraded => String[], :current => [path], :unreadable => String[])
+        # a file of 0.4 (no version, no axes): still read; upgrade_sim_data adds what it lacks
+        JLD2.jldopen(path, "a+") do f
+            delete!(f, "format_version"); delete!(f, "dim_keys"); delete!(f, "time_dim")
+        end
+        @test does_sim_data_exist(p) && JLD2.jldopen(PDEStudioCore._format_version, path, "r") == 1
+        @test upgrade_sim_data(path; dry_run = true)[:upgraded] == [path]
+        @test !JLD2.jldopen(f -> haskey(f, "format_version"), path, "r")
+        @test upgrade_sim_data()[:upgraded] == [path]
+        @test JLD2.jldopen(f -> (f["format_version"], f["dim_keys"], f["time_dim"]), path, "r") ==
+              (PDEStudioCore._FORMAT_VERSION, [:x, :t], :t)
+        @test upgrade_sim_data()[:current] == [path]
+        # (an entry "format_version" a user stored in a file of 0.4, where the name wasn't reserved, doesn't count)
+        JLD2.jldopen(f -> (delete!(f, "format_version"); f["format_version"] = "mine"), path, "a+")
+        @test JLD2.jldopen(PDEStudioCore._format_version, path, "r") == 1 && sim_data_table().format_version == [1]
+        upgrade_sim_data(path)
+        # a file of an earlier version (only the data): upgraded by the pipeline instead of recomputed
+        sim = load_sim_data(p)
+        rm(path)
+        JLD2.jldopen(f -> (f["raw"] = sim), path, "w")
+        SOLVER_CALLS[] = 0
+        s = run_all_simulations(SimulationConfig(p); dry_run = true)   # (says what the run does, writes nothing)
+        @test length(s.cached) == 1 && isempty(s.ran) && !JLD2.jldopen(f -> haskey(f, "native"), path, "r")
+        @test upgrade_sim_data(path; dry_run = true)[:upgraded] == [path]
+        s = @test_logs (:info, r"Upgraded") match_mode = :any run_all_simulations(SimulationConfig(p))
+        @test length(s.cached) == 1 && SOLVER_CALLS[] == 0
+        @test JLD2.jldopen(PDEStudioCore._format_version, path, "r") == PDEStudioCore._FORMAT_VERSION
+        @test load_sim_data(p).u == sim.u
+        # ... unless its data doesn't load as a dataset: recomputed
+        rm(path)
+        JLD2.jldopen(f -> (f["raw"] = "not a dataset"), path, "w")
+        @test upgrade_sim_data(path; dry_run = true)[:unreadable] == [path]
+        @test length(run_all_simulations(SimulationConfig(p); dry_run = true).ran) == 1
+        @test upgrade_sim_data(path)[:unreadable] == [path]
+        @test length(run_all_simulations(SimulationConfig(p)).ran) == 1 && SOLVER_CALLS[] == 1
+        @test_throws ArgumentError upgrade_sim_data(joinpath(get_save_path(), "no such file.jld2"))
+    end
+end
+
+@testset "Data management: files of 0.4 (before the metadata field)" begin
+    JLD2 = PDEStudioCore.JLD2
+    with_fresh_save_path() do
+        dir = joinpath(get_save_path(), "data")
+        mkpath(dir)
+        fixtures = joinpath(@__DIR__, "fixtures", "v0.4", "data")   # (written by write_fixtures.jl with 0.4.4)
+        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f)), readdir(fixtures))
+        p, q = create_param_dict(:n => 5, :kind => "eul"), create_param_dict(:n => 4, :kind => "lag")
+        @test does_sim_data_exist(p) && does_sim_data_exist(q)
+        d, l = load_sim_data(p), load_sim_data(q)
+        @test d isa ESimData{2, 1, 2, Float64} && size(d.u) == (5, 3) && d.u[1] == SVector(1.0, 2.0)
+        @test d.metadata == Dict(:note => "hello", :iterations => 3)   # (its entries of `save_sim_data(...; metadata)`)
+        @test l isa LSimData{2, 1, 1, Float64} && isempty(l.metadata) && length(l.t) == 2
+        @test load_sim_data(p, :lagrangian).metadata[:note] == "hello"   # (a conversion 0.4 cached in the file)
+        @test sort(sim_data_table().format_version) == [1, 1]
+        # the pipeline uses them as they are (no recomputation, nothing written)
+        stamps = mtime.(joinpath.(dir, readdir(dir)))
+        @test length(run_all_simulations(SimulationConfig(p)).cached) == 1 && mtime.(joinpath.(dir, readdir(dir))) == stamps
+        # upgrade_sim_data writes them in the current layout, with the same data
+        @test length(upgrade_sim_data()[:upgraded]) == 2
+        d3 = load_sim_data(p)
+        @test d3.u == d.u && d3.metadata == d.metadata && load_sim_data(q).t == l.t
+        # an entry "metadata" of 0.4 (which didn't reserve the name) is one of the user's entries
+        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
+        JLD2.jldopen(f -> (f["metadata"] = "mine"; f["postprocessed"] = Dict("smoothing" => "done")), get_file_name(q), "a+")
+        @test load_sim_data(q).metadata == Dict(:metadata => "mine", :postprocessed => Dict("smoothing" => "done"))
+        @test size(sim_data_table(), 1) == 2
+        @test length(run_all_simulations(SimulationConfig(q)).cached) == 1
+        # recording a post-processing writes such a file in the current layout first (no copies of its entries)
+        POST_CALLS[] = 0
+        size_p = filesize(get_file_name(p))
+        @test run_all_simulations(SimulationConfig(p; postprocess = :count_post)).postprocessing == Dict(:ran => 1)
+        @test JLD2.jldopen(PDEStudioCore._format_version, get_file_name(p), "r") == PDEStudioCore._FORMAT_VERSION
+        md_p = load_sim_data(p).metadata
+        @test md_p[:note] == "hello" && haskey(md_p[:postprocessed], :count_post) && POST_CALLS[] == 1
+        @test filesize(get_file_name(p)) < 2 * size_p
+        # an entry that can't be read is left behind (with a warning), the rest of the file is written
+        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
+        JLD2.jldopen(f -> (f["fragile"] = FragileEntry("x")), get_file_name(p), "a+")
+        FRAGILE_FAILS[] = true
+        s_fr = @test_logs (:warn, r"Entry 'fragile' .* can't be read") match_mode = :any run_all_simulations(SimulationConfig(p; postprocess = :count_post))
+        FRAGILE_FAILS[] = false
+        @test s_fr.postprocessing == Dict(:ran => 1) && load_sim_data(p).metadata[:note] == "hello"
+        # large metadata: a changed record doesn't leave copies of it in the file
+        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
+        JLD2.jldopen(f -> (f["big"] = rand(200_000)), get_file_name(p), "a+")   # (1.6 MB)
+        run_all_simulations(SimulationConfig(p; postprocess = :count_post))
+        size1 = filesize(get_file_name(p))
+        run_all_simulations(SimulationConfig(p; postprocess = :count_post); force_postprocess = true)
+        @test size1 < 1.5 * 1.6e6 && filesize(get_file_name(p)) < 1.2 * size1 && length(load_sim_data(p).metadata[:big]) == 200_000
+        @test JLD2.jldopen(f -> (PDEStudioCore._format_version(f), haskey(f, "note"), isempty(f["raw"].metadata)),
+                           get_file_name(p), "r") == (PDEStudioCore._FORMAT_VERSION, false, true)
+    end
+end
+
+@testset "Data management: provenance" begin
+    JLD2 = PDEStudioCore.JLD2
+    meta_of(path) = JLD2.jldopen(PDEStudioCore._file_metadata, path, "r")   # (read without loading the data)
+    with_fresh_save_path() do
+        p = create_param_dict(:N => 8, :test_mode => "provenance")
+        save_sim_data(advection_solver_1d(p); verbose = false)
+        prov = meta_of(get_file_name(p))[:provenance]
+        @test prov[:pdestudiocore] == string(pkgversion(PDEStudioCore)) && prov[:julia] == string(VERSION)
+        @test prov[:host] == gethostname() && prov[:threads] == Threads.nthreads() && !haskey(prov, :solver)
+        # data a solver made: the solver and its wall time
+        q = create_param_dict(:N => 8, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :advection_solver_1d,
+                              :test_mode => "provenance")
+        cfg = SimulationConfig(q; postprocess = :keep_post)
+        run_all_simulations(cfg)
+        path = get_file_name(q)
+        prov = meta_of(path)[:provenance]
+        @test prov[:solver] == "advection_solver_1d" && prov[:solver_module] == "Main" && !haskey(prov, :solver_version)
+        @test prov[:wall_time] isa Float64 && prov[:wall_time] >= 0
+        @test load_sim_data(q).metadata[:provenance] == prov   # (the metadata comes with the data)
+        # kept by rewrites of the same data (post-processing, statistics), replaced with new data
+        run_all_simulations(cfg; calculate_stats = true, force_postprocess = true)
+        @test meta_of(get_file_name(q))[:provenance] == prov
+        # ... also when the same data is saved again by hand (e.g. after add_stat!)
+        sim = load_sim_data(q)
+        add_stat!(sim, :extra, 1.0, Symbol[])
+        save_sim_data(sim; overwrite = true, verbose = false)
+        @test (m = meta_of(get_file_name(q)); (m[:provenance], collect(keys(m[:postprocessed])))) == (prov, [:keep_post])
+        @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
+        # ... but the same solution recomputed without the statistics of the file keeps only the provenance (what a
+        # post-processor added is gone)
+        save_sim_data(advection_solver_1d(q); overwrite = true, verbose = false)
+        @test (m = meta_of(get_file_name(q)); (m[:provenance], haskey(m, :postprocessed))) == (prov, false)
+        @test run_all_simulations(cfg).postprocessing == Dict(:ran => 1)
+        # (functions, callable objects and types are named in the provenance)
+        @test PDEStudioCore._func_name.((advection_solver_1d, scaled_solver, ScaledSolver)) ==
+              ("advection_solver_1d", "ScaledSolver", "ScaledSolver")
+        run_all_simulations(cfg; force_overwrite = true)
+        @test meta_of(get_file_name(q))[:provenance][:created] != prov[:created]
+        # new data saved by hand: a new provenance, no record
+        sim = advection_solver_1d(q)
+        sim.u[1] = SVector(5.0)
+        save_sim_data(sim; overwrite = true, verbose = false)
+        @test (m = meta_of(get_file_name(q)); (haskey(m[:provenance], :solver), haskey(m, :postprocessed))) == (false, false)
+        # a file calculate_all_stats! writes has a provenance, too
+        r = create_param_dict(:N => 8, :test_mode => "provenance-stats")
+        calculate_all_stats!(advection_solver_1d(r))
+        @test haskey(meta_of(get_file_name(r))[:provenance], :pdestudiocore)
+        # entries of the layout and the record are reserved
+        # metadata of your own (a solver's, or given when saving) is saved with the data, and it is no statistic
+        m = create_param_dict(:N => 8, :test_mode => "own-metadata")
+        @test create_sim_data(collect(0.0:0.5:1.0), [1.0, 2.0, 3.0], m; metadata = Dict("a" => 1)).metadata == Dict(:a => 1)
+        d = advection_solver_1d(m)
+        d.metadata = Dict("iterations" => 12)   # (Symbol keys, a copy)
+        @test d.metadata == Dict(:iterations => 12)
+        save_sim_data(d; verbose = false, metadata = Dict(:converged => true))
+        back = load_sim_data(m)
+        @test back.metadata[:iterations] == 12 && back.metadata[:converged] && haskey(back.metadata, :provenance)
+        @test !haskey(back.stats, :iterations) && !(:iterations in PDEStudioCore._stored_stat_keys(get_file_name(m)))
+        @test isempty(JLD2.jldopen(f -> f["raw"].metadata, get_file_name(m), "r"))   # (stored once, as "metadata")
+        @test convert_to_lagrangian(back).metadata[:iterations] == 12   # (conversions carry it)
+        @test isempty(PDEStudioCore._without_metadata(back).metadata) && back.metadata[:iterations] == 12   # (what is stored)
+        # an entry removed from the metadata stays removed; a recomputed dataset keeps the pipeline's entries
+        prov_m = back.metadata[:provenance]
+        delete!(back.metadata, :converged)
+        save_sim_data(back; overwrite = true, verbose = false)
+        @test !haskey(load_sim_data(m).metadata, :converged)
+        save_sim_data(advection_solver_1d(m); overwrite = true, verbose = false)
+        @test load_sim_data(m).metadata == Dict(:provenance => prov_m)
+        # an entry written next to the data with JLD2 is kept, also with a metadata entry of the same name
+        JLD2.jldopen(f -> (f["provenance"] = "an entry"), get_file_name(m), "a+")
+        d_m = load_sim_data(m)
+        add_stat!(d_m, :extra, 1.0, Symbol[])
+        save_sim_data(d_m; overwrite = true, verbose = false)
+        @test JLD2.jldopen(f -> f["provenance"], get_file_name(m), "r") == "an entry" && load_sim_data(m).metadata[:provenance] == prov_m
+        # metadata that can't be read: the data loads without it (with a warning), nothing replaces it
+        d_m = load_sim_data(m)
+        d_m.metadata[:fragile] = FragileEntry("x")
+        save_sim_data(d_m; overwrite = true, verbose = false)
+        FRAGILE_FAILS[] = true
+        @test isempty((@test_logs (:warn, r"metadata of .* can't be read") load_sim_data(m)).metadata)
+        @test_throws ErrorException PDEStudioCore._update_metadata!(get_file_name(m), :note => 1)
+        FRAGILE_FAILS[] = false
+        @test load_sim_data(m).metadata[:fragile] == FragileEntry("x")
+        # the pipeline's entries of the unreleased format 2 (String keys, records with their name)
+        v2 = PDEStudioCore._legacy_records!(Dict{Symbol, Any}(:provenance => Dict("solver" => "s"),
+                                                              :postprocessed => Dict("name" => "post", "sources" => String[])))
+        @test v2[:provenance] == Dict(:solver => "s") && v2[:postprocessed] == Dict(:post => Dict(:sources => String[]))
+        # new data from a solver: its own metadata, the pipeline's entries replace those of the same name
+        run_smart_simulation(advection_solver_1d, m; force_overwrite = true, metadata = Dict(:provenance => 1, :tag => "x"))
+        md = load_sim_data(m).metadata
+        @test md[:provenance] isa AbstractDict && md[:tag] == "x" && !haskey(md, :iterations)
+        # the git commit, read from the repository's files
+        repo = mktempdir()
+        sha = "0123456789abcdef0123456789abcdef01234567"
+        mkpath(joinpath(repo, ".git", "refs", "heads")); mkpath(joinpath(repo, "sub", "dir"))
+        write(joinpath(repo, ".git", "HEAD"), "ref: refs/heads/main\n")
+        write(joinpath(repo, ".git", "refs", "heads", "main"), sha * "\n")
+        @test PDEStudioCore._git_commit(joinpath(repo, "sub", "dir")) == sha
+        rm(joinpath(repo, ".git", "refs", "heads", "main"))
+        write(joinpath(repo, ".git", "packed-refs"), "# pack-refs with: peeled\n$sha refs/heads/main\n")
+        @test PDEStudioCore._git_commit(repo) == sha
+        write(joinpath(repo, ".git", "HEAD"), reverse(sha) * "\n")   # detached
+        @test PDEStudioCore._git_commit(repo) == reverse(sha)
+        # a worktree: ".git" is a file pointing to its git dir, which shares the refs of the main repository
+        wt = mktempdir()
+        wtgit = joinpath(repo, ".git", "worktrees", "wt")
+        mkpath(wtgit)
+        write(joinpath(wtgit, "HEAD"), "ref: refs/heads/main\n"); write(joinpath(wtgit, "commondir"), "../..\n")
+        write(joinpath(wt, ".git"), "gitdir: $wtgit\n")
+        @test PDEStudioCore._git_commit(wt) == sha
+    end
+end
+
+@testset "Data management: tidy and table" begin
+    with_fresh_save_path() do
+        @test tidy_sim_data() == (duplicates = String[], temp_files = String[])
+        t = sim_data_table()
+        @test size(t, 1) == 0 && names(t)[1:3] == ["file", "created", "size_mb"]
+        p = create_param_dict(:N => 8, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :advection_solver_1d,
+                              :test_mode => "tidy")
+        run_all_simulations(SimulationConfig(p; varied = Dict(:N => [8, 9]), postprocess = :count_post); calculate_stats = true)
+        file = get_file_name(p)
+        dir = dirname(file)
+        h = PDEStudioCore._filename_hash(basename(file))
+        older = joinpath(dir, "2020-01-01_00-00-00_000_" * h * ".jld2")
+        cp(file, older); touch(file)
+        tmp = PDEStudioCore._tmp_path(file)
+        write(tmp, "an unfinished write")
+        write(joinpath(dir, "notes.tmp"), "not ours")
+        # unfinished writes are removed once they are old enough
+        @test tidy_sim_data(dry_run = true) == (duplicates = [older], temp_files = String[])
+        @test tidy_sim_data(dry_run = true, min_tmp_age = 0) == (duplicates = [older], temp_files = [tmp])
+        @test isfile(older) && isfile(tmp)
+
+        # the table: one row per file, newest first
+        t = sim_data_table()
+        row(name) = only(findall(==(name), t.file))
+        @test size(t, 1) == 3 && issorted(mtime.(joinpath.(dir, t.file)); rev = true)
+        @test t.created[row(basename(older))] == PDEStudioCore.DateTime(2020) && all(==(:eulerian), t.kind)
+        @test t.shape[row(basename(file))] == size(load_sim_data(p).u) && all(==(PDEStudioCore._FORMAT_VERSION), t.format_version)
+        @test all(s -> :mass in s, t.stats) && all(==("count_post"), t.postprocessed) && all(==("advection_solver_1d"), t.solver)
+        @test all(x -> x isa Float64, t.wall_time) && sort(unique(t.N)) == [8, 9] && all(==("tidy"), t.test_mode)
+        @test size(sim_data_table(Dict(:N => 9)), 1) == 1
+        save_sim_data(advection_solver_1d(create_param_dict(:N => 5, :M => 3, :test_mode => "table", :file => "mesh.msh",
+                                                       :param_file => "other.cfg"));
+                      verbose = false)
+        t = sim_data_table()
+        @test t.param_param_file[1] == "mesh.msh" && t.param_file[1] == "other.cfg" && endswith(t.file[1], ".jld2")
+        @test all(ismissing, t.param_file[2:end])
+        @test size(t, 1) == 4 && ismissing(t.wall_time[1]) && ismissing(t.postprocessed[1]) && ismissing(t.solver[1])
+        @test t.M[1] == 3 && all(ismissing, t.M[2:end]) && ismissing(t.scheme[1])
+
+        removed = tidy_sim_data(min_tmp_age = 0)
+        @test removed == (duplicates = [older], temp_files = [tmp])
+        @test !isfile(older) && !isfile(tmp) && isfile(joinpath(dir, "notes.tmp")) && does_sim_data_exist(p)
+        @test size(sim_data_table(), 1) == 3
     end
 end

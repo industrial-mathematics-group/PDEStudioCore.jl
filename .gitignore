@@ -42,3 +42,5 @@ docs/build/
 
 # Local Claude Code state (agent worktrees, settings)
 /.claude/
+# Test fixtures (data files of earlier versions)
+!test/fixtures/**/*.jld2

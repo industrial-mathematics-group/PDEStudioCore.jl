@@ -1,0 +1,16 @@
+using PDEStudioCore, StaticArrays; const JLD2 = PDEStudioCore.JLD2
+set_save_path!(mktempdir())
+PDEStudioCore.set_target_module!(@__MODULE__)
+include(joinpath(@__DIR__, "solver_mx.jl"))
+addmax(d) = (add_stat!(d, :maxval, maximum(first.(d.u)), Symbol[]); true)
+p = Dict{Symbol,Any}(:case => :sp, :sim_func_name => :solvermx)
+cfg = SimulationConfig(p; postprocess = :addmax)
+run_all_simulations(cfg; load_sources = false)
+q = generate_tasks(cfg)[1]
+println("stats after post: ", sort(collect(keys(load_sim_data(q).stats))))
+set_stat_preset!("hyperbolic")
+d = solvermx(q)                    # the same solution, recomputed (without :maxval)
+calculate_all_stats!(d)            # rewrites the file (new statistics)
+println("stats after calculate_all_stats!: ", sort(collect(keys(load_sim_data(q).stats))))
+s = run_all_simulations(cfg; load_sources = false)
+println("next run: ", s.postprocessing, "; :maxval present: ", haskey(load_sim_data(q).stats, :maxval))
