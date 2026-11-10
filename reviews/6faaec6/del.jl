@@ -1,0 +1,12 @@
+using PDEStudioCore, StaticArrays
+set_save_path!(mktempdir())
+p = create_param_dict(:del => 1)
+d = create_sim_data(collect(0.0:0.5:1.0), [SVector(1.0) for i in 1:3, j in 1:2], [0.0, 1.0], p; metadata = Dict(:secret => "token-123", :note => "a"))
+save_sim_data(d; verbose = false)
+e = load_sim_data(p)
+delete!(e.metadata, :secret)
+save_sim_data(e; overwrite = true, verbose = false)
+println("after delete! + save: ", sort(collect(keys(load_sim_data(p).metadata))))
+e = load_sim_data(p); e.metadata = Dict(:only => 1)
+save_sim_data(e; overwrite = true, verbose = false)
+println("after replacing the dict + save: ", sort(collect(keys(load_sim_data(p).metadata))))

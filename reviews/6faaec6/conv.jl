@@ -1,0 +1,10 @@
+using PDEStudioCore, StaticArrays; const JLD2 = PDEStudioCore.JLD2
+set_save_path!(mktempdir()); enable_cache!(true)
+p = create_param_dict(:conv => 1, :drop => 2)
+d = create_sim_data(collect(0.0:0.5:1.0), [SVector(1.0) for i in 1:3, j in 1:2], [0.0, 1.0], p; metadata = Dict(:note => "a"))
+save_sim_data(d; verbose = false)
+load_sim_data(p, :lagrangian)
+println("conv_L stored metadata: ", JLD2.jldopen(f -> sort(collect(keys(f["conv_L"].metadata))), get_file_name(p), "r"))
+r = rehash_sim_data(joinpath(get_save_path(), "data"); delete_old = true, remove_keys = [:drop])
+q = create_param_dict(:conv => 1)
+println("after rehash: ", sort(collect(keys(load_sim_data(q).metadata))))
