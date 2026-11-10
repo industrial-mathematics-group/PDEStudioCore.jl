@@ -199,7 +199,7 @@ end
 function _rehash_single_file(path::String, delete_old::Bool, filter_pairs, remove_keys::Vector{Symbol},
                              prompt_keys::Vector{Symbol})
     raw = try
-        jldopen(f -> haskey(f, "raw") ? f["raw"] : nothing, path, "r")
+        _open_data(f -> haskey(f, "raw") ? (r = f["raw"]; r isa AbstractSimData && (r.metadata = _file_metadata(f)); r) : nothing, path)
     catch e
         @warn "Failed to open $(basename(path))" exception = e
         nothing
@@ -261,10 +261,12 @@ end
     upgrade_sim_data(target = joinpath(get_save_path(), "data"); dry_run = false) -> Dict{Symbol, Vector{String}}
 
 Brings data files written by earlier PDEStudioCore versions to the current file format (a `.jld2` file or every
-`.jld2` file in a directory, not recursively): the metadata the current version keeps next to the data (format
-version, kind, shape, axes) is written from the stored data, which itself is not rewritten. The pipeline upgrades
-files without any such metadata by itself when it finds them; files of version 0.4 work as they are, and
-`upgrade_sim_data` adds what they lack (e.g. the axes [`get_sim_data_info`](@ref) reads without loading the data).
+`.jld2` file in a directory, not recursively): the file is written again (atomically) in the current layout, with
+the same data, its statistics and the entries the current version keeps next to it (format version, kind, shape,
+axes, metadata; entries stored next to the data by 0.4 become metadata; cached conversions are dropped). Files of
+0.4 work as they are (their datasets are read as the current types); `upgrade_sim_data` adds what they lack (e.g.
+the axes [`get_sim_data_info`](@ref) reads without loading the data). The pipeline upgrades files without any such
+entries (data only) by itself when it finds them.
 Returns the paths by outcome: `:upgraded`, `:current`, `:unreadable` (their data doesn't load as a dataset of this
 version: the pipeline recomputes them). With `dry_run = true` nothing is written, and the files that would be
 upgraded are listed under `:upgraded`.
@@ -350,11 +352,12 @@ function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
             row[:shape] = haskey(f, "shape") ? Tuple(f["shape"]) : missing
             row[:format_version] = _format_version(f)
             row[:stats] = haskey(f, "stat_keys") ? sort!(collect(Symbol, f["stat_keys"])) : missing
-            post = haskey(f, "postprocessed") ? f["postprocessed"] : nothing
-            row[:postprocessed] = post isa AbstractDict && !isempty(post) ? join(sort!(collect(String, keys(post))), ", ") : missing
-            prov = haskey(f, "provenance") ? f["provenance"] : nothing
-            row[:wall_time] = prov isa AbstractDict ? get(prov, "wall_time", missing) : missing
-            row[:solver] = prov isa AbstractDict ? get(prov, "solver", missing) : missing
+            md = _file_metadata(f)
+            post = get(md, :postprocessed, nothing)
+            row[:postprocessed] = post isa AbstractDict && !isempty(post) ? join(sort!(string.(collect(keys(post)))), ", ") : missing
+            prov = get(md, :provenance, nothing)
+            row[:wall_time] = prov isa AbstractDict ? get(prov, :wall_time, missing) : missing
+            row[:solver] = prov isa AbstractDict ? get(prov, :solver, missing) : missing
         end
         names = Set(Symbol(k) for k in keys(params))
         for (k, v) in params

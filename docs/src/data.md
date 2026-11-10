@@ -51,6 +51,27 @@ ESimData(params, domain, axes, u)          # DS is inferred from the domain
 LSimData(params, domain, t, x, u)
 ```
 
+### Metadata
+
+Information about a run that isn't data, such as iteration counts, a convergence flag or the provenance, goes into `data.metadata` (a `Dict{Symbol, Any}`), not into the statistics: it is saved and loaded with the data but never plotted.
+
+```julia
+data = create_sim_data(x, u, t, params; metadata = Dict(:iterations => 412, :converged => true))   # e.g. in a solver
+data.metadata[:note] = "rerun with the fixed boundary"
+save_sim_data(data; overwrite = true)
+load_sim_data(params).metadata[:iterations]   # 412
+```
+
+The pipeline writes three entries itself (any value of the same name is replaced):
+
+| Entry | Content |
+| :--- | :--- |
+| `:provenance` | how the data was made: versions of PDEStudioCore and Julia, host, time, number of threads, git commit of the active project (the repository its folder is in, read from `.git`; uncommitted changes are not recorded), and for pipeline runs the solver (`:solver`, `:solver_module`, `:solver_version`) and the seconds it took (`:wall_time`) |
+| `:sources` | SHA-256 digests of the source files of the run (pipeline runs with `sources`) |
+| `:postprocessed` | the post-processors that ran on this data (name => the digests of the source files and the package's version), so the pipeline doesn't run them again |
+
+New data gets a new provenance and loses `:sources` and `:postprocessed` of the data it replaces. Writing the same data again (statistics, post-processing, [`rehash_sim_data`](@ref), `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref)) keeps the stored metadata; `:postprocessed` only if the data still has the stored statistics (a recomputed dataset lacks what a post-processor added). Conversions carry the metadata of their source.
+
 ## 2. The Statistics View
 
 `data.stats` returns a [`StatsView`](@ref): a dictionary whose `:Solution` entry is `data.u` itself.
@@ -75,18 +96,16 @@ Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed
 | `"raw"` | the native dataset |
 | `"native"`, `"params"`, `"stat_keys"`, `"registry"`, `"shape"`, `"dim_keys"`, `"time_dim"` | fast metadata, read without loading the data (`"shape"` is `size(u)`, or time steps and total particle count for Lagrangian data; the axes are stored since November 2026, see [`get_sim_data_info`](@ref)) |
 | `"format_version"` | the layout of the file (see below) |
-| `"provenance"` | how the data was made: versions of PDEStudioCore and Julia, host, time, number of threads, git commit of the active project (the repository its folder is in, read from `.git`; uncommitted changes are not recorded), and for pipeline runs the solver (name, module, package version) and the seconds it took |
-| `"postprocessed"` | the post-processors that ran on this data (name => the digests of the source files and the package's version), so the pipeline doesn't run them again |
+| `"metadata"` | the dataset's `metadata` (stored once, here: `"raw"` holds the dataset without it), read and updated without loading the data |
 | `"evaluated_stats"` | statistics already evaluated for this data |
 | `"evaluated_with_reference"` | whether a reference function was available when they were evaluated |
-| `"sources"` | SHA-256 digests of the source files (pipeline runs with `sources`) |
 | `"conv_L"`, `"conv_E_<n1>x<n2>…"` | cached conversions |
 
-The entries above, except `"evaluated_with_reference"` and `"sources"`, are reserved: `save_sim_data(...; metadata)` refuses them (and any other `conv_*` name). Other metadata entries are stored as they are and kept when the data is rewritten. `"provenance"` and `"postprocessed"` describe how the data was made: they are kept when the same data is written again (statistics, post-processing, [`rehash_sim_data`](@ref), `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref); the post-processing record only if the data still has the stored statistics) and replaced when new data is saved for the parameters.
+Other entries (e.g. written with JLD2 directly) are kept when the data is rewritten.
 
-The **format version** is 2 for files written by this version. Files of PDEStudioCore 0.4 (version 1: no version entry and no axes) are read as they are; [`upgrade_sim_data`](@ref) adds the entries they lack without rewriting the data. Files of earlier versions are upgraded by the pipeline when it finds them, or recomputed if their data doesn't load.
+The **format version** is 3 for files written by this version. Files of PDEStudioCore 0.4 (version 1: no version entry, no axes, datasets without the `metadata` field) are read as they are, nothing is recomputed: their datasets are read as the current types, with the entries stored next to the data (`"sources"` and those of `save_sim_data(...; metadata)` in 0.4) as metadata. [`upgrade_sim_data`](@ref) writes them in the current layout. Files of earlier versions are upgraded by the pipeline when it finds them, or recomputed if their data doesn't load.
 
-**Data folders shared with PDEStudioCore 0.4:** an older version that rewrites a file (e.g. `force_overwrite`) keeps the `"provenance"` and `"postprocessed"` entries of the data it replaced, so this version would take its new data as post-processed already. After such runs, use `run_all_simulations(config; force_postprocess = true)` once.
+**Data folders shared with PDEStudioCore 0.4:** an older version that rewrites a file (e.g. `force_overwrite`) keeps the `"metadata"` entry of the data it replaced (its provenance and post-processing record), so this version would take its new data as post-processed already. After such runs, use `run_all_simulations(config; force_postprocess = true)` once.
 
 Writes are atomic: a file is written to a temporary path and renamed into place, so an interrupted run never corrupts existing data, and rewriting the data does not grow the file. This includes the bookkeeping entries of the statistics pass and cached conversions: they are written into a copy of the file that then replaces it (a changed bookkeeping entry grows the file by about its own size, a few hundred bytes to a few kB). When the data itself is rewritten, the other entries are loaded and stored again: load the packages that define the types of entries you stored yourself first, otherwise they are kept as JLD2's reconstructions (with a warning). Writers in several processes are not coordinated: if two of them rewrite the same file at once, the last rename wins. Rewriting the raw data drops stale conversion caches but keeps any other entries (including groups) you stored yourself.
 

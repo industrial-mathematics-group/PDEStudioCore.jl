@@ -364,11 +364,10 @@ end
         entries = load_sim_data(prefix)
         @test entries["raw"] isa ESimData && entries["raw"].params[:test_id] == "format_E"
         @test load_sim_data(prefix; key = "raw") isa ESimData
-        # Extra metadata cannot clobber the file layout
-        @test_throws ArgumentError save_sim_data(sim_E; overwrite = true, metadata = Dict("raw" => 1))
-        @test_throws ArgumentError save_sim_data(sim_E; overwrite = true, metadata = Dict(:conv_L => 1))
-        save_sim_data(sim_E; overwrite = true, metadata = Dict(:note => "kept"))
-        @test load_sim_data(prefix; key = "note") == "kept"
+        # metadata is the dataset's own: any name, it can't clobber the file layout
+        save_sim_data(sim_E; overwrite = true, metadata = Dict("raw" => 1, :conv_L => 2, :note => "kept"))
+        @test load_sim_data(prefix; key = "raw").metadata[:note] == "kept" && load_sim_data(prefix)["raw"].metadata[:raw] == 1
+        @test load_sim_data(prefix)["metadata"][:conv_L] == 2
         @test_throws SimFileNotFoundError load_sim_data("00000000000000000")
         @test_throws SimFileNotFoundError load_sim_data("2026-10")  # timestamps are not matched
     end
@@ -470,56 +469,97 @@ end
     end
 end
 
+@testset "Data management: files of 0.4 (before the metadata field)" begin
+    JLD2 = PDEStudioCore.JLD2
+    with_fresh_save_path() do
+        dir = joinpath(get_save_path(), "data")
+        mkpath(dir)
+        fixtures = joinpath(@__DIR__, "fixtures", "v0.4", "data")   # (written by write_fixtures.jl with 0.4.4)
+        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f)), readdir(fixtures))
+        p, q = create_param_dict(:n => 5, :kind => "eul"), create_param_dict(:n => 4, :kind => "lag")
+        @test does_sim_data_exist(p) && does_sim_data_exist(q)
+        d, l = load_sim_data(p), load_sim_data(q)
+        @test d isa ESimData{2, 1, 2, Float64} && size(d.u) == (5, 3) && d.u[1] == SVector(1.0, 2.0)
+        @test d.metadata == Dict(:note => "hello", :iterations => 3)   # (its entries of `save_sim_data(...; metadata)`)
+        @test l isa LSimData{2, 1, 1, Float64} && isempty(l.metadata) && length(l.t) == 2
+        @test load_sim_data(p, :lagrangian).metadata[:note] == "hello"   # (a conversion 0.4 cached in the file)
+        @test sort(sim_data_table().format_version) == [1, 1]
+        # the pipeline uses them as they are (no recomputation, nothing written)
+        stamps = mtime.(joinpath.(dir, readdir(dir)))
+        @test length(run_all_simulations(SimulationConfig(p)).cached) == 1 && mtime.(joinpath.(dir, readdir(dir))) == stamps
+        # upgrade_sim_data writes them in the current layout, with the same data
+        @test length(upgrade_sim_data()[:upgraded]) == 2
+        d3 = load_sim_data(p)
+        @test d3.u == d.u && d3.metadata == d.metadata && load_sim_data(q).t == l.t
+        @test JLD2.jldopen(f -> (PDEStudioCore._format_version(f), haskey(f, "note"), isempty(f["raw"].metadata)),
+                           get_file_name(p), "r") == (PDEStudioCore._FORMAT_VERSION, false, true)
+    end
+end
+
 @testset "Data management: provenance" begin
     JLD2 = PDEStudioCore.JLD2
+    meta_of(path) = JLD2.jldopen(PDEStudioCore._file_metadata, path, "r")   # (read without loading the data)
     with_fresh_save_path() do
         p = create_param_dict(:N => 8, :test_mode => "provenance")
         save_sim_data(advection_solver_1d(p); verbose = false)
-        prov = JLD2.jldopen(f -> f["provenance"], get_file_name(p), "r")
-        @test prov["pdestudiocore"] == string(pkgversion(PDEStudioCore)) && prov["julia"] == string(VERSION)
-        @test prov["host"] == gethostname() && prov["threads"] == Threads.nthreads() && !haskey(prov, "solver")
+        prov = meta_of(get_file_name(p))[:provenance]
+        @test prov[:pdestudiocore] == string(pkgversion(PDEStudioCore)) && prov[:julia] == string(VERSION)
+        @test prov[:host] == gethostname() && prov[:threads] == Threads.nthreads() && !haskey(prov, :solver)
         # data a solver made: the solver and its wall time
         q = create_param_dict(:N => 8, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :advection_solver_1d,
                               :test_mode => "provenance")
         cfg = SimulationConfig(q; postprocess = :keep_post)
         run_all_simulations(cfg)
         path = get_file_name(q)
-        prov = JLD2.jldopen(f -> f["provenance"], path, "r")
-        @test prov["solver"] == "advection_solver_1d" && prov["solver_module"] == "Main" && !haskey(prov, "solver_version")
-        @test prov["wall_time"] isa Float64 && prov["wall_time"] >= 0
+        prov = meta_of(path)[:provenance]
+        @test prov[:solver] == "advection_solver_1d" && prov[:solver_module] == "Main" && !haskey(prov, :solver_version)
+        @test prov[:wall_time] isa Float64 && prov[:wall_time] >= 0
+        @test load_sim_data(q).metadata[:provenance] == prov   # (the metadata comes with the data)
         # kept by rewrites of the same data (post-processing, statistics), replaced with new data
         run_all_simulations(cfg; calculate_stats = true, force_postprocess = true)
-        @test JLD2.jldopen(f -> f["provenance"], get_file_name(q), "r") == prov
+        @test meta_of(get_file_name(q))[:provenance] == prov
         # ... also when the same data is saved again by hand (e.g. after add_stat!)
         sim = load_sim_data(q)
         add_stat!(sim, :extra, 1.0, Symbol[])
         save_sim_data(sim; overwrite = true, verbose = false)
-        @test JLD2.jldopen(f -> (f["provenance"], collect(keys(f["postprocessed"]))), get_file_name(q), "r") == (prov, ["keep_post"])
+        @test (m = meta_of(get_file_name(q)); (m[:provenance], collect(keys(m[:postprocessed])))) == (prov, [:keep_post])
         @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
         # ... but the same solution recomputed without the statistics of the file keeps only the provenance (what a
         # post-processor added is gone)
         save_sim_data(advection_solver_1d(q); overwrite = true, verbose = false)
-        @test JLD2.jldopen(f -> (f["provenance"], haskey(f, "postprocessed")), get_file_name(q), "r") == (prov, false)
+        @test (m = meta_of(get_file_name(q)); (m[:provenance], haskey(m, :postprocessed))) == (prov, false)
         @test run_all_simulations(cfg).postprocessing == Dict(:ran => 1)
         # (functions, callable objects and types are named in the provenance)
         @test PDEStudioCore._func_name.((advection_solver_1d, scaled_solver, ScaledSolver)) ==
               ("advection_solver_1d", "ScaledSolver", "ScaledSolver")
         run_all_simulations(cfg; force_overwrite = true)
-        @test JLD2.jldopen(f -> f["provenance"]["created"], get_file_name(q), "r") != prov["created"]
+        @test meta_of(get_file_name(q))[:provenance][:created] != prov[:created]
         # new data saved by hand: a new provenance, no record
         sim = advection_solver_1d(q)
         sim.u[1] = SVector(5.0)
         save_sim_data(sim; overwrite = true, verbose = false)
-        @test JLD2.jldopen(f -> (haskey(f["provenance"], "solver"), haskey(f, "postprocessed")), get_file_name(q), "r") == (false, false)
+        @test (m = meta_of(get_file_name(q)); (haskey(m[:provenance], :solver), haskey(m, :postprocessed))) == (false, false)
         # a file calculate_all_stats! writes has a provenance, too
         r = create_param_dict(:N => 8, :test_mode => "provenance-stats")
         calculate_all_stats!(advection_solver_1d(r))
-        @test haskey(JLD2.jldopen(f -> f["provenance"], get_file_name(r), "r"), "pdestudiocore")
+        @test haskey(meta_of(get_file_name(r))[:provenance], :pdestudiocore)
         # entries of the layout and the record are reserved
-        for key in ("provenance", "postprocessed", "format_version", :provenance)
-            @test_throws ArgumentError save_sim_data(advection_solver_1d(p); overwrite = true, metadata = Dict(key => 1))
-            @test_throws ArgumentError run_smart_simulation(advection_solver_1d, p; metadata = Dict(key => 1))
-        end
+        # metadata of your own (a solver's, or given when saving) is saved with the data, and it is no statistic
+        m = create_param_dict(:N => 8, :test_mode => "own-metadata")
+        @test create_sim_data(collect(0.0:0.5:1.0), [1.0, 2.0, 3.0], m; metadata = Dict("a" => 1)).metadata == Dict(:a => 1)
+        d = advection_solver_1d(m)
+        d.metadata = Dict("iterations" => 12)   # (Symbol keys, a copy)
+        @test d.metadata == Dict(:iterations => 12)
+        save_sim_data(d; verbose = false, metadata = Dict(:converged => true))
+        back = load_sim_data(m)
+        @test back.metadata[:iterations] == 12 && back.metadata[:converged] && haskey(back.metadata, :provenance)
+        @test !haskey(back.stats, :iterations) && !(:iterations in PDEStudioCore._stored_stat_keys(get_file_name(m)))
+        @test isempty(JLD2.jldopen(f -> f["raw"].metadata, get_file_name(m), "r"))   # (stored once, as "metadata")
+        @test convert_to_lagrangian(back).metadata[:iterations] == 12   # (conversions carry it)
+        # new data from a solver: its own metadata, the pipeline's entries replace those of the same name
+        run_smart_simulation(advection_solver_1d, m; force_overwrite = true, metadata = Dict(:provenance => 1, :tag => "x"))
+        md = load_sim_data(m).metadata
+        @test md[:provenance] isa AbstractDict && md[:tag] == "x" && !haskey(md, :iterations)
         # the git commit, read from the repository's files
         repo = mktempdir()
         sha = "0123456789abcdef0123456789abcdef01234567"

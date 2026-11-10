@@ -229,13 +229,11 @@ end
     @test does_sim_data_exist(p)
     sim = load_sim_data(p)
     @test sim isa ESimData{1, 1, 1, Float64} && !has_time(sim)
-    entries = load_sim_data(calculate_hash(get_clean_params(p))[1:12])
-    @test haskey(entries, "sources") && haskey(entries["sources"], abspath(src))
+    @test haskey(sim.metadata[:sources], abspath(src))   # (the digests of the sources, in the metadata)
     # with `load_sources = false` the caller has included the sources: they don't run again, the digests are stored
     write(src, "error(\"must not run\")")
     run_all_simulations(cfg; force_overwrite = true, load_sources = false)
-    entries = load_sim_data(calculate_hash(get_clean_params(p))[1:12])
-    @test haskey(entries["sources"], abspath(src))
+    @test haskey(load_sim_data(p).metadata[:sources], abspath(src))
     @test_throws LoadError run_all_simulations(cfg; force_overwrite = true)
 end
 
@@ -286,8 +284,8 @@ end
     POST_CALLS[] = 0
     s = run_all_simulations(cfg)
     @test length(s.ran) == 2 && s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 2
-    records = PDEStudioCore.jldopen(f -> f["postprocessed"], files()[1], "r")
-    @test collect(keys(records)) == ["count_post"] && length(records["count_post"]["sources"]) == 1
+    records = load_sim_data(generate_tasks(cfg)[1]).metadata[:postprocessed]
+    @test collect(keys(records)) == [:count_post] && length(records[:count_post][:sources]) == 1
 
     # the same post-processor on the same data: skipped; force_postprocess runs it again
     s = run_all_simulations(cfg)
@@ -303,7 +301,7 @@ end
     @test run_all_simulations(keep_cfg).postprocessing == Dict(:skipped => 2)   # (its rewrite keeps the record)
     # (each post-processor is recorded: switching back doesn't apply the first one again)
     @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 2) && POST_CALLS[] == 6
-    @test sort(collect(keys(PDEStudioCore.jldopen(f -> f["postprocessed"], files()[1], "r")))) == ["count_post", "keep_post"]
+    @test sort(collect(keys(load_sim_data(generate_tasks(cfg)[1]).metadata[:postprocessed]))) == [:count_post, :keep_post]
 
     # other source code: the stored results are kept with a warning (every run, until recomputed) ...
     write(src, solver_code * "# changed\n")
@@ -358,7 +356,7 @@ mark_post = MarkPost()
     s = run_all_simulations(cfg)
     @test length(s.ran) == 1 && isempty(s.failed) && s.postprocessing == Dict(:ran => 1)
     path = get_file_name(only(generate_tasks(cfg)))
-    @test PDEStudioCore.jldopen(f -> (f["provenance"]["solver"], haskey(f["postprocessed"], "mark_post")), path, "r") ==
-          ("ScaledSolver", true)
+    md = load_sim_data(only(generate_tasks(cfg))).metadata
+    @test (md[:provenance][:solver], haskey(md[:postprocessed], :mark_post)) == ("ScaledSolver", true)
     @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
 end

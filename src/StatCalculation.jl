@@ -253,6 +253,8 @@ function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwr
             # not reload data for stats that came out NaN, but retries them once a reference exists.
             # Written together with the data if that is (re)written; otherwise only if the entries differ.
             evaluated = Dict{String, Any}("evaluated_stats" => names, "evaluated_with_reference" => ref_func !== nothing)
+            # (the same data rewritten: it keeps the stored metadata it doesn't have itself)
+            changed && path !== nothing && _carry_metadata!(sim_data, path)
             path = _save_sim_data(sim_data, changed, false, evaluated)
             _update_entries!(path, evaluated)
         end

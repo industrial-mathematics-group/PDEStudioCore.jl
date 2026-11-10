@@ -207,12 +207,13 @@ end
 
 Runs `sim_func(params)` unless a dataset for `params` already exists (then returns `NoSimData()`).
 The solver receives a copy of the parameters; the result is always stored under the task
-parameters so it can be found again, with its provenance (versions, host, git commit, the solver and the
-seconds it took; see [`sim_data_table`](@ref)). Returns the produced data (or `NoSimData()`).
+parameters so it can be found again. Its `metadata` (which the solver may fill) is saved with it, plus `metadata`
+given here and `:provenance` (versions, host, git commit, the solver and the seconds it took; see
+[`sim_data_table`](@ref)); a post-processing record of earlier data is dropped. Returns the produced data (or
+`NoSimData()`).
 """
 function run_smart_simulation(sim_func, params::AbstractDict; force_overwrite::Bool = false,
-                              metadata::AbstractDict = Dict{String, Any}())
-    _check_metadata_keys(metadata)
+                              metadata::AbstractDict = Dict{Symbol, Any}())
     !force_overwrite && does_sim_data_exist(params) && return NoSimData()
     task_params = _to_paramdict(params)
     # invokelatest: the solver may have been defined after the caller started (e.g. via `sources`).
@@ -228,9 +229,11 @@ function run_smart_simulation(sim_func, params::AbstractDict; force_overwrite::B
         empty!(sim_data.params)
         merge!(sim_data.params, task_params)
     end
-    entries = merge(Dict{String, Any}(string(k) => v for (k, v) in metadata),
-                    _new_data_entries(solver = sim_func, wall_time = wall_time))
-    _save_sim_data(sim_data, true, false, entries)
+    md = sim_data.metadata
+    isempty(metadata) || merge!(md, _metadata_dict(metadata))
+    md[:provenance] = _provenance(solver = sim_func, wall_time = wall_time)
+    delete!(md, :postprocessed)
+    _save_sim_data(sim_data, true, false, Dict{String, Any}())
     return sim_data
 end
 
@@ -261,11 +264,10 @@ _error_text(e) = (msg = e isa LoadError ? sprint(showerror, e.error) : sprint(sh
 # the source files (compared as a set of digests, so moved files don't count; only if both runs list sources), or
 # another version of the solver's package (only if both are known).
 function _code_changed(path::AbstractString, params::AbstractDict, metadata::AbstractDict)
-    stored_sources, stored_version = jldopen(path, "r") do f
-        src = haskey(f, "sources") ? f["sources"] : nothing
-        prov = haskey(f, "provenance") ? f["provenance"] : nothing
-        src, prov isa AbstractDict ? get(prov, "solver_version", nothing) : nothing
-    end
+    stored = jldopen(_file_metadata, path, "r")
+    stored_sources = get(stored, :sources, nothing)
+    prov = get(stored, :provenance, nothing)
+    stored_version = prov isa AbstractDict ? get(prov, :solver_version, nothing) : nothing
     current = get(metadata, "sources", nothing)
     if stored_sources isa AbstractDict && current isa AbstractDict && !isempty(stored_sources) && !isempty(current)
         Set(values(stored_sources)) == Set(values(current)) || return true
@@ -311,45 +313,44 @@ function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, f
     end
 end
 
-# What identifies a post-processor in the records of a file ("postprocessed": name => record): its name, the source
-# files of the run (their digests) and its package's version. A file with a record of the same name is not
+# What identifies a post-processor in the records of a dataset (`metadata[:postprocessed]`: name => record): its
+# name, the source files of the run (their digests) and its package's version. A file with a record of the same name is not
 # post-processed again: with the same record it is `:skipped`, with another one (the post-processor changed)
 # `:outdated` (applying it again to post-processed data is only right for an idempotent post-processor:
 # `force_postprocess`). With `on_changed_sources = :ignore` the sources don't count.
 function _postprocess_record(name, post_func, metadata::AbstractDict)
     sources = get(metadata, "sources", Dict{String, String}())
-    record = Dict{String, Any}("name" => string(name), "sources" => sort!(collect(String, values(sources))))
+    record = Dict{Symbol, Any}(:sources => sort!(collect(String, values(sources))))
     v = _func_version(post_func)
-    isnothing(v) || (record["version"] = v)
-    return record
+    isnothing(v) || (record[:version] = v)
+    return Symbol(name) => record
 end
 
-_without_sources(record::AbstractDict) = filter(p -> first(p) != "sources", record)
+_without_sources(record::AbstractDict) = filter(p -> Symbol(first(p)) !== :sources, record)
 
-function _post_task(params::ParamDict, post_func, record::AbstractDict, force::Bool, dry_run::Bool, ignore_sources::Bool)
+function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::Bool, dry_run::Bool, ignore_sources::Bool)
     try
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
-        done = jldopen(f -> haskey(f, "postprocessed") ? f["postprocessed"] : nothing, path, "r")
-        records = done isa AbstractDict ? Dict{String, Any}(done) : Dict{String, Any}()
-        own = get(records, record["name"], nothing)
+        done = get(jldopen(_file_metadata, path, "r"), :postprocessed, nothing)
+        records = done isa AbstractDict ? Dict{Symbol, Any}(Symbol(k) => v for (k, v) in done) : Dict{Symbol, Any}()
+        own = get(records, name, nothing)
         if !force && own isa AbstractDict
             same = ignore_sources ? isequal(_without_sources(own), _without_sources(record)) : isequal(own, record)
             return (same ? :skipped : :outdated, nothing)
         end
         dry_run && return (:ran, nothing)
-        records[record["name"]] = record
-        sim_data = _load_key(path, "raw")
+        records[name] = record
+        sim_data = _load_key(path, "raw")   # (with its metadata)
         if post_func(sim_data) === true
-            # The rewrite keeps the record of evaluated statistics, so the next run doesn't redo them.
-            entries = jldopen(path, "r") do f
-                e = Dict{String, Any}("postprocessed" => records)
-                haskey(f, "evaluated_stats") && (e["evaluated_stats"] = f["evaluated_stats"])
-                e
-            end
+            # The rewrite keeps the record of evaluated statistics, so the next run doesn't redo them; the metadata
+            # the post-processor changed is saved with the data.
+            sim_data.metadata[:postprocessed] = records
+            entries = jldopen(f -> haskey(f, "evaluated_stats") ? Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) :
+                                   Dict{String, Any}(), path, "r")
             _save_sim_data(sim_data, true, false, entries)
         else
-            _set_key!(path, "postprocessed", records)   # (nothing changed: only the record)
+            _update_metadata!(path, :postprocessed => records)   # (nothing changed: only the record)
         end
         return (:ran, nothing)
     catch e

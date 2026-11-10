@@ -12,23 +12,25 @@
 #   "dim_keys", "time_dim"  the axes of the data (fast metadata; files written before Nov 2026 have none)
 #   "evaluated_stats"  statistics already evaluated for this raw data (incl. dropped all-NaN ones)
 #   "format_version"   the layout of the file (`_FORMAT_VERSION`; files of 0.4 have none: version 1)
-#   "provenance"       how the data was made (versions, host, git commit, solver, wall time; see `_provenance`)
-#   "postprocessed"    the post-processor that ran on this raw data (see `run_all_simulations`)
+#   "metadata"   the dataset's `metadata` field ("raw" is stored without it): provenance, sources, post-processing
+#                record, the user's entries
+#   "evaluated_with_reference"  whether a reference was available for "evaluated_stats"
 #   "conv_*"     cached conversions ("conv_L", "conv_E_<n1>x<n2>...")
 
 const _ENABLE_CONV_CACHE = Ref{Bool}(false)
 # Entries tied to the content of "raw": never carried over when the raw data is rewritten.
 const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shape", "dim_keys", "time_dim",
-                       "evaluated_stats", "format_version")
-# Entries about how the raw data was made: carried over when the same data is rewritten (statistics,
-# post-processing, rehash), replaced when new data is saved (see `_new_data_entries`). Like the managed ones,
-# `save_sim_data(...; metadata)` refuses them.
-const _RECORD_KEYS = ("provenance", "postprocessed")
-const _RESERVED_KEYS = (_MANAGED_KEYS..., _RECORD_KEYS...)
+                       "evaluated_stats", "format_version", "metadata")
+# Internal bookkeeping next to the data (not metadata of the dataset)
+const _BOOKKEEPING_KEYS = ("evaluated_with_reference",)
+# Entries of files written before the metadata field: read into the metadata, never carried over as entries
+const _LEGACY_METADATA_KEYS = ("sources", "provenance", "postprocessed")
 
-# The layout of the data files: 1 = PDEStudioCore 0.4 (no version entry), 2 = with "format_version", the axes
-# ("dim_keys", "time_dim") and the record entries. Files without the fast metadata of version 1 are version 0.
-const _FORMAT_VERSION = 2
+# The layout of the data files: 1 = PDEStudioCore 0.4 (no version entry), 2 = with "format_version" and the axes
+# ("dim_keys", "time_dim"; never released), 3 = datasets with the `metadata` field, stored as "metadata". Files
+# without the fast metadata of version 1 are version 0. Datasets of versions before 3 lack the field (see
+# `_open_data`).
+const _FORMAT_VERSION = 3
 
 """
     enable_cache!(val::Bool)
@@ -175,11 +177,28 @@ end
 _has_key(path::AbstractString, key::AbstractString) = jldopen(file -> haskey(file, key), path, "r")
 
 function _load_key(path::AbstractString, key::AbstractString)
-    return jldopen(path, "r") do file
+    return _open_data(path) do file
         haskey(file, key) || throw(SimFileNotFoundError("Key '$key' not found in $(basename(path))."))
-        return file[key]
+        value = file[key]
+        value isa AbstractSimData && (value.metadata = _file_metadata(file))   # (stored once, next to the data)
+        return value
     end
 end
+
+# Opens a data file for reading datasets. Datasets are read field by field (`_dataset_typemap`), so those stored
+# without the `metadata` field (files of earlier versions, also when a 0.4 writer rewrote a newer file) are read
+# as the current types, without rewriting the file.
+_open_data(f, path::AbstractString) = jldopen(f, path, "r"; typemap = _dataset_typemap)
+
+function _dataset_typemap(f, typepath::String, params)
+    typepath == "PDEStudioCore.ESimData" && length(params) == 4 && return JLD2.Upgrade(ESimData{params...})
+    typepath == "PDEStudioCore.LSimData" && length(params) == 4 && return JLD2.Upgrade(LSimData{params...})
+    return JLD2.default_typemap(f, typepath, params)
+end
+JLD2.rconvert(::Type{ESimData{D, DS, M, T}}, nt::NamedTuple) where {D, DS, M, T} =
+    ESimData{D, DS, M, T}(nt.params, nt.domain, nt.axes, nt.u, nt.stats, get(nt, :metadata, Dict{Symbol, Any}()))
+JLD2.rconvert(::Type{LSimData{D, DS, M, T}}, nt::NamedTuple) where {D, DS, M, T} =
+    LSimData{D, DS, M, T}(nt.params, nt.domain, nt.t, nt.x, nt.u, nt.stats, get(nt, :metadata, Dict{Symbol, Any}()))
 
 # A temporary file next to `path`, unique per writer (process, task and time; without touching the global RNG),
 # so concurrent writers never share one.
@@ -302,29 +321,28 @@ function _copy_entry!(dest, src, key::AbstractString)
 end
 
 # Writes a complete file to a temporary path and renames it into place, so an interrupted write never
-# corrupts existing data and rewrites do not grow the file. Entries of `previous` that are not managed
-# here (and are not stale conversion caches) are carried over.
-function _write_sim_file(path::AbstractString, data::AbstractSimData, metadata::AbstractDict,
+# corrupts existing data and rewrites do not grow the file. The dataset's metadata is stored once, as the
+# "metadata" entry (the "raw" dataset is stored without it), and a new file always gets a provenance. Entries of
+# `previous` that are not managed here (and are not stale conversion caches) are carried over.
+function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::AbstractDict,
                          previous::Union{Nothing, AbstractString})
     path = isfile(path) ? realpath(path) : path  # replace the file a symlink points to, not the link
+    md = data.metadata
+    (previous === nothing || !isfile(previous)) && !haskey(md, :provenance) && (md[:provenance] = _provenance())
     tmp = _tmp_path(path)
     try
         jldopen(tmp, "w") do file
-            file["raw"] = data
+            _write_dataset!(file, "raw", data)
             _write_metadata!(file, data)
-            for (k, v) in metadata
-                # (`nothing` for a record entry: drop it, also an old one)
-                (v === nothing && String(k) in _RECORD_KEYS) || (file[String(k)] = v)
-            end
-            # a new file always gets a provenance (e.g. one `calculate_all_stats!` writes)
-            if (previous === nothing || !isfile(previous)) && !haskey(metadata, "provenance")
-                file["provenance"] = _provenance()
+            file["metadata"] = md
+            for (k, v) in entries
+                file[String(k)] = v
             end
             if previous !== nothing && isfile(previous)
                 jldopen(previous, "r") do old
                     for k in keys(old)
-                        (k in _MANAGED_KEYS || startswith(k, "conv_") || haskey(file, k) ||
-                         haskey(metadata, k)) && continue
+                        (k in _MANAGED_KEYS || k in _LEGACY_METADATA_KEYS || startswith(k, "conv_") ||
+                         haskey(file, k) || haskey(md, Symbol(k))) && continue   # (the last: read into the metadata)
                         try
                             _copy_entry!(file, old, k)
                         catch e
@@ -344,72 +362,119 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, metadata::
     return path
 end
 
+# Stores a dataset without its metadata (a file keeps that once, in "metadata"; `_load_key` puts it back)
+function _write_dataset!(file, key::AbstractString, data::AbstractSimData)
+    md = getfield(data, :metadata)
+    setfield!(data, :metadata, Dict{Symbol, Any}())
+    try
+        file[key] = data
+    finally
+        setfield!(data, :metadata, md)
+    end
+    return nothing
+end
+
 """
     save_sim_data(sim_data::AbstractSimData; overwrite = false, verbose = true, metadata = Dict())
 
 Saves the dataset under the hash of its (normalised) parameters and returns the file path.
 An existing file is only replaced when `overwrite = true` (which also drops stale conversion caches).
 Writes are atomic: data is written to a temporary file that is then renamed into place.
-Extra `metadata` entries are stored as top-level keys of the file.
-New data gets a new provenance and no post-processing record; saving the data stored for its parameters again (e.g.
-after [`add_stat!`](@ref)) keeps both.
+The dataset's `metadata` field is saved with it; `metadata` entries given here are added to it first.
+New data gets a new provenance (`:provenance`) and loses the entries of the run that made the stored data
+(`:sources`, `:postprocessed`); saving the data stored for its parameters again (e.g. after [`add_stat!`](@ref))
+keeps the stored metadata (`:postprocessed` only if the data still has the stored statistics).
 `sim_data.params` is replaced by its normalised form (see [`get_clean_params`](@ref)), as stored in the file.
 """
 function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbose::Bool = true,
-                       metadata::AbstractDict = Dict{String, Any}())
-    _check_metadata_keys(metadata)
-    entries = Dict{String, Any}(string(k) => v for (k, v) in metadata)
-    # New data gets a new provenance and no post-processing record. The same data saved again keeps its provenance,
-    # and its record if it still has the statistics of the file (e.g. after `add_stat!`; not a recomputed dataset
-    # without what a post-processor added).
-    path = overwrite ? _find_file(sim_data.params) : nothing
+                       metadata::AbstractDict = Dict{Symbol, Any}())
+    isempty(metadata) || merge!(sim_data.metadata, _metadata_dict(metadata))
+    path = _find_file(sim_data.params)
+    (path === nothing || overwrite) && _new_or_same_data!(sim_data, path)
+    return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}())
+end
+
+# The metadata of data about to replace the file at `path` (or `nothing`: a new file): the same data keeps the
+# stored metadata (missing entries are taken from the file; the post-processing record only if the data still has
+# the statistics of the file: a recomputed dataset lacks what a post-processor added); new data gets a provenance
+# and loses the entries of the run that made the stored data.
+function _new_or_same_data!(data::AbstractSimData, path)
     same = path !== nothing && try
-        _is_native_representation(path, sim_data)
+        _is_native_representation(path, data)
     catch e
         e isa InterruptException && rethrow()
         false
     end
-    if !same
-        merge!(entries, _new_data_entries())
-    elseif !issubset(_stored_stat_keys(path), keys(sim_data.stats))
-        entries["postprocessed"] = nothing
+    md = data.metadata
+    if same
+        _carry_metadata!(data, path)
+        issubset(_stored_stat_keys(path), keys(data.stats)) || delete!(md, :postprocessed)
+    else
+        md[:provenance] = _provenance()
+        delete!(md, :sources)
+        delete!(md, :postprocessed)
     end
-    return _save_sim_data(sim_data, overwrite, verbose, entries)
+    return data
 end
 
-function _check_metadata_keys(metadata::AbstractDict)
-    for k in keys(metadata)
-        key = string(k)
-        (key in _RESERVED_KEYS || startswith(key, "conv_")) && throw(ArgumentError(
-            "metadata key '$key' is reserved for the data file layout; choose another name"))
+# Takes the entries of the stored metadata the dataset doesn't have (the same data rewritten)
+function _carry_metadata!(data::AbstractSimData, path::AbstractString)
+    md = data.metadata
+    for (k, v) in jldopen(_file_metadata, path, "r")
+        haskey(md, k) || (md[k] = v)
     end
-    return nothing
+    return data
 end
 
-# The record entries of newly made data: its provenance, and no post-processing yet (an old record is dropped)
-_new_data_entries(; kwargs...) = Dict{String, Any}("provenance" => _provenance(; kwargs...), "postprocessed" => nothing)
+# The metadata of the data in an open file: its "metadata" entry, or, in files written before the metadata field,
+# the entries stored next to the data (0.4: "sources" and the `metadata` of `save_sim_data`)
+function _file_metadata(file)
+    haskey(file, "metadata") && return _metadata_dict(file["metadata"])
+    md = Dict{Symbol, Any}()
+    for k in keys(file)
+        (k in _MANAGED_KEYS || k in _BOOKKEEPING_KEYS || startswith(k, "conv_")) && continue
+        try
+            v = file[k]
+            v isa JLD2.Group || (md[Symbol(k)] = v)
+        catch e
+            @debug "Entry '$k' is not read into the metadata" exception = e
+        end
+    end
+    return md
+end
+
+# Changes the stored metadata of a file without rewriting its data (`nothing` removes an entry)
+function _update_metadata!(path::AbstractString, changes::Pair...)
+    md = jldopen(_file_metadata, path, "r")
+    for (k, v) in changes
+        v === nothing ? delete!(md, k) : (md[k] = v)
+    end
+    _set_key!(path, "metadata", md)
+    return md
+end
+
 
 # --- Provenance ------------------------------------------------------------------------------------------------
 
 """
     _provenance(; solver = nothing, wall_time = nothing, commit = _git_commit())
 
-How data was made, stored in each data file (`"provenance"`): the versions of PDEStudioCore and Julia, the host, the
+How data was made (`data.metadata[:provenance]`): the versions of PDEStudioCore and Julia, the host, the
 time, the number of threads and the git commit of the active project, and for data a solver made, the solver (name,
 module, package version) and its wall time in seconds.
 """
 function _provenance(; solver = nothing, wall_time = nothing, commit = _git_commit())
-    p = Dict{String, Any}("pdestudiocore" => string(pkgversion(@__MODULE__)), "julia" => string(VERSION),
-                          "host" => gethostname(), "created" => string(now()), "threads" => Threads.nthreads())
-    isnothing(commit) || (p["git_commit"] = commit)
+    p = Dict{Symbol, Any}(:pdestudiocore => string(pkgversion(@__MODULE__)), :julia => string(VERSION),
+                          :host => gethostname(), :created => string(now()), :threads => Threads.nthreads())
+    isnothing(commit) || (p[:git_commit] = commit)
     if !isnothing(solver)
-        p["solver"] = _func_name(solver)
+        p[:solver] = _func_name(solver)
         root = _func_package(solver)
-        isnothing(root) || (p["solver_module"] = string(nameof(root)))
+        isnothing(root) || (p[:solver_module] = string(nameof(root)))
         v = _func_version(solver)
-        isnothing(v) || (p["solver_version"] = v)
+        isnothing(v) || (p[:solver_version] = v)
     end
-    isnothing(wall_time) || (p["wall_time"] = Float64(wall_time))
+    isnothing(wall_time) || (p[:wall_time] = Float64(wall_time))
     return p
 end
 
@@ -613,7 +678,11 @@ function load_sim_data(hash_prefix::AbstractString; index::Int = 1, key::Union{N
         "requested index $index, but only $(length(files)) file(s) match '$hash_prefix'"))
     path = files[index]
     @info "Manual load: $(length(files)) matching file(s); loading index $index: $(basename(path))"
-    return key === nothing ? JLD2.load(path) : _load_key(path, String(key))
+    key === nothing || return _load_key(path, String(key))
+    return _open_data(path) do file   # (every entry, the datasets with the metadata of the file)
+        md = _file_metadata(file)
+        Dict{String, Any}(k => (v = file[k]; v isa AbstractSimData && (v.metadata = copy(md)); v) for k in keys(file))
+    end
 end
 
 """
@@ -651,31 +720,31 @@ function _is_current_file(path::AbstractString; upgrade::Bool = true)
 end
 
 # Whether the "raw" entry of a file loads as a dataset of this version
-_raw_loads(path::AbstractString) = jldopen(f -> haskey(f, "raw") && (try f["raw"] isa AbstractSimData catch; false end), path, "r")
+_raw_loads(path::AbstractString) = _open_data(f -> haskey(f, "raw") && (try f["raw"] isa AbstractSimData catch; false end), path)
 
 # The format version of an open data file (see `_FORMAT_VERSION`; a user entry of that name in a file of 0.4, where
 # it wasn't reserved, doesn't count)
 function _format_version(file)
     v = haskey(file, "format_version") ? file["format_version"] : nothing
-    v isa Integer && v >= 2 && haskey(file, "dim_keys") && return Int(v)   # (written by this version)
-    return haskey(file, "native") && haskey(file, "shape") ? 1 : 0
+    v isa Integer && v >= 2 && haskey(file, "dim_keys") || return haskey(file, "native") && haskey(file, "shape") ? 1 : 0
+    return v >= 3 && !haskey(file, "metadata") ? 2 : Int(v)   # (written by these versions)
 end
 
-# Brings a file to the current format version by writing the metadata of its data (the data itself is kept).
+# Brings a file to the current format version: the data is written again in the current layout (with its metadata).
 # Returns :current, :upgraded, or :unreadable (its data doesn't load as a dataset of this version).
 function _upgrade_file!(path::AbstractString)
-    version, raw = jldopen(path, "r") do file
-        v = _format_version(file)
-        v >= _FORMAT_VERSION && return v, nothing
-        return v, haskey(file, "raw") ? (try file["raw"] catch; nothing end) : nothing
+    jldopen(_format_version, path, "r") >= _FORMAT_VERSION && return :current
+    raw = try
+        _load_key(path, "raw")   # (read with the metadata the file holds)
+    catch e
+        e isa InterruptException && rethrow()
+        nothing
     end
-    version >= _FORMAT_VERSION && return :current
     raw isa AbstractSimData || return :unreadable
-    entries = Dict{String, Any}("native" => _data_kind(raw), "params" => raw.params, "stat_keys" => collect(keys(raw.stats)),
-                                "registry" => raw.domain.stat_registry, "shape" => collect(_data_shape(raw)),
-                                "dim_keys" => collect(raw.domain.dim_keys), "time_dim" => raw.domain.time_dim,
-                                "format_version" => _FORMAT_VERSION)
-    _update_entries!(path, entries)
+    # the same data again: what was evaluated for it stays valid (conversion caches are dropped)
+    entries = jldopen(f -> haskey(f, "evaluated_stats") ? Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) :
+                           Dict{String, Any}(), path, "r")
+    _write_sim_file(path, raw, entries, path)
     @info "Upgraded $(basename(path)) to file format version $_FORMAT_VERSION."
     return :upgraded
 end
