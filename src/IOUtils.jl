@@ -361,7 +361,16 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::A
                     for k in keys(old)
                         (k in _MANAGED_KEYS || startswith(k, "conv_") ||
                          haskey(file, k)) && continue
-                        legacy && !(k in _BOOKKEEPING_KEYS) && !(old[k] isa JLD2.Group) && continue
+                        if legacy && !(k in _BOOKKEEPING_KEYS)
+                            group = try
+                                old[k] isa JLD2.Group
+                            catch e   # (not read into the metadata either)
+                                e isa InterruptException && rethrow()
+                                @warn "Entry '$k' of $(basename(previous)) can't be read; it is not carried over" exception = e
+                                false
+                            end
+                            group || continue
+                        end
                         try
                             _copy_entry!(file, old, k)
                         catch e
@@ -440,7 +449,7 @@ end
 const _PIPELINE_METADATA = (:provenance, :sources, :postprocessed)
 function _carry_metadata!(data::AbstractSimData, path::AbstractString)
     md = data.metadata
-    stored = jldopen(_file_metadata, path, "r")
+    stored = jldopen(f -> _file_metadata(f; strict = true), path, "r")   # (never replace what can't be read)
     for k in _PIPELINE_METADATA
         haskey(md, k) || !haskey(stored, k) || (md[k] = stored[k])
     end
@@ -450,9 +459,16 @@ end
 
 # The metadata of the data in an open file: its "metadata" entry, or, in files written before the metadata field,
 # the entries stored next to the data (0.4: "sources" and the `metadata` of `save_sim_data`)
-function _file_metadata(file)
-    if _format_version(file) >= 3
-        v = file["metadata"]
+function _file_metadata(file; strict::Bool = false)
+    version = _format_version(file)
+    if version >= 3
+        v = try
+            file["metadata"]
+        catch e   # (e.g. a type whose stored form changed: the data is still readable; writers don't replace it)
+            (strict || e isa InterruptException) && rethrow()
+            @warn "The metadata of $(basename(file.path)) can't be read; the data is loaded without it" exception = e
+            return Dict{Symbol, Any}()
+        end
         return v isa AbstractDict ? _metadata_dict(v) : Dict{Symbol, Any}(:metadata => v)
     end
     md = Dict{Symbol, Any}()   # (also an entry "metadata" of 0.4: one of the user's entries)
@@ -465,7 +481,7 @@ function _file_metadata(file)
             @debug "Entry '$k' is not read into the metadata" exception = e
         end
     end
-    return _legacy_records!(md)
+    return version == 2 ? _legacy_records!(md) : md   # (in files of 0.4, entries of these names are the user's)
 end
 
 # The pipeline's entries as files of the unreleased format version 2 stored them (String keys, a record with its
@@ -484,14 +500,21 @@ end
 
 # Changes the stored metadata of a file without rewriting its data (`nothing` removes an entry)
 function _update_metadata!(path::AbstractString, changes::Pair...)
-    # (a file of an earlier version is written in the current layout first: its entries next to the data are metadata,
-    # and a "metadata" entry counts only in that layout)
-    jldopen(_format_version, path, "r") < 3 && _upgrade_file!(path)
-    md = jldopen(_file_metadata, path, "r")
+    # (a file of an earlier version is written in the current layout, with the changes: its entries next to the data
+    # are metadata, and a "metadata" entry counts only in that layout)
+    if jldopen(_format_version, path, "r") < 3
+        _upgrade_file!(path, changes...) === :upgraded || error("$(basename(path)) can't be upgraded: its data doesn't load")
+        return jldopen(_file_metadata, path, "r")
+    end
+    md = jldopen(f -> _file_metadata(f; strict = true), path, "r")
     for (k, v) in changes
         v === nothing ? delete!(md, k) : (md[k] = v)
     end
-    _set_key!(path, "metadata", md)
+    if Base.summarysize(md) > 2^20   # (appending would leave a copy of large metadata in the file every time)
+        _rewrite_file!(path, changes...) === :upgraded || error("$(basename(path)) can't be rewritten: its data doesn't load")
+    else
+        _set_key!(path, "metadata", md)
+    end
     return md
 end
 
@@ -773,8 +796,15 @@ end
 
 # Brings a file to the current format version: the data is written again in the current layout (with its metadata).
 # Returns :current, :upgraded, or :unreadable (its data doesn't load as a dataset of this version).
-function _upgrade_file!(path::AbstractString)
+function _upgrade_file!(path::AbstractString, changes::Pair...)
     jldopen(_format_version, path, "r") >= _FORMAT_VERSION && return :current
+    outcome = _rewrite_file!(path, changes...)
+    outcome === :upgraded && @info "Upgraded $(basename(path)) to file format version $_FORMAT_VERSION."
+    return outcome
+end
+
+# Writes a file again in the current layout, with the same data (and metadata `changes`): :upgraded, or :unreadable
+function _rewrite_file!(path::AbstractString, changes::Pair...)
     raw = try
         _load_key(path, "raw")   # (read with the metadata the file holds)
     catch e
@@ -782,11 +812,13 @@ function _upgrade_file!(path::AbstractString)
         nothing
     end
     raw isa AbstractSimData || return :unreadable
+    for (k, v) in changes   # (metadata changes, written in the same rewrite)
+        v === nothing ? delete!(raw.metadata, k) : (raw.metadata[k] = v)
+    end
     # the same data again: what was evaluated for it stays valid (conversion caches are dropped)
     entries = jldopen(f -> haskey(f, "evaluated_stats") ? Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) :
                            Dict{String, Any}(), path, "r")
     _write_sim_file(path, raw, entries, path)
-    @info "Upgraded $(basename(path)) to file format version $_FORMAT_VERSION."
     return :upgraded
 end
 

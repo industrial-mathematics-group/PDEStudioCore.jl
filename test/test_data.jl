@@ -375,6 +375,15 @@ end
     end
 end
 
+# A type with its own serialization whose reading can fail (a package type whose stored form changed)
+struct FragileEntry
+    s::String
+end
+PDEStudioCore.JLD2.writeas(::Type{FragileEntry}) = String
+PDEStudioCore.JLD2.wconvert(::Type{String}, x::FragileEntry) = x.s
+FRAGILE_FAILS = Ref(false)
+PDEStudioCore.JLD2.rconvert(::Type{FragileEntry}, s::String) = FRAGILE_FAILS[] ? error("changed format") : FragileEntry(s)
+
 # Runs `f` with a fresh, empty save path (so tests can look at the whole data directory)
 function with_fresh_save_path(f)
     old = get_save_path()
@@ -495,8 +504,9 @@ end
         @test d3.u == d.u && d3.metadata == d.metadata && load_sim_data(q).t == l.t
         # an entry "metadata" of 0.4 (which didn't reserve the name) is one of the user's entries
         foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
-        JLD2.jldopen(f -> (f["metadata"] = "mine"), get_file_name(q), "a+")
-        @test load_sim_data(q).metadata == Dict(:metadata => "mine") && size(sim_data_table(), 1) == 2
+        JLD2.jldopen(f -> (f["metadata"] = "mine"; f["postprocessed"] = Dict("smoothing" => "done")), get_file_name(q), "a+")
+        @test load_sim_data(q).metadata == Dict(:metadata => "mine", :postprocessed => Dict("smoothing" => "done"))
+        @test size(sim_data_table(), 1) == 2
         @test length(run_all_simulations(SimulationConfig(q)).cached) == 1
         # recording a post-processing writes such a file in the current layout first (no copies of its entries)
         POST_CALLS[] = 0
@@ -506,6 +516,20 @@ end
         md_p = load_sim_data(p).metadata
         @test md_p[:note] == "hello" && haskey(md_p[:postprocessed], :count_post) && POST_CALLS[] == 1
         @test filesize(get_file_name(p)) < 2 * size_p
+        # an entry that can't be read is left behind (with a warning), the rest of the file is written
+        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
+        JLD2.jldopen(f -> (f["fragile"] = FragileEntry("x")), get_file_name(p), "a+")
+        FRAGILE_FAILS[] = true
+        s_fr = @test_logs (:warn, r"Entry 'fragile' .* can't be read") match_mode = :any run_all_simulations(SimulationConfig(p; postprocess = :count_post))
+        FRAGILE_FAILS[] = false
+        @test s_fr.postprocessing == Dict(:ran => 1) && load_sim_data(p).metadata[:note] == "hello"
+        # large metadata: a changed record doesn't leave copies of it in the file
+        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
+        JLD2.jldopen(f -> (f["big"] = rand(200_000)), get_file_name(p), "a+")   # (1.6 MB)
+        run_all_simulations(SimulationConfig(p; postprocess = :count_post))
+        size1 = filesize(get_file_name(p))
+        run_all_simulations(SimulationConfig(p; postprocess = :count_post); force_postprocess = true)
+        @test size1 < 1.5 * 1.6e6 && filesize(get_file_name(p)) < 1.2 * size1 && length(load_sim_data(p).metadata[:big]) == 200_000
         @test JLD2.jldopen(f -> (PDEStudioCore._format_version(f), haskey(f, "note"), isempty(f["raw"].metadata)),
                            get_file_name(p), "r") == (PDEStudioCore._FORMAT_VERSION, false, true)
     end
@@ -585,6 +609,15 @@ end
         add_stat!(d_m, :extra, 1.0, Symbol[])
         save_sim_data(d_m; overwrite = true, verbose = false)
         @test JLD2.jldopen(f -> f["provenance"], get_file_name(m), "r") == "an entry" && load_sim_data(m).metadata[:provenance] == prov_m
+        # metadata that can't be read: the data loads without it (with a warning), nothing replaces it
+        d_m = load_sim_data(m)
+        d_m.metadata[:fragile] = FragileEntry("x")
+        save_sim_data(d_m; overwrite = true, verbose = false)
+        FRAGILE_FAILS[] = true
+        @test isempty((@test_logs (:warn, r"metadata of .* can't be read") load_sim_data(m)).metadata)
+        @test_throws ErrorException PDEStudioCore._update_metadata!(get_file_name(m), :note => 1)
+        FRAGILE_FAILS[] = false
+        @test load_sim_data(m).metadata[:fragile] == FragileEntry("x")
         # the pipeline's entries of the unreleased format 2 (String keys, records with their name)
         v2 = PDEStudioCore._legacy_records!(Dict{Symbol, Any}(:provenance => Dict("solver" => "s"),
                                                               :postprocessed => Dict("name" => "post", "sources" => String[])))

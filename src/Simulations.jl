@@ -332,7 +332,7 @@ function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::B
     try
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
-        done = get(jldopen(_file_metadata, path, "r"), :postprocessed, nothing)
+        done = get(jldopen(f -> _file_metadata(f; strict = true), path, "r"), :postprocessed, nothing)
         records = done isa AbstractDict ? Dict{Symbol, Any}(Symbol(k) => v for (k, v) in done) : Dict{Symbol, Any}()
         own = get(records, name, nothing)
         if !force && own isa AbstractDict
