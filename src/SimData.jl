@@ -38,6 +38,9 @@ function _check_layout(D::Int, DS::Int, domain::DomainInfo)
     return nothing
 end
 
+# Metadata is stored with Symbol keys (a copy: datasets never share it)
+_metadata_dict(metadata::AbstractDict) = Dict{Symbol, Any}(Symbol(k) => v for (k, v) in metadata)
+
 # Derived statistics are stored without `:Solution`, which always lives in the `u` field.
 function _derived_stats(::Type{SD}, stats::AbstractDict) where {SD <: AbstractDict}
     out = SD()
@@ -60,6 +63,9 @@ Eulerian data: fields on a structured tensor grid (time, if present, is the last
 - `u::Array{SVector{M, T}, D}`: the solution tensor.
 - `stats`: a [`StatsView`](@ref) of all statistics. `:Solution` is always present and *is* `u`;
   derived statistics are stored alongside it.
+- `metadata::Dict{Symbol, Any}`: information about the data that isn't data (not plotted, no statistic): your own
+  entries (e.g. iteration counts, a convergence flag; a solver may set them), and the entries the pipeline writes
+  (`:provenance`, `:sources`, `:postprocessed`; see the *Data* page). Saved in the data file next to the data.
 
 Prefer [`create_sim_data`](@ref) for construction; the inner constructor validates that the axes
 match the solution and that `DS` matches the domain.
@@ -70,22 +76,25 @@ mutable struct ESimData{D, DS, M, T} <: AbstractSimData{D, DS, M, T}
     axes::NTuple{D, Vector{T}}
     u::Array{SVector{M, T}, D}
     stats::StatDict{M, T}
+    metadata::Dict{Symbol, Any}
 
     function ESimData{D, DS, M, T}(params::AbstractDict, domain::DomainInfo{D, T}, axes, u::AbstractArray,
-                                   stats::AbstractDict = StatDict{M, T}()) where {D, DS, M, T}
+                                   stats::AbstractDict = StatDict{M, T}(),
+                                   metadata::AbstractDict = Dict{Symbol, Any}()) where {D, DS, M, T}
         _check_layout(D, DS, domain)
         length(axes) == D || throw(DimensionMismatch("expected $D coordinate axes, got $(length(axes))"))
         ax = ntuple(d -> convert(Vector{T}, axes[d]), Val(D))
         sol = convert(Array{SVector{M, T}, D}, u)
         size(sol) == map(length, ax) || throw(DimensionMismatch(
             "the solution has size $(size(sol)) but the axes $(domain.dim_keys) have lengths $(map(length, ax))"))
-        return new{D, DS, M, T}(_to_paramdict(params), domain, ax, sol, _derived_stats(StatDict{M, T}, stats))
+        return new{D, DS, M, T}(_to_paramdict(params), domain, ax, sol, _derived_stats(StatDict{M, T}, stats),
+                                _metadata_dict(metadata))
     end
 end
 
 function ESimData(params::AbstractDict, domain::DomainInfo{D, T}, axes, u::AbstractArray{SVector{M, S}, D},
-                  stats::AbstractDict = StatDict{M, T}()) where {D, T, M, S}
-    return ESimData{D, _nspace(domain), M, T}(params, domain, axes, u, stats)
+                  stats::AbstractDict = StatDict{M, T}(), metadata::AbstractDict = Dict{Symbol, Any}()) where {D, T, M, S}
+    return ESimData{D, _nspace(domain), M, T}(params, domain, axes, u, stats, metadata)
 end
 
 """
@@ -100,6 +109,9 @@ Lagrangian data: particle positions and states recorded at discrete times.
 - `x::Vector{Vector{SVector{DS, T}}}`: particle positions per time step.
 - `u::Vector{Vector{SVector{M, T}}}`: particle states per time step.
 - `stats`: a [`StatsView`](@ref); `:Solution` is always present and *is* `u`.
+- `metadata::Dict{Symbol, Any}`: information about the data that isn't data (not plotted, no statistic): your own
+  entries (e.g. iteration counts, a convergence flag; a solver may set them), and the entries the pipeline writes
+  (`:provenance`, `:sources`, `:postprocessed`; see the *Data* page). Saved in the data file next to the data.
 """
 mutable struct LSimData{D, DS, M, T} <: AbstractSimData{D, DS, M, T}
     params::ParamDict
@@ -108,10 +120,12 @@ mutable struct LSimData{D, DS, M, T} <: AbstractSimData{D, DS, M, T}
     x::Vector{Vector{SVector{DS, T}}}
     u::Vector{Vector{SVector{M, T}}}
     stats::StatDict{M, T}
+    metadata::Dict{Symbol, Any}
 
     function LSimData{D, DS, M, T}(params::AbstractDict, domain::DomainInfo{D, T}, t::AbstractVector,
                                    x::AbstractVector, u::AbstractVector,
-                                   stats::AbstractDict = StatDict{M, T}()) where {D, DS, M, T}
+                                   stats::AbstractDict = StatDict{M, T}(),
+                                   metadata::AbstractDict = Dict{Symbol, Any}()) where {D, DS, M, T}
         _check_layout(D, DS, domain)
         tt = convert(Vector{T}, t)
         xx = convert(Vector{Vector{SVector{DS, T}}}, x)
@@ -126,15 +140,16 @@ mutable struct LSimData{D, DS, M, T} <: AbstractSimData{D, DS, M, T}
             length(xx[i]) == length(uu[i]) || throw(DimensionMismatch(
                 "time step $i has $(length(xx[i])) particle positions but $(length(uu[i])) particle states"))
         end
-        return new{D, DS, M, T}(_to_paramdict(params), domain, tt, xx, uu, _derived_stats(StatDict{M, T}, stats))
+        return new{D, DS, M, T}(_to_paramdict(params), domain, tt, xx, uu, _derived_stats(StatDict{M, T}, stats),
+                                _metadata_dict(metadata))
     end
 end
 
 function LSimData(params::AbstractDict, domain::DomainInfo{D, T}, t::AbstractVector,
                   x::AbstractVector{<:AbstractVector{SVector{DS, S1}}},
                   u::AbstractVector{<:AbstractVector{SVector{M, S2}}},
-                  stats::AbstractDict = StatDict{M, T}()) where {D, T, DS, M, S1, S2}
-    return LSimData{D, DS, M, T}(params, domain, t, x, u, stats)
+                  stats::AbstractDict = StatDict{M, T}(), metadata::AbstractDict = Dict{Symbol, Any}()) where {D, T, DS, M, S1, S2}
+    return LSimData{D, DS, M, T}(params, domain, t, x, u, stats, metadata)
 end
 
 has_time(data::AbstractSimData) = has_time(data.domain)
@@ -242,6 +257,8 @@ function Base.setproperty!(data::_SimDataTypes, name::Symbol, value)
         setfield!(data, :stats, raw)
     elseif name === :u
         _set_solution!(data, value)
+    elseif name === :metadata
+        setfield!(data, :metadata, _metadata_dict(value))
     else
         setfield!(data, name, convert(fieldtype(typeof(data), name), value))
     end

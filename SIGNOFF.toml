@@ -89,3 +89,26 @@ AI-Review = "A1"
 AI-Reviewed-by = "Claude Opus 5.5 (Anthropic), same session"
 Human-Review = "H1"
 Reviewed-by = "blhackslash <dev@blackslash.win>"
+
+# Changed on claude/release-robustness by Claude (release QoL/robustness: directory index, file format version,
+# provenance, post-processing record, changed-source check, RunSummary + dry run, tidy/table/upgrade; reviewed in
+# reviews/).
+[[annotations]]
+path = ["docs/src/advanced_config.md", "docs/src/data.md", "docs/src/index.md", "src/DataManagement.jl", "src/IOUtils.jl", "src/PDEStudioCore.jl", "src/Simulations.jl", "test/test_data.jl", "test/test_examples.jl", "test/test_pipeline.jl"]
+AI-Generation = "G3"
+Human-Review = "H1"
+AI-Review = "A2"
+Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+Reviewed-by = "blhackslash <dev@blackslash.win>"
+
+# Changed on claude/release-robustness by Claude (the `metadata` field of the datasets, replacing the reserved file
+# entries; files of earlier versions read through a JLD2 upgrade; reviewed in reviews/).
+[[annotations]]
+path = [".gitignore", "docs/src/advanced_config.md", "docs/src/data.md", "src/Constructors.jl", "src/ConversionUtils.jl", "src/DataManagement.jl", "src/IOUtils.jl", "src/SimData.jl", "src/Simulations.jl", "src/StatCalculation.jl", "test/fixtures/v0.4/write_fixtures.jl", "test/test_data.jl", "test/test_pipeline.jl"]
+AI-Generation = "G3"
+Human-Review = "H1"
+AI-Review = "A2"
+Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+Reviewed-by = "blhackslash <dev@blackslash.win>"

@@ -132,6 +132,7 @@ function delete_sim_data(match_params::AbstractDict; dry_run::Bool = false)
         else
             @warn "Deleting file matching criteria: $(basename(path))"
             rm(path)
+            _invalidate_index!()
         end
     end
     return matched
@@ -198,7 +199,7 @@ end
 function _rehash_single_file(path::String, delete_old::Bool, filter_pairs, remove_keys::Vector{Symbol},
                              prompt_keys::Vector{Symbol})
     raw = try
-        jldopen(f -> haskey(f, "raw") ? f["raw"] : nothing, path, "r")
+        _open_data(f -> haskey(f, "raw") ? (r = f["raw"]; r isa AbstractSimData && (r.metadata = _file_metadata(f)); r) : nothing, path)
     catch e
         @warn "Failed to open $(basename(path))" exception = e
         nothing
@@ -248,9 +249,137 @@ function _rehash_single_file(path::String, delete_old::Bool, filter_pairs, remov
             "is removed; its target $(realpath(path)) is not deleted by this rehash of the link. Delete it yourself if " *
             "nothing else uses it."
         rm(path; force = true)
+        _invalidate_index!()
         @info "Rehashed and renamed: $bname -> $(basename(new_path))"
     else
         @info "Rehashed copy (old file kept): $bname -> $(basename(new_path))"
     end
     return path => new_path
+end
+
+"""
+    upgrade_sim_data(target = joinpath(get_save_path(), "data"); dry_run = false) -> Dict{Symbol, Vector{String}}
+
+Brings data files written by earlier PDEStudioCore versions to the current file format (a `.jld2` file or every
+`.jld2` file in a directory, not recursively): the file is written again (atomically) in the current layout, with
+the same data, its statistics and the entries the current version keeps next to it (format version, kind, shape,
+axes, metadata; entries stored next to the data by 0.4 become metadata; cached conversions are dropped). Files of
+0.4 work as they are (their datasets are read as the current types); `upgrade_sim_data` adds what they lack (e.g.
+the axes [`get_sim_data_info`](@ref) reads without loading the data). The pipeline upgrades files without any such
+entries (data only) by itself when it finds them.
+Returns the paths by outcome: `:upgraded`, `:current`, `:unreadable` (their data doesn't load as a dataset of this
+version: the pipeline recomputes them). With `dry_run = true` nothing is written, and the files that would be
+upgraded are listed under `:upgraded`.
+"""
+function upgrade_sim_data(target::AbstractString = _data_dir(); dry_run::Bool = false)
+    paths = isdir(target) ? [joinpath(target, f) for f in readdir(target) if endswith(f, ".jld2")] :
+            isfile(target) && endswith(target, ".jld2") ? [String(target)] :
+            throw(ArgumentError("$target is neither a .jld2 file nor a directory"))
+    out = Dict{Symbol, Vector{String}}(:upgraded => String[], :current => String[], :unreadable => String[])
+    for path in paths
+        outcome = try
+            if dry_run
+                v = jldopen(_format_version, path, "r")
+                v >= _FORMAT_VERSION ? :current : _raw_loads(path) ? :upgraded : :unreadable
+            else
+                _upgrade_file!(path)
+            end
+        catch e
+            @warn "Could not upgrade $(basename(path))" exception = e
+            :unreadable
+        end
+        push!(out[outcome], path)
+    end
+    return out
+end
+
+"""
+    tidy_sim_data(; dry_run = false, min_tmp_age = 3600) -> (duplicates, temp_files)
+
+Removes files in the data directory that nothing uses:
+- older files of a run stored more than once (e.g. by parallel jobs computing the same parameters): lookups always
+  use the newest file of a hash, the older ones only take space;
+- temporary files of writes that never finished (a process killed while writing), older than `min_tmp_age`
+  seconds (a running write keeps its temporary file younger).
+Returns the paths it removed (with `dry_run = true`: would remove).
+"""
+function tidy_sim_data(; dry_run::Bool = false, min_tmp_age::Real = 3600)
+    dir = _data_dir()
+    duplicates, temp_files = String[], String[]
+    isdir(dir) || return (duplicates = duplicates, temp_files = temp_files)
+    for (_, files) in _data_index(fresh = true).by_hash
+        length(files) > 1 || continue
+        append!(duplicates, _sort_newest!(copy(files))[2:end])
+    end
+    now_s = time()
+    for f in readdir(dir)
+        occursin(r"\.jld2\.\d+_[0-9a-f]+_\d+\.tmp$", f) || continue
+        path = joinpath(dir, f)
+        now_s - mtime(path) >= min_tmp_age && push!(temp_files, path)
+    end
+    if !dry_run
+        for path in (duplicates..., temp_files...)
+            rm(path; force = true)
+        end
+        _invalidate_index!()
+        isempty(duplicates) && isempty(temp_files) ||
+            @info "Removed $(length(duplicates)) duplicate data file(s) and $(length(temp_files)) temporary file(s)."
+    end
+    return (duplicates = duplicates, temp_files = temp_files)
+end
+
+"""
+    sim_data_table(match_params = Dict()) -> DataFrame
+
+One row per stored run whose parameters contain all pairs of `match_params` (as [`find_sim_data`](@ref)), newest
+first: `file`, `created` (from the file name), `size_mb`, `kind` (`:eulerian` / `:lagrangian`), `shape`,
+`format_version`, `stats` (the available statistics), `postprocessed` (the names of the post-processors that ran, or `missing`),
+`wall_time` (seconds the solver took, if recorded), `solver`, then one column per parameter (`missing` where a
+run doesn't have it; a parameter named like one of the columns before gets the column `param_<name>`, with more
+`param_` prefixes if that is a parameter, too). Only the
+lightweight entries of each file are read (for files of 0.4, the entries stored next to the data, their metadata). Files of format version 0 (without metadata) are not listed:
+[`upgrade_sim_data`](@ref) brings them up to date.
+"""
+function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
+    rows = Dict{Symbol, Any}[]
+    fixed = [:file, :created, :size_mb, :kind, :shape, :format_version, :stats, :postprocessed, :wall_time, :solver]
+    for (path, params) in _files_with_params(match_params)
+        row = Dict{Symbol, Any}(:file => basename(path), :size_mb => round(filesize(path) / 2^20, digits = 3))
+        stamp = match(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d{3})_", basename(path))
+        row[:created] = stamp === nothing ? missing : DateTime(stamp.captures[1], dateformat"yyyy-mm-dd_HH-MM-SS_sss")
+        try
+            jldopen(path, "r") do f
+                row[:kind] = haskey(f, "native") ? f["native"] : missing
+                row[:shape] = haskey(f, "shape") ? Tuple(f["shape"]) : missing
+                row[:format_version] = _format_version(f)
+                row[:stats] = haskey(f, "stat_keys") ? sort!(collect(Symbol, f["stat_keys"])) : missing
+                md = _file_metadata(f)
+                post = get(md, :postprocessed, nothing)
+                row[:postprocessed] = post isa AbstractDict && !isempty(post) ?
+                                      join(sort!(string.(collect(keys(post)))), ", ") : missing
+                prov = get(md, :provenance, nothing)
+                row[:wall_time] = prov isa AbstractDict ? get(prov, :wall_time, missing) : missing
+                row[:solver] = prov isa AbstractDict ? get(prov, :solver, missing) : missing
+            end
+        catch e   # (a file that can't be read leaves its columns `missing`, the table goes on)
+            e isa InterruptException && rethrow()
+            @warn "Could not read the metadata of $(basename(path))" exception = e
+        end
+        names = Set(Symbol(k) for k in keys(params))
+        for (k, v) in params
+            key = Symbol(k)
+            # (a parameter `solver`: column `param_solver`, or `param_param_solver` if there is a parameter `param_solver`)
+            if key in fixed
+                key = Symbol("param_", key)
+                while key in names || key in fixed
+                    key = Symbol("param_", key)
+                end
+            end
+            row[key] = v
+        end
+        push!(rows, row)
+    end
+    pkeys = sort!(collect(setdiff(union(Set{Symbol}(), (keys(r) for r in rows)...), fixed)), by = string)
+    cols = [fixed; pkeys]
+    return DataFrame([c => Any[get(r, c, missing) for r in rows] for c in cols])
 end
