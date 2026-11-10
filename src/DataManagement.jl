@@ -337,7 +337,7 @@ first: `file`, `created` (from the file name), `size_mb`, `kind` (`:eulerian` / 
 `wall_time` (seconds the solver took, if recorded), `solver`, then one column per parameter (`missing` where a
 run doesn't have it; a parameter named like one of the columns before gets the column `param_<name>`, with more
 `param_` prefixes if that is a parameter, too). Only the
-lightweight metadata of each file is read. Files of format version 0 (without metadata) are not listed:
+lightweight entries of each file are read (for files of 0.4, the entries stored next to the data, their metadata). Files of format version 0 (without metadata) are not listed:
 [`upgrade_sim_data`](@ref) brings them up to date.
 """
 function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
@@ -347,17 +347,23 @@ function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
         row = Dict{Symbol, Any}(:file => basename(path), :size_mb => round(filesize(path) / 2^20, digits = 3))
         stamp = match(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d{3})_", basename(path))
         row[:created] = stamp === nothing ? missing : DateTime(stamp.captures[1], dateformat"yyyy-mm-dd_HH-MM-SS_sss")
-        jldopen(path, "r") do f
-            row[:kind] = haskey(f, "native") ? f["native"] : missing
-            row[:shape] = haskey(f, "shape") ? Tuple(f["shape"]) : missing
-            row[:format_version] = _format_version(f)
-            row[:stats] = haskey(f, "stat_keys") ? sort!(collect(Symbol, f["stat_keys"])) : missing
-            md = _file_metadata(f)
-            post = get(md, :postprocessed, nothing)
-            row[:postprocessed] = post isa AbstractDict && !isempty(post) ? join(sort!(string.(collect(keys(post)))), ", ") : missing
-            prov = get(md, :provenance, nothing)
-            row[:wall_time] = prov isa AbstractDict ? get(prov, :wall_time, missing) : missing
-            row[:solver] = prov isa AbstractDict ? get(prov, :solver, missing) : missing
+        try
+            jldopen(path, "r") do f
+                row[:kind] = haskey(f, "native") ? f["native"] : missing
+                row[:shape] = haskey(f, "shape") ? Tuple(f["shape"]) : missing
+                row[:format_version] = _format_version(f)
+                row[:stats] = haskey(f, "stat_keys") ? sort!(collect(Symbol, f["stat_keys"])) : missing
+                md = _file_metadata(f)
+                post = get(md, :postprocessed, nothing)
+                row[:postprocessed] = post isa AbstractDict && !isempty(post) ?
+                                      join(sort!(string.(collect(keys(post)))), ", ") : missing
+                prov = get(md, :provenance, nothing)
+                row[:wall_time] = prov isa AbstractDict ? get(prov, :wall_time, missing) : missing
+                row[:solver] = prov isa AbstractDict ? get(prov, :solver, missing) : missing
+            end
+        catch e   # (a file that can't be read leaves its columns `missing`, the table goes on)
+            e isa InterruptException && rethrow()
+            @warn "Could not read the metadata of $(basename(path))" exception = e
         end
         names = Set(Symbol(k) for k in keys(params))
         for (k, v) in params

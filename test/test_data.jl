@@ -368,6 +368,8 @@ end
         save_sim_data(sim_E; overwrite = true, metadata = Dict("raw" => 1, :conv_L => 2, :note => "kept"))
         @test load_sim_data(prefix; key = "raw").metadata[:note] == "kept" && load_sim_data(prefix)["raw"].metadata[:raw] == 1
         @test load_sim_data(prefix)["metadata"][:conv_L] == 2
+        PDEStudioCore.JLD2.jldopen(f -> (f["grp/a"] = 1), get_file_name(params_E), "a+")   # (a group of the user's)
+        @test load_sim_data(prefix)["grp/a"] == 1
         @test_throws SimFileNotFoundError load_sim_data("00000000000000000")
         @test_throws SimFileNotFoundError load_sim_data("2026-10")  # timestamps are not matched
     end
@@ -491,6 +493,19 @@ end
         @test length(upgrade_sim_data()[:upgraded]) == 2
         d3 = load_sim_data(p)
         @test d3.u == d.u && d3.metadata == d.metadata && load_sim_data(q).t == l.t
+        # an entry "metadata" of 0.4 (which didn't reserve the name) is one of the user's entries
+        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
+        JLD2.jldopen(f -> (f["metadata"] = "mine"), get_file_name(q), "a+")
+        @test load_sim_data(q).metadata == Dict(:metadata => "mine") && size(sim_data_table(), 1) == 2
+        @test length(run_all_simulations(SimulationConfig(q)).cached) == 1
+        # recording a post-processing writes such a file in the current layout first (no copies of its entries)
+        POST_CALLS[] = 0
+        size_p = filesize(get_file_name(p))
+        @test run_all_simulations(SimulationConfig(p; postprocess = :count_post)).postprocessing == Dict(:ran => 1)
+        @test JLD2.jldopen(PDEStudioCore._format_version, get_file_name(p), "r") == PDEStudioCore._FORMAT_VERSION
+        md_p = load_sim_data(p).metadata
+        @test md_p[:note] == "hello" && haskey(md_p[:postprocessed], :count_post) && POST_CALLS[] == 1
+        @test filesize(get_file_name(p)) < 2 * size_p
         @test JLD2.jldopen(f -> (PDEStudioCore._format_version(f), haskey(f, "note"), isempty(f["raw"].metadata)),
                            get_file_name(p), "r") == (PDEStudioCore._FORMAT_VERSION, false, true)
     end
@@ -556,6 +571,24 @@ end
         @test !haskey(back.stats, :iterations) && !(:iterations in PDEStudioCore._stored_stat_keys(get_file_name(m)))
         @test isempty(JLD2.jldopen(f -> f["raw"].metadata, get_file_name(m), "r"))   # (stored once, as "metadata")
         @test convert_to_lagrangian(back).metadata[:iterations] == 12   # (conversions carry it)
+        @test isempty(PDEStudioCore._without_metadata(back).metadata) && back.metadata[:iterations] == 12   # (what is stored)
+        # an entry removed from the metadata stays removed; a recomputed dataset keeps the pipeline's entries
+        prov_m = back.metadata[:provenance]
+        delete!(back.metadata, :converged)
+        save_sim_data(back; overwrite = true, verbose = false)
+        @test !haskey(load_sim_data(m).metadata, :converged)
+        save_sim_data(advection_solver_1d(m); overwrite = true, verbose = false)
+        @test load_sim_data(m).metadata == Dict(:provenance => prov_m)
+        # an entry written next to the data with JLD2 is kept, also with a metadata entry of the same name
+        JLD2.jldopen(f -> (f["provenance"] = "an entry"), get_file_name(m), "a+")
+        d_m = load_sim_data(m)
+        add_stat!(d_m, :extra, 1.0, Symbol[])
+        save_sim_data(d_m; overwrite = true, verbose = false)
+        @test JLD2.jldopen(f -> f["provenance"], get_file_name(m), "r") == "an entry" && load_sim_data(m).metadata[:provenance] == prov_m
+        # the pipeline's entries of the unreleased format 2 (String keys, records with their name)
+        v2 = PDEStudioCore._legacy_records!(Dict{Symbol, Any}(:provenance => Dict("solver" => "s"),
+                                                              :postprocessed => Dict("name" => "post", "sources" => String[])))
+        @test v2[:provenance] == Dict(:solver => "s") && v2[:postprocessed] == Dict(:post => Dict(:sources => String[]))
         # new data from a solver: its own metadata, the pipeline's entries replace those of the same name
         run_smart_simulation(advection_solver_1d, m; force_overwrite = true, metadata = Dict(:provenance => 1, :tag => "x"))
         md = load_sim_data(m).metadata

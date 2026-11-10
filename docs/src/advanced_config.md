@@ -70,7 +70,7 @@ config = SimulationConfig(shared, methods, [:upwind]; postprocess = :add_maximum
 
 ## 4. Source Files
 
-`sources` lists files that are included into the target module at the start of [`run_all_simulations`](@ref), so your solvers and reference functions are always defined and up to date (`load_sources = false` skips that, for a caller that includes them itself). For reproducibility, the SHA-256 digest of every source file is stored in each newly written data file (entry `"sources"`, mapping the absolute path to its digest).
+`sources` lists files that are included into the target module at the start of [`run_all_simulations`](@ref), so your solvers and reference functions are always defined and up to date (`load_sources = false` skips that, for a caller that includes them itself). For reproducibility, the SHA-256 digest of every source file is stored with each newly computed dataset (`data.metadata[:sources]`, mapping the absolute path to its digest).
 
 The digests are compared on later runs: a stored result made with other source code (other contents of the source files, or another version of the solver's package) is kept with a warning by default. `on_changed_sources = :recompute` runs these tasks again, `:ignore` keeps them silently. Every dataset written by this version also records its provenance in its metadata (`data.metadata[:provenance]`: versions, host, git commit, solver and wall time, see [Metadata](data.md#Metadata)).
 

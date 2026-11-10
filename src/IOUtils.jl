@@ -23,8 +23,6 @@ const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shap
                        "evaluated_stats", "format_version", "metadata")
 # Internal bookkeeping next to the data (not metadata of the dataset)
 const _BOOKKEEPING_KEYS = ("evaluated_with_reference",)
-# Entries of files written before the metadata field: read into the metadata, never carried over as entries
-const _LEGACY_METADATA_KEYS = ("sources", "provenance", "postprocessed")
 
 # The layout of the data files: 1 = PDEStudioCore 0.4 (no version entry), 2 = with "format_version" and the axes
 # ("dim_keys", "time_dim"; never released), 3 = datasets with the `metadata` field, stored as "metadata". Files
@@ -190,6 +188,21 @@ end
 # as the current types, without rewriting the file.
 _open_data(f, path::AbstractString) = jldopen(f, path, "r"; typemap = _dataset_typemap)
 
+# Every entry of an open file (or group), entries of groups as "group/entry" (like `JLD2.load`); datasets get `md`
+function _all_entries!(out::Dict{String, Any}, g, prefix::AbstractString, md::Dict{Symbol, Any})
+    for k in keys(g)
+        name = isempty(prefix) ? k : string(prefix, "/", k)
+        v = g[k]
+        if v isa JLD2.Group
+            _all_entries!(out, v, name, md)
+        else
+            v isa AbstractSimData && (v.metadata = md)   # (`metadata =` copies)
+            out[name] = v
+        end
+    end
+    return out
+end
+
 function _dataset_typemap(f, typepath::String, params)
     typepath == "PDEStudioCore.ESimData" && length(params) == 4 && return JLD2.Upgrade(ESimData{params...})
     typepath == "PDEStudioCore.LSimData" && length(params) == 4 && return JLD2.Upgrade(LSimData{params...})
@@ -219,10 +232,14 @@ function _update_entries!(path::AbstractString, entries::AbstractDict{String}; o
     tmp = _tmp_path(path)
     try
         cp(path, tmp)
-        jldopen(tmp, "a+") do file
-            for (k, v) in pending
-                haskey(file, k) && delete!(file, k)
-                file[k] = v
+        # (JLD2 reads the types stored in a file it opens to append, and warns about every dataset type of a file of an
+        # earlier version, which lacks the metadata field: harmless here, no dataset is read)
+        Base.CoreLogging.with_logger(Base.CoreLogging.NullLogger()) do
+            jldopen(tmp, "a+") do file
+                for (k, v) in pending
+                    haskey(file, k) && delete!(file, k)
+                    v isa AbstractSimData ? _write_dataset!(file, k, v) : (file[k] = v)   # (metadata: once, in "metadata")
+                end
             end
         end
         mv(tmp, path; force = true)
@@ -340,9 +357,11 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::A
             end
             if previous !== nothing && isfile(previous)
                 jldopen(previous, "r") do old
+                    legacy = _format_version(old) < 3   # (its entries next to the data were metadata: not carried)
                     for k in keys(old)
-                        (k in _MANAGED_KEYS || k in _LEGACY_METADATA_KEYS || startswith(k, "conv_") ||
-                         haskey(file, k) || haskey(md, Symbol(k))) && continue   # (the last: read into the metadata)
+                        (k in _MANAGED_KEYS || startswith(k, "conv_") ||
+                         haskey(file, k)) && continue
+                        legacy && !(k in _BOOKKEEPING_KEYS) && !(old[k] isa JLD2.Group) && continue
                         try
                             _copy_entry!(file, old, k)
                         catch e
@@ -363,16 +382,13 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::A
 end
 
 # Stores a dataset without its metadata (a file keeps that once, in "metadata"; `_load_key` puts it back)
-function _write_dataset!(file, key::AbstractString, data::AbstractSimData)
-    md = getfield(data, :metadata)
-    setfield!(data, :metadata, Dict{Symbol, Any}())
-    try
-        file[key] = data
-    finally
-        setfield!(data, :metadata, md)
-    end
-    return nothing
-end
+_write_dataset!(file, key::AbstractString, data::AbstractSimData) = (file[key] = _without_metadata(data); nothing)
+
+# The same dataset with empty metadata (shares the arrays; the caller's object is left as it is)
+_without_metadata(d::ESimData{D, DS, M, T}) where {D, DS, M, T} =
+    ESimData{D, DS, M, T}(getfield(d, :params), d.domain, d.axes, getfield(d, :u), _raw_stats(d))
+_without_metadata(d::LSimData{D, DS, M, T}) where {D, DS, M, T} =
+    LSimData{D, DS, M, T}(getfield(d, :params), d.domain, d.t, d.x, getfield(d, :u), _raw_stats(d))
 
 """
     save_sim_data(sim_data::AbstractSimData; overwrite = false, verbose = true, metadata = Dict())
@@ -381,9 +397,10 @@ Saves the dataset under the hash of its (normalised) parameters and returns the 
 An existing file is only replaced when `overwrite = true` (which also drops stale conversion caches).
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 The dataset's `metadata` field is saved with it; `metadata` entries given here are added to it first.
-New data gets a new provenance (`:provenance`) and loses the entries of the run that made the stored data
-(`:sources`, `:postprocessed`); saving the data stored for its parameters again (e.g. after [`add_stat!`](@ref))
-keeps the stored metadata (`:postprocessed` only if the data still has the stored statistics).
+The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources` or
+`:postprocessed` (the stored metadata is replaced); the data stored for its parameters saved again (e.g. after
+[`add_stat!`](@ref), or recomputed) takes the pipeline's entries of the stored metadata it doesn't have
+(`:postprocessed` only if the data still has the stored statistics). An entry removed from `metadata` stays removed.
 `sim_data.params` is replaced by its normalised form (see [`get_clean_params`](@ref)), as stored in the file.
 """
 function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbose::Bool = true,
@@ -408,7 +425,6 @@ function _new_or_same_data!(data::AbstractSimData, path)
     md = data.metadata
     if same
         _carry_metadata!(data, path)
-        issubset(_stored_stat_keys(path), keys(data.stats)) || delete!(md, :postprocessed)
     else
         md[:provenance] = _provenance()
         delete!(md, :sources)
@@ -417,22 +433,31 @@ function _new_or_same_data!(data::AbstractSimData, path)
     return data
 end
 
-# Takes the entries of the stored metadata the dataset doesn't have (the same data rewritten)
+# The same data rewritten (e.g. recomputed, or loaded and saved again): it takes the pipeline's entries of the
+# stored metadata it doesn't have (its own entries stay as they are: a removed entry stays removed), the
+# post-processing record only if the data still has the stored statistics (a recomputed dataset lacks what a
+# post-processor added)
+const _PIPELINE_METADATA = (:provenance, :sources, :postprocessed)
 function _carry_metadata!(data::AbstractSimData, path::AbstractString)
     md = data.metadata
-    for (k, v) in jldopen(_file_metadata, path, "r")
-        haskey(md, k) || (md[k] = v)
+    stored = jldopen(_file_metadata, path, "r")
+    for k in _PIPELINE_METADATA
+        haskey(md, k) || !haskey(stored, k) || (md[k] = stored[k])
     end
+    issubset(_stored_stat_keys(path), keys(data.stats)) || delete!(md, :postprocessed)
     return data
 end
 
 # The metadata of the data in an open file: its "metadata" entry, or, in files written before the metadata field,
 # the entries stored next to the data (0.4: "sources" and the `metadata` of `save_sim_data`)
 function _file_metadata(file)
-    haskey(file, "metadata") && return _metadata_dict(file["metadata"])
-    md = Dict{Symbol, Any}()
+    if _format_version(file) >= 3
+        v = file["metadata"]
+        return v isa AbstractDict ? _metadata_dict(v) : Dict{Symbol, Any}(:metadata => v)
+    end
+    md = Dict{Symbol, Any}()   # (also an entry "metadata" of 0.4: one of the user's entries)
     for k in keys(file)
-        (k in _MANAGED_KEYS || k in _BOOKKEEPING_KEYS || startswith(k, "conv_")) && continue
+        ((k in _MANAGED_KEYS && k != "metadata") || k in _BOOKKEEPING_KEYS || startswith(k, "conv_")) && continue
         try
             v = file[k]
             v isa JLD2.Group || (md[Symbol(k)] = v)
@@ -440,11 +465,28 @@ function _file_metadata(file)
             @debug "Entry '$k' is not read into the metadata" exception = e
         end
     end
+    return _legacy_records!(md)
+end
+
+# The pipeline's entries as files of the unreleased format version 2 stored them (String keys, a record with its
+# name), as this version keeps them
+function _legacy_records!(md::Dict{Symbol, Any})
+    prov = get(md, :provenance, nothing)
+    prov isa AbstractDict && (md[:provenance] = _metadata_dict(prov))
+    post = get(md, :postprocessed, nothing)
+    if post isa AbstractDict
+        haskey(post, "name") && (post = Dict(post["name"] => post))   # (one record)
+        md[:postprocessed] = Dict{Symbol, Any}(Symbol(n) => _metadata_dict(filter(p -> string(first(p)) != "name", r))
+                                               for (n, r) in post if r isa AbstractDict)
+    end
     return md
 end
 
 # Changes the stored metadata of a file without rewriting its data (`nothing` removes an entry)
 function _update_metadata!(path::AbstractString, changes::Pair...)
+    # (a file of an earlier version is written in the current layout first: its entries next to the data are metadata,
+    # and a "metadata" entry counts only in that layout)
+    jldopen(_format_version, path, "r") < 3 && _upgrade_file!(path)
     md = jldopen(_file_metadata, path, "r")
     for (k, v) in changes
         v === nothing ? delete!(md, k) : (md[k] = v)
@@ -679,9 +721,8 @@ function load_sim_data(hash_prefix::AbstractString; index::Int = 1, key::Union{N
     path = files[index]
     @info "Manual load: $(length(files)) matching file(s); loading index $index: $(basename(path))"
     key === nothing || return _load_key(path, String(key))
-    return _open_data(path) do file   # (every entry, the datasets with the metadata of the file)
-        md = _file_metadata(file)
-        Dict{String, Any}(k => (v = file[k]; v isa AbstractSimData && (v.metadata = copy(md)); v) for k in keys(file))
+    return _open_data(path) do file   # (every entry, groups as "group/entry"; the datasets with the file's metadata)
+        _all_entries!(Dict{String, Any}(), file, "", _file_metadata(file))
     end
 end
 

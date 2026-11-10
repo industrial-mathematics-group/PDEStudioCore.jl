@@ -70,7 +70,7 @@ The pipeline writes three entries itself (any value of the same name is replaced
 | `:sources` | SHA-256 digests of the source files of the run (pipeline runs with `sources`) |
 | `:postprocessed` | the post-processors that ran on this data (name => the digests of the source files and the package's version), so the pipeline doesn't run them again |
 
-New data gets a new provenance and loses `:sources` and `:postprocessed` of the data it replaces. Writing the same data again (statistics, post-processing, [`rehash_sim_data`](@ref), `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref)) keeps the stored metadata; `:postprocessed` only if the data still has the stored statistics (a recomputed dataset lacks what a post-processor added). Conversions carry the metadata of their source.
+The metadata saved is the dataset's own: new data replaces the stored metadata (with a new provenance, without `:sources` and `:postprocessed`), and an entry you remove from `data.metadata` stays removed when you save. Writing the same data again (statistics, post-processing, [`rehash_sim_data`](@ref), `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref), or a recomputed dataset) takes the pipeline's entries of the stored metadata it doesn't have; `:postprocessed` only if the data still has the stored statistics (a recomputed dataset lacks what a post-processor added). Conversions carry the metadata of their source. Metadata is read with every dataset, so keep it small (large results belong into statistics or files of their own).
 
 ## 2. The Statistics View
 
