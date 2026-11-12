@@ -360,3 +360,22 @@ mark_post = MarkPost()
     @test (md[:provenance][:solver], haskey(md[:postprocessed], :mark_post)) == ("ScaledSolver", true)
     @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
 end
+
+module ResolveSub
+sub_solver(params) = nothing
+end
+using .ResolveSub: sub_solver
+
+@testset "Name resolution: only the target module's own definitions" begin
+    @test PDEStudioCore.resolve_dynamic_function(:advection_solver_1d) isa Function   # defined in this module
+    @test PDEStudioCore.resolve_dynamic_function("advection_solver_1d") isa Function
+    @test PDEStudioCore.resolve_dynamic_function(:sub_solver) isa Function            # a submodule counts as own
+    for name in (:delete_sim_data, :rm, :run, :sin, :pi)   # imported here (PDEStudioCore, Base): refused
+        @test (@test_logs (:warn, r"imported names are not accepted") PDEStudioCore.resolve_dynamic_function(name)) === nothing
+    end
+    @test (@test_logs (:warn, r"Could not resolve") PDEStudioCore.resolve_dynamic_function(:no_such_function_xyz)) === nothing
+    # a configuration naming such a function does not run it
+    config = SimulationConfig(create_param_dict(:N => 8, :sim_func_name => :advection_solver_1d);
+                              reference = :delete_sim_data)
+    @test (@test_logs (:warn, r"imported names are not accepted") PDEStudioCore.resolve_dynamic_function(config.reference)) === nothing
+end

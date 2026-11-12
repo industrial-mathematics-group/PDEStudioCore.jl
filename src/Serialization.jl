@@ -6,13 +6,20 @@
     val2str(v; top_level::Bool = true)
 
 Converts a value into a Julia-literal-like string (the basis of the parameter hash).
-Top-level strings are written unquoted, strings inside containers are quoted, functions become
+Top-level strings are written unquoted (unless their text could be read as something else, see below),
+strings inside containers are quoted, functions become
 `"Closure"`, enum values are written as `TypeName.value` and custom structs as
 `TypeName(field=value, ...)`.
 """
+# A top-level string whose unquoted text would read as further `key => value` pairs in the hash text (pairs joined by
+# `, `, keys are identifiers): `Dict(:a => "x, b => 1")` would otherwise hash like `Dict(:a => "x", :b => 1)`; and
+# `"<empty>"`, which would read as `""`. Such strings are written quoted (`str2val` reads them back). Any other
+# text stays unquoted, so the hashes of stored parameters (descriptive strings of structs with commas, …) don't change.
+_ambiguous_text(s::AbstractString) = s == "<empty>" || occursin(r", [A-Za-z_]\w* => ", s)
+
 function val2str(v; top_level::Bool = true)
     if v isa AbstractString && isempty(v)
-        return "<empty>"
+        return top_level ? "<empty>" : "\"\""   # (`<empty>` inside a container is no literal: the container would not read back)
     elseif isa(v, Function)
         return "Closure"
     elseif isa(v, Val)
@@ -23,7 +30,7 @@ function val2str(v; top_level::Bool = true)
     elseif isa(v, Symbol)
         return repr(v)
     elseif isa(v, AbstractString)
-        return top_level ? String(v) : repr(v)
+        return top_level && !_ambiguous_text(v) ? String(v) : repr(String(v))
     elseif isa(v, AbstractChar)
         return repr(v)
     elseif isa(v, Number) || isa(v, Type)
@@ -329,6 +336,17 @@ function _too_nested(s::AbstractString)
     return false
 end
 
+# `base^exponent` of integers as a literal means it: a negative exponent gives a float (`10^-6 == 1.0e-6`, like
+# Julia's `literal_pow`; the runtime `^` throws a DomainError), and a result the base's type cannot hold is refused
+# instead of wrapping around (`10^19` is not `-8446744073709551616`).
+function _integer_power(base::Integer, exponent::Integer)
+    exponent < 0 && return float(base)^exponent
+    (base isa BigInt || base isa Bool) && return base^exponent
+    result = big(base)^exponent
+    typemin(typeof(base)) <= result <= typemax(typeof(base)) || throw(_NotALiteral())
+    return typeof(base)(result)
+end
+
 function _literal_call(f, values::Vector, depth::Int = 0)
     if f === :(=>) && length(values) == 2
         return values[1] => values[2]
@@ -347,7 +365,8 @@ function _literal_call(f, values::Vector, depth::Int = 0)
             bits = _exact_bits(values[1])
             bits > 0 && abs(values[2]) > _MAX_LITERAL_BITS / bits && throw(_NotALiteral())
         end
-        result = _LITERAL_FUNCTIONS[f](values...)
+        result = f === :^ && length(values) == 2 && values[1] isa Integer && values[2] isa Integer ?
+                 _integer_power(values[1], values[2]) : _LITERAL_FUNCTIONS[f](values...)
         # Ranges are capped where they are built (they are only literals on their own, see `_literal_parts`).
         f === :(:) && return _checked_range(result, values)
         return _checked_number(result)

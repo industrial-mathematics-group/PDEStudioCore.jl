@@ -210,9 +210,9 @@ out all-`NaN` (e.g. errors without a reference) are dropped. Statistics added wi
 [`add_stat!`](@ref) are kept unless the global registry has a statistic of the same name (see there).
 With `save = true` the dataset is saved when a registered statistic changed (values attached with
 [`add_stat!`](@ref) alone don't trigger a save: use [`save_sim_data`](@ref) with `overwrite = true`), unless the
-file for its parameters holds a different solution: a conversion, a resampled grid or a reference dataset shares
-the parameters (and hash) of the native run, so saving it would replace the native data. Then nothing is saved
-and a warning is logged. Like [`save_sim_data`](@ref), saving normalises `sim_data.params`.
+dataset is derived (a conversion, a resampled grid or a reference dataset; `data.metadata[:derived]`) or the
+file for its parameters holds a different solution: such a dataset shares the parameters (and hash) of the native
+run, so saving it would replace, or pass for, the native data. Then nothing is saved and a warning is logged. Like [`save_sim_data`](@ref), saving normalises `sim_data.params`.
 Returns `sim_data`.
 """
 calculate_all_stats!(sim_data::NoSimData, ref_func = nothing; kwargs...) = sim_data
@@ -233,7 +233,12 @@ function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwr
                 Base.invokelatest(generate_pointwise_reference, sim_data, ref_func)
         for name in pending
             result = Base.invokelatest(_calc_stat!, sim_data, u_ana, name)
-            result === nothing && continue
+            if result === nothing
+                # not defined for this kind of data (e.g. a profile over `x` on particles): a value left from another
+                # representation is stale
+                haskey(raw, name) && (delete!(raw, name); changed = true)
+                continue
+            end
             if is_all_nan(result)
                 haskey(raw, name) && (delete!(raw, name); changed = true)
             else
@@ -244,7 +249,13 @@ function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwr
     end
     if save
         path = _find_file(sim_data.params)
-        if path !== nothing && !known_native && !_is_native_representation(path, sim_data)
+        derived = get(sim_data.metadata, :derived, nothing)
+        if !known_native && derived !== nothing
+            # (also without a file: stored, it would pass for the solver's result and the run would be "cached")
+            @warn "Statistics were not saved: this is a $derived dataset (it shares the parameters of a native run " *
+                  "without being one). Pass `save = false` for derived datasets, or use " *
+                  "`save_sim_data(data; overwrite = true)` to store it as the data of these parameters."
+        elseif path !== nothing && !known_native && !_is_native_representation(path, sim_data)
             @warn "Statistics were not saved: the file for these parameters holds a different solution " *
                   "(a converted or reference dataset, or data changed after loading). Pass `save = false` for " *
                   "derived datasets, or use `save_sim_data(data; overwrite = true)` to replace the stored data."
