@@ -2,6 +2,12 @@
 # --- Parameter serialisation, safe parsing & hashing ---
 # ==============================================================================
 
+# A top-level string whose unquoted text would read as further `key => value` pairs in the hash text (pairs joined by
+# `, `, keys are identifiers): `Dict(:a => "x, b => 1")` would otherwise hash like `Dict(:a => "x", :b => 1)`; and
+# `"<empty>"`, which would read as `""`. Such strings are written quoted (`str2val` reads them back). Any other
+# text stays unquoted, so the hashes of stored parameters (descriptive strings of structs with commas, …) don't change.
+_ambiguous_text(s::AbstractString) = s == "<empty>" || occursin(r", [A-Za-z_]\w* => ", s)
+
 """
     val2str(v; top_level::Bool = true)
 
@@ -11,12 +17,6 @@ strings inside containers are quoted, functions become
 `"Closure"`, enum values are written as `TypeName.value` and custom structs as
 `TypeName(field=value, ...)`.
 """
-# A top-level string whose unquoted text would read as further `key => value` pairs in the hash text (pairs joined by
-# `, `, keys are identifiers): `Dict(:a => "x, b => 1")` would otherwise hash like `Dict(:a => "x", :b => 1)`; and
-# `"<empty>"`, which would read as `""`. Such strings are written quoted (`str2val` reads them back). Any other
-# text stays unquoted, so the hashes of stored parameters (descriptive strings of structs with commas, …) don't change.
-_ambiguous_text(s::AbstractString) = s == "<empty>" || occursin(r", [A-Za-z_]\w* => ", s)
-
 function val2str(v; top_level::Bool = true)
     if v isa AbstractString && isempty(v)
         return top_level ? "<empty>" : "\"\""   # (`<empty>` inside a container is no literal: the container would not read back)
