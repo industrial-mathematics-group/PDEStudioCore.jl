@@ -56,6 +56,10 @@ Reviewed-by = "blhackslash <dev@blackslash.win>"
 AI-Review = "A2"
 AI-Reviewed-by = "Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"
 
+# The file lists below stay until SIGNOFF.snapshot.json holds the levels they give: `aisignoff freeze` on main
+# after the next "Main dev" merge, then the lists are deleted. Their review levels are already the
+# attestations at the end of this file; generation, and reviews below the folder defaults, can't be attested.
+
 # Changed on claude/aidecl by Claude (this session and agents) to address the A2 reviews in reviews/ (and reviewed again there).
 # Human-Review: to be filled in by the responsible person (e.g. `aidecl annotate ... -H H1 --reviewed-by ...`).
 [[annotations]]
@@ -66,3 +70,38 @@ AI-Review = "A2"
 Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
 AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
 Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+
+# Reviews of whole files, as of the content that was checked (`aisignoff attest`): lines changed afterwards fall
+# back to the commit that changed them. Taken from the file lists above, with their Human-Review (H1 and up) and
+# AI-Review, for the content each file had at the commit that last set its list.
+[[attestations]]
+path = "src/DataManagement.jl"
+blob = "9364756034dd543e5a49b18a164761f445b09f3a"
+Human-Review = "H1"
+AI-Review = "A2"
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+
+[[attestations]]
+path = "src/IOUtils.jl"
+blob = "cb51b8cc4c95d8739719041a8286fe32dfc8b133"
+Human-Review = "H1"
+AI-Review = "A2"
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+
+[[attestations]]
+path = "src/Serialization.jl"
+blob = "7f5fd6e19fddc5c25ac981bb89eaed7669b92ff8"
+Human-Review = "H1"
+AI-Review = "A2"
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+
+[[attestations]]
+path = "src/Simulations.jl"
+blob = "10002293bc62984702dfe7d8d9d8f0fef88b2a22"
+Human-Review = "H1"
+AI-Review = "A2"
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
