@@ -415,6 +415,7 @@ The metadata saved is the dataset's: new data gets a new provenance (`:provenanc
 function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbose::Bool = true,
                        metadata::AbstractDict = Dict{Symbol, Any}())
     isempty(metadata) || merge!(sim_data.metadata, _metadata_dict(metadata))
+    delete!(sim_data.metadata, :derived)   # saved deliberately: it becomes the data of these parameters
     path = _find_file(sim_data.params)
     (path === nothing || overwrite) && _new_or_same_data!(sim_data, path)
     return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}())

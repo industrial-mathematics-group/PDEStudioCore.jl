@@ -86,6 +86,10 @@ Looks up the function called `name` (a `Symbol` or `String`) in the target modul
 (see [`set_target_module!`](@ref)), then among the solvers and references of the built-in examples
 ([`PDEStudioCore.Examples`](@ref)). A function passed as `provided` (or as `name`) is returned directly.
 Returns `nothing` (with a warning) if the name cannot be resolved.
+
+Only names the target module (or one of its submodules) defines itself are accepted: names it merely imports
+(exports of `Base`, of PDEStudioCore or of other packages) are not, so a configuration file cannot run e.g.
+`delete_sim_data` or `rm` as its reference or solver. Define a wrapper in the target module to use such a function.
 """
 function resolve_dynamic_function(name, provided::Union{Function, Nothing} = nothing)
     provided === nothing || return provided
@@ -98,8 +102,33 @@ function resolve_dynamic_function(name, provided::Union{Function, Nothing} = not
     # (e.g. by including source files) are found.
     f = Base.invokelatest(_lookup_global, mod, sym)
     f === nothing && (f = _lookup_global(Examples, sym))
-    f === nothing && @warn "Could not resolve function `$sym` in module $mod (did you call `set_target_module!`?)."
+    f === nothing && @warn "Could not resolve function `$sym` in module $mod: it must be defined in that module " *
+                           "(or a submodule), imported names are not accepted (did you call `set_target_module!`?)."
     return f
 end
 
-_lookup_global(mod::Module, sym::Symbol) = isdefined(mod, sym) ? getglobal(mod, sym) : nothing
+# The binding `sym` of `mod` if `mod` (or one of its submodules) created it. `isdefined` alone would also find every
+# imported binding, such as the exports of Base and of PDEStudioCore: a values-only configuration file (loaded
+# without a confirmation) could then name `delete_sim_data` as its reference and run it.
+function _lookup_global(mod::Module, sym::Symbol)
+    isdefined(mod, sym) || return nothing
+    owner = try
+        which(mod, sym)   # the module that created the binding
+    catch
+        return nothing
+    end
+    _is_submodule(owner, mod) || return nothing
+    return getglobal(mod, sym)
+end
+
+# `m` is `root` or (transitively) one of its submodules. Another top-level module (Base, Core, a loaded package) is
+# not part of `root`, although its parent is `Main` like that of a module defined in `Main`.
+function _is_submodule(m::Module, root::Module)
+    while true
+        m === root && return true
+        Base.is_root_module(m) && return false
+        parent = parentmodule(m)
+        parent === m && return false
+        m = parent
+    end
+end

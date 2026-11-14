@@ -104,3 +104,31 @@ end
                                            :tag => "", :values => [0.1, 0.2])) ==
           "c9f0432adf92ccfec508e15b196b623d2593d3e860ee967cf394686235934985"
 end
+
+@testset "Hash text: ambiguous top-level strings are quoted" begin
+    @test val2str("upwind") == "upwind" && val2str("a b") == "a b" && val2str("") == "<empty>"
+    for s in ("x, b => 1", "1, cfl => 0.5, N => 3", "<empty>")
+        @test val2str(s) == repr(s)
+        @test str2val(val2str(s)) == s
+        @test get_clean_params(Dict(:a => s))[:a] == s
+    end
+    # text that cannot be mistaken for pairs stays unquoted (the stored parameters keep their hashes)
+    for s in ("a => b", "say \"hi\"", " lead", "Cuboid((1, 2), (3, 4))", "Dict(1 => A, 2 => B)", "x, y")
+        @test val2str(s) == s
+    end
+    @test calculate_hash(Dict(:a => "x, b => 1")) != calculate_hash(Dict(:a => "x", :b => 1))
+    @test calculate_hash(Dict(:a => "<empty>")) != calculate_hash(Dict(:a => ""))
+    @test val2str(["x, y"]) == "String[\"x, y\"]"   # inside containers strings were always quoted
+    @test val2str(["", "x"]) == "String[\"\", \"x\"]" && str2val(val2str(["", "x"])) == ["", "x"]
+    @test val2str(("", 1)) == "(\"\", 1)" && str2val(val2str(("", 1))) == ("", 1)
+end
+
+@testset "Integer powers in str2val" begin
+    @test str2val("2^10") === 1024 && str2val("2^62") === 2^62
+    @test str2val("10^-6") === 1.0e-6 && str2val("2^-1") === 0.5      # like Julia's literal `2^-1`
+    @test str2val("10^19") isa String && str2val("2^63") isa String   # would wrap around: refused
+    @test str2val("(-2)^63") === typemin(Int)
+    @test str2val("Int8(2)^7") isa String && str2val("UInt8(2)^7") === UInt8(128)
+    @test str2val("BigInt(2)^100") == big(2)^100 && str2val("2.0^-3") === 0.125
+    @test str2val("1:10^6") == 1:10^6
+end
