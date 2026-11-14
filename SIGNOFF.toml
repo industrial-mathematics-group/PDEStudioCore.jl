@@ -1,7 +1,15 @@
-# AI declarations of the files, checked by aisignoff (migrated from aidecl and from format version 1).
+# AI declarations, checked by aisignoff: file-level annotations below, line-level declarations from [history].
 # Scheme: https://github.com/industrial-mathematics-group/.github/blob/main/.github/CONTRIBUTING.md#ai-assisted-contributions
 version = 3
 exclude = ["reviews/**"]   # committed AI reviews (CONTRIBUTING.md) need no declaration
+
+# Line by line: the commit that landed a line on main declares it. For a pull request into main that is its
+# merge commit, whose message is the PR description with the ticked AI declaration of the template; main_dev
+# lands through the "Main dev" pull requests on GitHub. Lines whose commit declares nothing keep the
+# file-level declarations of the annotations below.
+[history]
+default-branch = "main"
+merge-method = "merge"
 
 [[annotations]]
 path = "**"
@@ -48,65 +56,52 @@ Reviewed-by = "blhackslash <dev@blackslash.win>"
 AI-Review = "A2"
 AI-Reviewed-by = "Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"
 
+# The file lists below stay until SIGNOFF.snapshot.json holds the levels they give: `aisignoff freeze` on main
+# after the next "Main dev" merge, then the lists are deleted. Their review levels are already the
+# attestations at the end of this file; generation, and reviews below the folder defaults, can't be attested.
+
 # Changed on claude/aidecl by Claude (this session and agents) to address the A2 reviews in reviews/ (and reviewed again there).
 # Human-Review: to be filled in by the responsible person (e.g. `aidecl annotate ... -H H1 --reviewed-by ...`).
 [[annotations]]
-path = ["README.md", "docs/src/advanced_config.md", "docs/src/data.md", "docs/src/index.md", "docs/src/statistics.md", "presets/hyperbolic.jl", "src/Config.jl", "src/Examples/advection_1d.jl", "src/IOUtils.jl", "src/Serialization.jl", "src/Simulations.jl", "src/StatCalculation.jl", "test/test_data.jl", "test/test_examples.jl", "test/test_pipeline.jl", "test/test_serialization.jl", "test/test_statistics.jl"]
+path = ["src/Constructor.jl", "src/DataManagement.jl", "src/IOUtils.jl", "src/Serialization.jl", "src/Simulations.jl"]
 AI-Generation = "G3"
-Human-Review = "H0"
-AI-Review = "A2"
-Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
-AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
-Reviewed-by = ["blhackslash <dev@blackslash.win>"]
-
-# Changed on claude/review-minors by Claude (open minor findings of reviews/2cef67f.md, reviews/dfdcbac.md and the
-# stored-data accessor PDEStudio asked for in its reviews/03e98ab.md, `load_sources` for its bundled sources;
-# reviewed in reviews/).
-[[annotations]]
-path = ["docs/src/advanced_config.md", "docs/src/data.md", "src/DataManagement.jl", "src/IOUtils.jl", "src/PDEStudioCore.jl", "src/Simulations.jl", "test/test_data.jl", "test/test_pipeline.jl"]
-AI-Generation = "G3"
-Human-Review = "H0"
-AI-Review = "A2"
-Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
-AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
-Reviewed-by = ["blhackslash <dev@blackslash.win>"]
-
-# Changed on claude/str2val-whitelist by Claude (the allowlist parser for str2val; reviewed in reviews/).
-[[annotations]]
-path = ["docs/src/data.md", "src/Serialization.jl", "test/reference_str2val.jl", "test/runtests.jl", "test/test_roundtrip.jl", "test/test_str2val_differential.jl"]
-AI-Generation = "G3"
-Human-Review = "H0"
-AI-Review = "A2"
-Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
-AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
-Reviewed-by = ["blhackslash <dev@blackslash.win>"]
-
-[[annotations]]
-path = [".github/workflows/file-signoff.yml", ".github/workflows/pr-signoff.yml", ".github/workflows/signoff-badges.yml"]
-AI-Generation = "G3"
-Assisted-by = "Claude Opus 5.5 (Anthropic)"
-AI-Review = "A1"
-AI-Reviewed-by = "Claude Opus 5.5 (Anthropic), same session"
 Human-Review = "H1"
-Reviewed-by = "blhackslash <dev@blackslash.win>"
-
-# Changed on claude/release-robustness by Claude (release QoL/robustness: directory index, file format version,
-# provenance, post-processing record, changed-source check, RunSummary + dry run, tidy/table/upgrade; reviewed in
-# reviews/).
-[[annotations]]
-path = ["docs/src/advanced_config.md", "docs/src/data.md", "docs/src/index.md", "src/DataManagement.jl", "src/IOUtils.jl", "src/PDEStudioCore.jl", "src/Simulations.jl", "test/test_data.jl", "test/test_examples.jl", "test/test_pipeline.jl"]
-AI-Generation = "G3"
-Human-Review = "H0"
 AI-Review = "A2"
 Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
 AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
 
-# Changed on claude/release-robustness by Claude (the `metadata` field of the datasets, replacing the reserved file
-# entries; files of earlier versions read through a JLD2 upgrade; reviewed in reviews/).
-[[annotations]]
-path = [".gitignore", "docs/src/advanced_config.md", "docs/src/data.md", "src/Constructors.jl", "src/ConversionUtils.jl", "src/DataManagement.jl", "src/IOUtils.jl", "src/SimData.jl", "src/Simulations.jl", "src/StatCalculation.jl", "test/fixtures/v0.4/write_fixtures.jl", "test/test_data.jl", "test/test_pipeline.jl"]
-AI-Generation = "G3"
-Human-Review = "H0"
+# Reviews of whole files, as of the content that was checked (`aisignoff attest`): lines changed afterwards fall
+# back to the commit that changed them. Taken from the file lists above, with their Human-Review (H1 and up) and
+# AI-Review, for the content each file had at the commit that last set its list.
+[[attestations]]
+path = "src/DataManagement.jl"
+blob = "9364756034dd543e5a49b18a164761f445b09f3a"
+Human-Review = "H1"
 AI-Review = "A2"
-Assisted-by = ["Claude (Anthropic), claude-opus-5-5"]
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+
+[[attestations]]
+path = "src/IOUtils.jl"
+blob = "cb51b8cc4c95d8739719041a8286fe32dfc8b133"
+Human-Review = "H1"
+AI-Review = "A2"
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+
+[[attestations]]
+path = "src/Serialization.jl"
+blob = "7f5fd6e19fddc5c25ac981bb89eaed7669b92ff8"
+Human-Review = "H1"
+AI-Review = "A2"
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
+AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
+
+[[attestations]]
+path = "src/Simulations.jl"
+blob = "10002293bc62984702dfe7d8d9d8f0fef88b2a22"
+Human-Review = "H1"
+AI-Review = "A2"
+Reviewed-by = ["blhackslash <dev@blackslash.win>"]
 AI-Reviewed-by = ["Claude Opus 5.5 (Anthropic), new sessions without the generating conversation (reviews/)"]
