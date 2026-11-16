@@ -8,7 +8,7 @@ authors:
 title: "PDEStudioCore.jl: High-Performance Numerical Backend for PDE Simulations"
 version: 0.5.0
 date-released: 2026-11-10
-url: "https://github.com/blhackslash/PDEStudioCore.jl"
+url: "https://github.com/industrial-mathematics-group/PDEStudioCore.jl"
 identifiers:
   - type: doi
     value: 10.5281/zenodo.22893504
