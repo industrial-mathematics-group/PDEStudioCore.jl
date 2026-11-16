@@ -1,5 +1,5 @@
-# Round trips of everything val2str writes, plus the range literals that must stay accepted (adopted from the
-# A2 review probe reviews/8fe6120/probe_roundtrip.jl).
+# Round trips of everything val2str writes, plus the range literals that must stay accepted (adopted from a
+# probe written during an AI review).
 
 @enum RTColor RT_red RT_blue
 struct RTStruct; a::Int; b::Float64; end
