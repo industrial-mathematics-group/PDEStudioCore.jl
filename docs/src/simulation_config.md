@@ -6,7 +6,7 @@
 
 ## Step 1: Setting the Target Module
 
-PDEStudioCore is a serialised, headless backend: functions are referenced by **name** (a `Symbol` or `String`), never as closures, so that every run is fully described by plain data. First, tell the backend in which module these names are looked up (usually `Main` or your own module):
+PDEStudioCore is a serialised, headless backend: functions are referenced by **name** (a `Symbol` or `String`), never as closures, so that every run is fully described by plain data. First, tell the backend in which module these names are looked up (usually `Main` or your own module). Only functions *defined* in that module (or a submodule of it) are found: a name the module merely imports, such as an export of `Base` or of another package, is refused, so a configuration file cannot name `rm` or `delete_sim_data` as a solver; wrap such a function in your own if you need it.
 
 ```julia
 using PDEStudioCore

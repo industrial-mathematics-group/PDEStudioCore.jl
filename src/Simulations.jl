@@ -593,7 +593,8 @@ function _reference_eulerian(ref_func, params, domain::DomainInfo{D, T}, axes::N
         u[I] = _as_svector(ref_func(SVector{D, T}(ntuple(d -> axes[d][I[d]], Val(D)))), Val(M), T)
     end
     ref_domain = _copy_domain(domain; spacing = _grid_spacing(axes, T))
-    return ESimData{D, _nspace(domain), M, T}(params, ref_domain, axes, u)
+    return ESimData{D, _nspace(domain), M, T}(params, ref_domain, axes, u, StatDict{M, T}(),
+                                              _derived_metadata(Dict{Symbol, Any}(), :reference))
 end
 
 function generate_reference_simdata(ref_func, params::AbstractDict, template_domain::DomainInfo{D, T}, res::Tuple,
@@ -619,5 +620,6 @@ function _reference_particles(ref_func, params, domain::DomainInfo{D, T}, points
         tv = t_vec[n]
         u[n] = [_as_svector(ref_func(D > DS ? SVector{D, T}(p..., tv) : SVector{D, T}(p...)), Val(M), T) for p in points]
     end
-    return LSimData{D, DS, M, T}(params, domain, t_vec, fill(points, nt), u)
+    return LSimData{D, DS, M, T}(params, domain, t_vec, fill(points, nt), u, StatDict{M, T}(),
+                                 _derived_metadata(Dict{Symbol, Any}(), :reference))
 end

@@ -41,6 +41,14 @@ end
 # Metadata is stored with Symbol keys (a copy: datasets never share it)
 _metadata_dict(metadata::AbstractDict) = Dict{Symbol, Any}(Symbol(k) => v for (k, v) in metadata)
 
+# The metadata of a dataset derived from `metadata`'s dataset (a conversion, a resampled grid, a reference
+# solution): marked as such, so `calculate_all_stats!` does not store it as the native run of its parameters.
+function _derived_metadata(metadata::AbstractDict, kind::Symbol)
+    md = Dict{Symbol, Any}(metadata)
+    md[:derived] = kind
+    return md
+end
+
 # Derived statistics are stored without `:Solution`, which always lives in the `u` field.
 function _derived_stats(::Type{SD}, stats::AbstractDict) where {SD <: AbstractDict}
     out = SD()

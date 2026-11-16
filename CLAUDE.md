@@ -46,7 +46,10 @@ runs, and each solver shows what its docstring claims (stability limits, order, 
   that way for every new writer.
 - **Name resolution.** Solvers, references and post-processing functions are referenced
   by name and resolved in the module set with `set_target_module!` (default `Main`;
-  HyperCloud sets itself). Don't replace that with function objects in stored configs.
+  HyperCloud sets itself). Only names that module (or a submodule) defines itself resolve;
+  imported bindings (`Base`, PDEStudioCore, other packages) are refused on purpose, because
+  configuration files name these functions. Don't replace that with function objects in
+  stored configs, and don't widen the lookup.
 - **Stat names and presets** (`:l1error`, `:mass`, … in `presets/hyperbolic.jl`) are used
   downstream (HyperCloud, HyperCloudCore tests, PDEStudio); don't rename them.
 - `data.stats[:Solution]` is always the solution itself.

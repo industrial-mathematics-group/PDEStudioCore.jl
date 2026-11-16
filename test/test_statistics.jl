@@ -118,3 +118,38 @@ end
     @test emptied.stats[:wave_height][1] == SVector(2.0) && isnan(emptied.stats[:wave_height][2][1])
     @test emptied.stats[:mass][2] == SVector(0.0)
 end
+
+@testset "Derived datasets are never stored as the native run" begin
+    params = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :advection_solver_1d,
+                               :derived_test => true)
+    @test !does_sim_data_exist(params)
+    native = advection_solver_1d(params)
+    exact = x -> SVector(sin(x[1] - x[2]) + 2.0)
+    ref = generate_reference_simdata(exact, params, native.domain, (12, 5), :eulerian)
+    @test ref.metadata[:derived] === :reference
+    @test_logs (:warn, r"not saved") match_mode = :any calculate_all_stats!(ref, exact)
+    @test !does_sim_data_exist(params)              # the next run would have loaded the exact solution as its result
+    ref_l = generate_reference_simdata(exact, params, native.domain, (12, 5), :lagrangian)
+    @test ref_l.metadata[:derived] === :reference
+    conv = convert_to_lagrangian(native)
+    @test conv.metadata[:derived] === :conversion && !haskey(native.metadata, :derived)
+    @test_logs (:warn, r"not saved") match_mode = :any calculate_all_stats!(conv)
+    @test !does_sim_data_exist(params)
+    # saving deliberately makes it the data of these parameters
+    save_sim_data(ref; verbose = false)
+    @test does_sim_data_exist(params) && !haskey(ref.metadata, :derived)
+    @test !haskey(load_sim_data(params).metadata, :derived)
+    delete_sim_data(Dict(:derived_test => true))
+end
+
+@testset "Stale statistics of another representation are dropped" begin
+    params = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :advection_solver_1d,
+                               :stale_test => true)
+    native = advection_solver_1d(params)
+    conv = convert_to_lagrangian(native)
+    register_stat!(:stale_profile, :x)       # a profile over x: not defined for particles
+    conv.stats[:stale_profile] = [SVector(1.0)]
+    calculate_all_stats!(conv; force_overwrite = true, save = false)
+    @test !haskey(conv.stats, :stale_profile)
+    delete_stat!(:stale_profile)
+end

@@ -166,7 +166,7 @@ function convert_to_eulerian(ldata::LSimData{D, DS, M, T}, res::Tuple; spatial_i
         e_spacing = SVector{D, T}(Tuple(s_dx))
     end
     return ESimData{D, DS, M, T}(ldata.params, _copy_domain(domain; spacing = e_spacing), e_axes, u_out, e_stats,
-                                 ldata.metadata)
+                                 _derived_metadata(ldata.metadata, :conversion))
 end
 
 # ------------------------------------------------------------------------------
@@ -245,7 +245,7 @@ function resample_eulerian(data::ESimData{D, DS, M, T}, res::Tuple) where {D, DS
     new_spacing = SVector{D, T}(ntuple(d -> res_[d] > 1 ?
         (last(new_axes[d]) - first(new_axes[d])) / T(res_[d] - 1) : one(T), Val(D)))
     return ESimData{D, DS, M, T}(data.params, _copy_domain(data.domain; spacing = new_spacing), new_axes, new_u, new_stats,
-                                 data.metadata)
+                                 _derived_metadata(data.metadata, :conversion))
 end
 
 # ------------------------------------------------------------------------------
@@ -286,5 +286,5 @@ function convert_to_lagrangian(data::ESimData{D, DS, M, T}) where {D, DS, M, T}
             new_stats[key] = deepcopy(value)
         end
     end
-    return LSimData{D, DS, M, T}(data.params, l_domain, t_vec, new_x, new_u, new_stats, data.metadata)
+    return LSimData{D, DS, M, T}(data.params, l_domain, t_vec, new_x, new_u, new_stats, _derived_metadata(data.metadata, :conversion))
 end
