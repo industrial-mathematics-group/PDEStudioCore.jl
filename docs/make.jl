@@ -21,6 +21,7 @@ makedocs(
         "Statistics" => "statistics.md",
         "Examples" => "examples.md",
         "API Reference" => "api.md",
+        "AI Signoff Report" => "aisignoff.md",
     ],
 )
 
