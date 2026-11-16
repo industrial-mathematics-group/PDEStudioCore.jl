@@ -13,6 +13,7 @@ julia --project -e 'using Pkg; Pkg.test()'                 # full suite
 julia --project=test -e 'using Pkg; Pkg.instantiate()'      # once
 julia -t 8 --project=test test/runtests.jl                  # same suite, faster to iterate
 julia --project=docs docs/make.jl                           # docs (instantiate docs env first)
+pipx run --spec aisignoff==1.0.0rc8 aisignoff report --html docs/src/assets/aisignoff.html --with-source  # optional, before make.jl: the AI Signoff Report page (CI does it)
 ```
 
 The built-in examples (`src/Examples/`, exported as `test_*`) are tested in `test/test_examples.jl`: each config
