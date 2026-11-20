@@ -442,6 +442,8 @@ _counts_text(c, dry) = join(("$(v) $(k === :ran && dry ? "would run" : string(k)
 _param_text(p) = join(("$k = $(val2str(v))" for (k, v) in sort!(collect(p), by = x -> string(first(x)))
                        if k !== :sim_func_name), ", ")
 
+const _CHANGED_WARNED = Set{UInt}()   # (stored results of other source code warned about in this session)
+
 """
     run_all_simulations(config::SimulationConfig; force_overwrite = false, calculate_stats = false,
                         force_stats = false, post_process = true, force_postprocess = false, parallel = false,
@@ -473,8 +475,6 @@ included): the summary lists what would run, and its `files` the data files the 
 already (`nothing` for those that would be computed), e.g. to copy them together with the configuration.
 Failures of individual tasks are logged, listed in the summary and do not abort the batch.
 """
-const _CHANGED_WARNED = Set{UInt}()   # (stored results of other source code warned about in this session)
-
 function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = false, calculate_stats::Bool = false,
                              force_stats::Bool = false, post_process::Bool = true, force_postprocess::Bool = false,
                              parallel::Bool = false, load_sources::Bool = true, on_changed_sources::Symbol = :warn,
