@@ -335,10 +335,17 @@ end
     big = config(ns = [5, 6, 7])
     s = run_all_simulations(big; dry_run = true)
     @test length(s.ran) == 1 && s.ran[1][:n] == 7 && length(s.cached) == 2
+    # (its files: the stored data the configuration needs, `nothing` for what would be computed)
+    @test length(s.files) == 3 && count(!isnothing, s.files) == 2
+    @test s.files[findfirst(t -> t[:n] == 7, s.tasks)] === nothing
+    @test all(i -> isnothing(s.files[i]) || s.files[i] == get_file_name(s.tasks[i]), eachindex(s.tasks))
+    @test occursin("stored: 2 of 3 result(s)", repr("text/plain", s))
     @test s.postprocessing == Dict(:ran => 1, :skipped => 2)
     @test !does_sim_data_exist(s.ran[1]) && POST_CALLS[] == 10
     # (the new task's data: it ran with the new sources)
-    @test length(run_all_simulations(big).ran) == 1 && POST_CALLS[] == 11
+    s = run_all_simulations(big)
+    @test length(s.ran) == 1 && POST_CALLS[] == 11
+    @test s.files == [get_file_name(t) for t in s.tasks]   # (after a run: the files of all results)
 end
 
 # Callable objects as solver and post-processor (resolved by name like functions)
