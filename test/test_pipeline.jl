@@ -303,7 +303,8 @@ end
     @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 2) && POST_CALLS[] == 6
     @test sort(collect(keys(load_sim_data(generate_tasks(cfg)[1]).metadata[:postprocessed]))) == [:count_post, :keep_post]
 
-    # other source code: the stored results are kept with a warning (every run, until recomputed) ...
+    # other source code: the stored results are kept with a warning (once per session; the summary lists them on
+    # every run, until recomputed) ...
     write(src, solver_code * "# changed\n")
     s = @test_logs (:warn, r"2 stored result\(s\) were made with other source code") (:warn, r"2 dataset\(s\) were post-processed by another version of count_post") match_mode = :any run_all_simulations(cfg)
     @test length(s.changed) == 2 && length(s.cached) == 2 && isempty(s.ran)
@@ -311,9 +312,9 @@ end
     # (the post-processor may have changed with the sources: it isn't applied again to data it processed ...)
     @test s.postprocessing == Dict(:outdated => 2) && POST_CALLS[] == 6
     # (... unless forced)
-    s = @test_logs (:warn, r"other source code") match_mode = :any run_all_simulations(cfg; force_postprocess = true)
-    @test s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 8
-    s = @test_logs (:warn, r"other source code") match_mode = :any run_all_simulations(cfg)
+    s = @test_logs min_level = Base.CoreLogging.Warn run_all_simulations(cfg; force_postprocess = true)   # (warned before)
+    @test s.postprocessing == Dict(:ran => 2) && POST_CALLS[] == 8 && length(s.changed) == 2
+    s = @test_logs min_level = Base.CoreLogging.Warn run_all_simulations(cfg)
     @test length(s.changed) == 2 && s.postprocessing == Dict(:skipped => 2)
     # ... silently with :ignore (also for the post-processor: its record counts without the sources) ...
     write(src, solver_code * "# changed again\n")
@@ -335,10 +336,17 @@ end
     big = config(ns = [5, 6, 7])
     s = run_all_simulations(big; dry_run = true)
     @test length(s.ran) == 1 && s.ran[1][:n] == 7 && length(s.cached) == 2
+    # (its files: the stored data the configuration needs, `nothing` for what would be computed)
+    @test length(s.files) == 3 && count(!isnothing, s.files) == 2
+    @test s.files[findfirst(t -> t[:n] == 7, s.tasks)] === nothing
+    @test all(i -> isnothing(s.files[i]) || s.files[i] == get_file_name(s.tasks[i]), eachindex(s.tasks))
+    @test occursin("stored: 2 of 3 result(s)", repr("text/plain", s))
     @test s.postprocessing == Dict(:ran => 1, :skipped => 2)
     @test !does_sim_data_exist(s.ran[1]) && POST_CALLS[] == 10
     # (the new task's data: it ran with the new sources)
-    @test length(run_all_simulations(big).ran) == 1 && POST_CALLS[] == 11
+    s = run_all_simulations(big)
+    @test length(s.ran) == 1 && POST_CALLS[] == 11
+    @test s.files == [get_file_name(t) for t in s.tasks]   # (after a run: the files of all results)
 end
 
 # Callable objects as solver and post-processor (resolved by name like functions)

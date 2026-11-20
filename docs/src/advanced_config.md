@@ -95,16 +95,30 @@ run_all_simulations(config;
 )
 ```
 
-It returns a [`RunSummary`](@ref): the tasks that ran, were cached, produced nothing or failed (with the error message), the results made with other source code, and the outcome counts of the statistics and post-processing passes. It prints as a short report:
+It returns a [`RunSummary`](@ref): the tasks that ran, were cached, produced nothing or failed (with the error message), the results made with other source code, the outcome counts of the statistics and post-processing passes, and the data file of every task (`files`). It prints as a short report:
 
 ```text
 RunSummary: 12 task(s) in 41.3 s: 2 ran, 9 cached, 1 failed
+  stored: 11 of 12 result(s) (files)
   statistics: 2 ran, 10 cached
   post-processing: 2 ran, 10 skipped
   failed: N = 400, scheme = weno: DomainError with -0.1: …
 ```
 
-With `dry_run = true` no solver, statistic or post-processor runs and nothing is written (the `sources` are still included); the summary lists what would run.
+With `dry_run = true` no solver, statistic or post-processor runs and nothing is written (the `sources` are still included); the summary lists what would run, and its `files` the data the configuration needs that is stored already (`nothing` for what would be computed). That makes it easy to work on a copy, e.g. on shared data that must not change:
+
+```julia
+s = run_all_simulations(config; dry_run = true)
+work = mktempdir()                         # or a folder of your own
+mkpath(joinpath(work, "data"))
+for f in filter(!isnothing, s.files)       # the stored results (the file names keep their hashes)
+    cp(f, joinpath(work, "data", basename(f)))
+end
+set_save_path!(work)                       # the copies are found under the same parameters
+run_all_simulations(config; calculate_stats = true)   # computes only what is missing, into the copies
+```
+
+The configuration's code (`config.sources`, the post-processor and custom statistics) belongs with it; see [Source Files](#4.-Source-Files).
 
 - Existing data is never recomputed unless `force_overwrite = true`; statistics are only evaluated for datasets that miss them (or whose kept dimensions changed, or that were evaluated without a reference that is now configured). `force_stats = true` recomputes the statistics only.
 - A failing solver, statistic or post-processing step is logged with its parameters, listed in the summary, and the batch continues.

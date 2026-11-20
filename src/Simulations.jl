@@ -394,6 +394,9 @@ What [`run_all_simulations`](@ref) did (or, with `dry_run = true`, would do), sh
 - `stats`, `postprocessing`: counts per outcome (`:ran`, `:cached` / `:skipped`, `:outdated` (post-processed by
   another version of the post-processor, see [`run_all_simulations`](@ref)), `:failed`, `:missing`), and
   `stats_failed`, `postprocessing_failed` (`params => error message`);
+- `files`: the data file of each task (in the order of `tasks`), `nothing` where nothing usable is stored. After a
+  run, the files holding the results; after a dry run, the files stored now, i.e. the data the configuration needs
+  that is there already (e.g. to copy it with its configuration: `filter(!isnothing, s.files)`);
 - `elapsed`: seconds; `dry_run`: whether nothing was run.
 """
 Base.@kwdef struct RunSummary
@@ -409,6 +412,7 @@ Base.@kwdef struct RunSummary
     postprocessing::Dict{Symbol, Int} = Dict{Symbol, Int}()
     postprocessing_failed::Vector{Pair{ParamDict, String}} = Pair{ParamDict, String}[]
     elapsed::Float64 = 0.0
+    files::Vector{Union{Nothing, String}} = Union{Nothing, String}[]
 end
 
 function Base.show(io::IO, ::MIME"text/plain", s::RunSummary)
@@ -416,6 +420,8 @@ function Base.show(io::IO, ::MIME"text/plain", s::RunSummary)
     println(io, "RunSummary", s.dry_run ? " (dry run)" : "", ": ", length(s.tasks), " task(s) in ",
             round(s.elapsed, digits = 2), " s: ", length(s.ran), " ", verb, ", ", length(s.cached), " cached",
             isempty(s.empty) ? "" : ", $(length(s.empty)) without output", isempty(s.failed) ? "" : ", $(length(s.failed)) failed")
+    isempty(s.tasks) || length(s.files) != length(s.tasks) ||
+        println(io, "  stored: ", count(!isnothing, s.files), " of ", length(s.tasks), " result(s) (files)")
     isempty(s.changed) || println(io, "  changed code: ", length(s.changed), " stored result(s) made with other source ",
                                   "code (see on_changed_sources)")
     isempty(s.stats) || println(io, "  statistics: ", _counts_text(s.stats, s.dry_run))
@@ -436,6 +442,8 @@ _counts_text(c, dry) = join(("$(v) $(k === :ran && dry ? "would run" : string(k)
 _param_text(p) = join(("$k = $(val2str(v))" for (k, v) in sort!(collect(p), by = x -> string(first(x)))
                        if k !== :sim_func_name), ", ")
 
+const _CHANGED_WARNED = Set{UInt}()   # (stored results of other source code warned about in this session)
+
 """
     run_all_simulations(config::SimulationConfig; force_overwrite = false, calculate_stats = false,
                         force_stats = false, post_process = true, force_postprocess = false, parallel = false,
@@ -448,7 +456,8 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
 1. runs every task of [`generate_tasks`](@ref) whose data is not on disk yet (all of them with
    `force_overwrite`), in parallel over Julia threads with `parallel = true`. Stored results made with other source
    code (other contents of the source files, or another version of the solver's package) are handled by
-   `on_changed_sources`: `:warn` keeps them and warns, `:recompute` runs them again, `:ignore` keeps them silently,
+   `on_changed_sources`: `:warn` keeps them and warns (once per session for the same results and code; the summary
+   lists them on every run), `:recompute` runs them again, `:ignore` keeps them silently,
 2. with `calculate_stats = true`, evaluates missing statistics using the reference factory
    `config.reference` (`params -> (x -> u_exact)`); statistics that were dropped earlier for lack of
    a reference are evaluated again once a reference is configured. `force_stats = true` recomputes
@@ -462,7 +471,8 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
    already, so a post-processor should be idempotent (files of earlier versions have no record: the first run
    post-processes them).
 With `dry_run = true` no solver, statistic or post-processor runs and nothing is written (the `sources` are still
-included): the summary lists what would run.
+included): the summary lists what would run, and its `files` the data files the configuration needs that are stored
+already (`nothing` for those that would be computed), e.g. to copy them together with the configuration.
 Failures of individual tasks are logged, listed in the summary and do not abort the batch.
 """
 function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = false, calculate_stats::Bool = false,
@@ -508,9 +518,16 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
     @info "Pass 1 finished: $(length(ran)) $(dry_run ? "would run" : "run"), $(length(cached)) cached, " *
           "$(length(empty_)) without output, $(length(failed)) failed."
     if !isempty(changed) && on_changed_sources === :warn
-        @warn "$(length(changed)) stored result(s) were made with other source code (other contents of the source " *
-              "files, or another version of the solver's package) and are kept. run_all_simulations(…; " *
-              "on_changed_sources = :recompute) recomputes them, :ignore silences this."
+        # (once per session for the same results and code: the summary lists them on every run)
+        key = hash((sort!([_param_hash(p) for p in changed]), get(metadata, "sources", nothing)))
+        if key in _CHANGED_WARNED
+            @debug "$(length(changed)) stored result(s) of other source code kept (warned before)."
+        else
+            push!(_CHANGED_WARNED, key)
+            @warn "$(length(changed)) stored result(s) were made with other source code (other contents of the source " *
+                  "files, or another version of the solver's package) and are kept. run_all_simulations(…; " *
+                  "on_changed_sources = :recompute) recomputes them, :ignore silences this (said once per session)."
+        end
     end
 
     # --- Pass 2: statistics ---
@@ -554,9 +571,17 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
 
     summary = RunSummary(dry_run = dry_run, tasks = tasks, ran = ran, cached = cached, empty = empty_, failed = failed,
                          changed = changed, stats = stats, stats_failed = stats_failed, postprocessing = post,
-                         postprocessing_failed = post_failed, elapsed = time() - t_start)
+                         postprocessing_failed = post_failed, elapsed = time() - t_start,
+                         files = Union{Nothing, String}[_stored_file(t) for t in tasks])
     @info dry_run ? "Dry run complete." : "Batch simulation run complete!"
     return summary
+end
+
+# The data file of `params` that loading would use, or `nothing` (also for a file whose data doesn't load as a dataset
+# of this version: the pipeline recomputes it; nothing is written here)
+function _stored_file(params::AbstractDict)
+    path = _find_file(params)
+    return path !== nothing && _is_current_file(path; upgrade = false) ? path : nothing
 end
 
 # ==============================================================================
