@@ -454,7 +454,8 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
 1. runs every task of [`generate_tasks`](@ref) whose data is not on disk yet (all of them with
    `force_overwrite`), in parallel over Julia threads with `parallel = true`. Stored results made with other source
    code (other contents of the source files, or another version of the solver's package) are handled by
-   `on_changed_sources`: `:warn` keeps them and warns, `:recompute` runs them again, `:ignore` keeps them silently,
+   `on_changed_sources`: `:warn` keeps them and warns (once per session for the same results and code; the summary
+   lists them on every run), `:recompute` runs them again, `:ignore` keeps them silently,
 2. with `calculate_stats = true`, evaluates missing statistics using the reference factory
    `config.reference` (`params -> (x -> u_exact)`); statistics that were dropped earlier for lack of
    a reference are evaluated again once a reference is configured. `force_stats = true` recomputes
@@ -472,6 +473,8 @@ included): the summary lists what would run, and its `files` the data files the 
 already (`nothing` for those that would be computed), e.g. to copy them together with the configuration.
 Failures of individual tasks are logged, listed in the summary and do not abort the batch.
 """
+const _CHANGED_WARNED = Set{UInt}()   # (stored results of other source code warned about in this session)
+
 function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = false, calculate_stats::Bool = false,
                              force_stats::Bool = false, post_process::Bool = true, force_postprocess::Bool = false,
                              parallel::Bool = false, load_sources::Bool = true, on_changed_sources::Symbol = :warn,
@@ -515,9 +518,16 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
     @info "Pass 1 finished: $(length(ran)) $(dry_run ? "would run" : "run"), $(length(cached)) cached, " *
           "$(length(empty_)) without output, $(length(failed)) failed."
     if !isempty(changed) && on_changed_sources === :warn
-        @warn "$(length(changed)) stored result(s) were made with other source code (other contents of the source " *
-              "files, or another version of the solver's package) and are kept. run_all_simulations(…; " *
-              "on_changed_sources = :recompute) recomputes them, :ignore silences this."
+        # (once per session for the same results and code: the summary lists them on every run)
+        key = hash((sort!([_param_hash(p) for p in changed]), get(metadata, "sources", nothing)))
+        if key in _CHANGED_WARNED
+            @debug "$(length(changed)) stored result(s) of other source code kept (warned before)."
+        else
+            push!(_CHANGED_WARNED, key)
+            @warn "$(length(changed)) stored result(s) were made with other source code (other contents of the source " *
+                  "files, or another version of the solver's package) and are kept. run_all_simulations(…; " *
+                  "on_changed_sources = :recompute) recomputes them, :ignore silences this (said once per session)."
+        end
     end
 
     # --- Pass 2: statistics ---
