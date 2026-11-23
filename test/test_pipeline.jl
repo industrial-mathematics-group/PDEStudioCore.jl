@@ -130,6 +130,38 @@ end
                               varied = create_varied_dict(:Ns__all => [20, 30]))
     @test [t[:Ns] for t in generate_tasks(cfg_sq)] == [(20, 20), (30, 30)]
 
+    # Joint sweeps: parameters that change together (zipped), one dimension of the product
+    Ns = [20, 40]
+    joint = joint_sweep(:Ns__1 => Ns, :cfl => 0.5 ./ Ns)
+    @test joint == (Symbol("Ns__1&cfl") => [(20, 0.025), (40, 0.0125)])
+    jbase = create_param_dict(:Ns => (10, 10), :cfl => 0.5, :eps => 1.0, :sim_func_name => :dummy_tuple_solver)
+    tasks_j, grid_j = generate_method_tasks(jbase, [first(joint), :eps], [last(joint), [1.0, 2.0]])
+    @test [(t[:Ns], t[:cfl], t[:eps]) for t in tasks_j] ==
+          [((20, 10), 0.025, 1.0), ((40, 10), 0.0125, 1.0), ((20, 10), 0.025, 2.0), ((40, 10), 0.0125, 2.0)]
+    @test grid_j == [(1, 1), (2, 1), (1, 2), (2, 2)]
+    # ... with the tasks (hence file hashes) of configurations with these values set
+    explicit = merge(jbase, create_param_dict(:Ns => (40, 10), :cfl => 0.0125, :eps => 2.0))
+    @test tasks_j[4] == explicit && calculate_hash(tasks_j[4]) == calculate_hash(explicit)
+    # parameters absent from a method or ignored by it are not set; the key counts as used if one is
+    tasks_p, _ = generate_method_tasks(create_param_dict(:cfl => 0.5), [first(joint)], [last(joint)])
+    @test [t[:cfl] for t in tasks_p] == [0.025, 0.0125] && !haskey(tasks_p[1], :Ns)
+    tasks_i, _ = generate_method_tasks(jbase, [first(joint)], [last(joint)]; ignore_keys = [:cfl])
+    @test [t[:cfl] for t in tasks_i] == [0.5, 0.5]
+    cfg_j = SimulationConfig(jbase; varied = create_varied_dict(joint, :eps => [1.0]))
+    @test length(generate_tasks(cfg_j)) == 2
+    @test_logs (:warn, r"does not appear") generate_tasks(SimulationConfig(jbase; varied = create_varied_dict(joint_sweep(:a => [1], :b => [2]))))
+    @test PDEStudioCore._joint_parts(Symbol("a&b__1")) == [:a, :b__1] && isnothing(PDEStudioCore._joint_parts(Symbol("a&")))
+    # each value is a tuple with a value per parameter; joint_sweep checks its arguments
+    @test_throws ArgumentError generate_method_tasks(jbase, [first(joint)], [[(20, 0.1, 3)]])
+    @test_throws ArgumentError generate_method_tasks(jbase, [first(joint)], [[20]])
+    @test_throws ArgumentError joint_sweep(:a => [1, 2], :b => [1])
+    @test_throws ArgumentError joint_sweep(:a => [1])
+    @test_throws ArgumentError joint_sweep(:a => [1], :a => [2])
+    @test_throws ArgumentError joint_sweep(Symbol("a&b") => [1], :c => [2])
+    @test_throws ArgumentError joint_sweep(:a => 1, :b => 2)
+    # stored and read back like any sweep (configuration files write the key and the tuples)
+    @test str2val(val2str(last(joint))) == last(joint)
+
     # `:ignore` drops shared keys but is not itself a parameter (so it is not hashed)
     ign = assemble_params(create_param_dict(:a => 1, :b => 2), create_method_dict(:m => Dict(:c => 3, :ignore => [:b])), :m)
     @test ign == create_param_dict(:a => 1, :c => 3)
