@@ -8,7 +8,10 @@ function _check_res(res::Tuple, D::Int)
     return ntuple(d -> Int(res[d]), D)
 end
 
-_linspace(a::T, b::T, n::Int) where {T} = n == 1 ? T[a] : collect(range(a, b, length = n))
+# (in at least Float64, then converted back: `b - a` of Float16 bounds can overflow where the points don't)
+_linspace(a::T, b::T, n::Int) where {T} = n == 1 ? T[a] :
+    T <: AbstractFloat ? T.(range(_wide(a), _wide(b), length = n)) : collect(range(a, b, length = n))
+_wide(x::AbstractFloat) = convert(promote_type(typeof(x), Float64), x)
 
 function _copy_domain(domain::DomainInfo{D, T}; spacing = domain.spacing) where {D, T}
     return DomainInfo{D, T}(domain.dim_keys, domain.mins, domain.maxs, spacing, domain.time_dim, domain.stat_registry)
@@ -118,7 +121,7 @@ function convert_to_eulerian(ldata::LSimData{D, DS, M, T}, res::Tuple; spatial_i
             throw(ArgumentError("the particles have no extent along :$(domain.dim_keys[d]); use a resolution of 1 for that dimension"))
         end
     end
-    s_dx = SVector{DS, T}(ntuple(d -> s_res[d] > 1 ? (s_maxs[d] - s_mins[d]) / T(s_res[d] - 1) : one(T), Val(DS)))
+    s_dx = SVector{DS, T}(ntuple(d -> s_res[d] > 1 ? T((_wide(s_maxs[d]) - _wide(s_mins[d])) / (s_res[d] - 1)) : one(T), Val(DS)))
     grid_axes = ntuple(d -> _linspace(s_mins[d], s_maxs[d], s_res[d]), Val(DS))
 
     if D > DS

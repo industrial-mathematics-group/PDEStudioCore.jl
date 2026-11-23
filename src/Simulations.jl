@@ -580,7 +580,6 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
         @info "No numerical simulations to run."
         return RunSummary(dry_run = dry_run, elapsed = time() - t_start)
     end
-    dry_run || _check_writable_folder()   # (a folder of PDEStudioCore 0.6: renamed by `rehash_sim_data()` first)
 
     # Every per-task call goes through `invokelatest`, so functions defined after this call started
     # (e.g. in `config.sources`, or a stat preset loaded inside a function) are visible.

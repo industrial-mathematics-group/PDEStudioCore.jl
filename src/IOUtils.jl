@@ -24,8 +24,7 @@ const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shap
                        "evaluated_stats", "format_version", "metadata")
 
 # The layout of the data files: 3 = datasets with the `metadata` field, stored as "metadata" (PDEStudioCore 0.5 and
-# later). Files of earlier layouts (0.4: 0 without the fast metadata, 1, 2) aren't read since 0.7: PDEStudioCore 0.6's
-# `upgrade_sim_data` brings them to version 3.
+# later). Files of earlier layouts (0.4: 0 without the fast metadata, 1, 2) aren't read since 0.7.
 const _FORMAT_VERSION = 3
 
 """
@@ -100,7 +99,6 @@ mutable struct _DataIndex
     listed::Float64    # when it was listed
     files::Vector{String}
     by_hash::Dict{String, Vector{String}}
-    hash_format::Int   # (of the folder's file names, `_folder_hash_format`)
 end
 const _INDEX = Ref{Union{Nothing, _DataIndex}}(nothing)
 const _INDEX_RACY = 1.0
@@ -122,7 +120,7 @@ function _data_index(; fresh::Bool = false)
                 h = _filename_hash(basename(p))
                 h === nothing || push!(get!(by_hash, h, String[]), p)
             end
-            idx = _INDEX[] = _DataIndex(dir, stamp, listed, files, by_hash, _folder_hash_format(dir, files))
+            idx = _INDEX[] = _DataIndex(dir, stamp, listed, files, by_hash)
         end
         return idx
     end
@@ -148,47 +146,34 @@ function _find_file(params::AbstractDict)
     return isempty(files) ? nothing : first(files)
 end
 
-# The files of normalised parameters, newest first. In a folder of an earlier hash format (`_folder_hash_format`)
-# a file of the same name may hold other parameters (format 1 named `"1"` like `1`): there only files whose stored
-# parameters are these count.
+# The files holding these normalised parameters, newest first: those named by their hash whose stored parameters are
+# these (a file is never taken for other parameters, whatever its name)
 function _files_for(normalized::AbstractDict, hash_val::AbstractString = calculate_hash(normalized))
-    files = _files_with_hash(hash_val)
-    _data_index().hash_format >= _HASH_FORMAT && return files
-    return filter(p -> _holds_hash(p, hash_val), files)
+    return filter(p -> isequal(_stored_params(p), normalized), _files_with_hash(hash_val))
 end
 
-# Whether the parameters stored in a file have the hash `hash_val` (the same values: the hash text is unique per value)
-_holds_hash(path::AbstractString, hash_val::AbstractString) = (p = _file_params(path); p isa AbstractDict && _param_hash(p) == hash_val)
-
-# --- The hash format of a data folder ---------------------------------------------------------------------------
-# A folder records the hash format of its file names (`calculate_hash`) in this file. A folder with data files but
-# without it was written by PDEStudioCore 0.6 or earlier (format 1): it is read (lookups compare the stored
-# parameters), but nothing is written into it until `rehash_sim_data()` has renamed its files, so its data isn't
-# computed again under the new names. A new (empty) folder gets the file with its first data file.
-const _HASH_FORMAT_FILE = "PDEStudioCore.toml"
-
-function _folder_hash_format(dir::AbstractString, files = nothing)
-    marker = joinpath(dir, _HASH_FORMAT_FILE)
-    if isfile(marker)
-        m = match(r"hash_format\s*=\s*(\d+)", read(marker, String))
-        return m === nothing ? 1 : parse(Int, m.captures[1])
-    end
-    files = something(files, isdir(dir) ? [f for f in readdir(dir) if endswith(f, ".jld2")] : String[])
-    return isempty(files) ? _HASH_FORMAT : 1
+# The normalised parameters stored in a file (`nothing` if they can't be read), read once per file and version
+const _STORED_PARAMS = Dict{String, Tuple{Float64, Any}}()
+function _stored_params(path::AbstractString)
+    stamp = mtime(path)
+    hit = lock(() -> get(_STORED_PARAMS, path, nothing), _INDEX_LOCK)
+    !isnothing(hit) && hit[1] == stamp && return hit[2]
+    p = _file_params(path)
+    p = p isa AbstractDict ? _normalize_params(p) : nothing
+    lock(() -> (_STORED_PARAMS[path] = (stamp, p)), _INDEX_LOCK)
+    return p
 end
 
-_write_hash_format!(dir::AbstractString) = (write(joinpath(dir, _HASH_FORMAT_FILE), "hash_format = $_HASH_FORMAT\n"); _invalidate_index!())
-
-# Throws for a data folder of an earlier hash format (see above); records the format in a new folder
-function _check_writable_folder()
-    dir = _data_dir()
-    if _data_index().hash_format < _HASH_FORMAT
-        throw(ErrorException("the data folder $dir was written by PDEStudioCore 0.6 or earlier, whose file names differ " *
-            "for string parameters: run `rehash_sim_data()` once to rename its files (or choose another save path); " *
-            "until then nothing is written into it"))
+# A new file name for data of hash `hash_val` (another file of the same time and hash, e.g. of other parameters,
+# isn't replaced: a counter is appended)
+function _new_file_name(hash_val::AbstractString, dir::AbstractString = _data_dir(), stamp::AbstractString = _timestamp())
+    path = joinpath(dir, "$(stamp)_$(hash_val).jld2")
+    k = 1
+    while ispath(path)
+        k += 1
+        path = joinpath(dir, "$(stamp)_$(hash_val)_$(k).jld2")
     end
-    isdir(dir) && !isfile(joinpath(dir, _HASH_FORMAT_FILE)) && _write_hash_format!(dir)
-    return nothing
+    return path
 end
 
 """
@@ -495,7 +480,7 @@ function _file_metadata(file; strict::Bool = false)
     version = _format_version(file)
     if version < _FORMAT_VERSION
         msg = "$(basename(file.path)) was written by PDEStudioCore 0.4 (file format $version), which this version doesn't " *
-              "read: upgrade it with PDEStudioCore 0.6 (`upgrade_sim_data`)"
+              "read"
         strict && throw(ErrorException(msg))
         @warn msg
         return Dict{Symbol, Any}()
@@ -609,17 +594,11 @@ function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Boo
     empty!(sim_data.params)
     merge!(sim_data.params, normalized)
 
-    _check_writable_folder()
     hash_val = calculate_hash(sim_data.params)
-    existing = _files_for(sim_data.params, hash_val)
-    # (a file of this name holds these parameters: the hash text is unique per value; checked before replacing it)
-    if !isempty(existing) && !_holds_hash(first(existing), hash_val)
-        throw(ErrorException("$(basename(first(existing))) holds other parameters than the data saved under its name; " *
-                             "it is not replaced (run `rehash_sim_data()`)"))
-    end
+    existing = _files_for(sim_data.params, hash_val)   # (only files holding these parameters are replaced)
     if isempty(existing)
         mkpath(_data_dir())
-        path = joinpath(_data_dir(), "$(_timestamp())_$(hash_val).jld2")
+        path = _new_file_name(hash_val)
         _write_sim_file(path, sim_data, metadata, nothing)
         verbose && @info "Saved simulation data to $(basename(path))"
         return path
@@ -782,14 +761,15 @@ loaded without recomputation, exists on disk.
 does_sim_data_exist(params::AbstractDict) = does_sim_data_exist(params, Val(:raw))
 does_sim_data_exist(params::AbstractDict, kind::Symbol, args...) = does_sim_data_exist(params, Val(kind), args...)
 
-# A file the pipeline can use: data in the current file format (version 3). A file of PDEStudioCore 0.4 counts as
-# missing, so the pipeline recomputes (and replaces) it instead of failing on it; PDEStudioCore 0.6's
-# `upgrade_sim_data` would keep its data. (`upgrade` is accepted for the callers: nothing is upgraded any more.)
+# A file the pipeline can use: data in the current file format (version 3) with its dataset and fast metadata. A file of PDEStudioCore 0.4 counts as
+# missing, so the pipeline recomputes (and replaces) it instead of failing on it. (`upgrade` is accepted for the
+# callers: nothing is upgraded any more.)
 function _is_current_file(path::AbstractString; upgrade::Bool = true)
-    version = jldopen(_format_version, path, "r")
-    version >= _FORMAT_VERSION && return true
+    version, complete = jldopen(f -> (_format_version(f), all(k -> haskey(f, k), ("raw", "native", "shape", "params"))), path, "r")
+    version >= _FORMAT_VERSION && complete && return true
+    version >= _FORMAT_VERSION && return false   # (e.g. its dataset was removed: missing, the pipeline recomputes it)
     @info "$(basename(path)) was written by PDEStudioCore 0.4 (file format $version), which this version doesn't read; " *
-          "it counts as missing (upgrade it with PDEStudioCore 0.6's `upgrade_sim_data` to keep it)."
+          "it counts as missing and is computed again."
     return false
 end
 

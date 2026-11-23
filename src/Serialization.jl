@@ -435,24 +435,29 @@ _normalize_params(params) = ParamDict(Symbol(k) => _normalize_param(v) for (k, v
 """
     calculate_hash(params::AbstractDict)
 
-SHA-256 hash (hex string) of the normalised parameters ([`get_clean_params`](@ref)), computed from the sorted
-`key => value` pairs, the values written by
-[`val2str`](@ref), strings always quoted (hash format 2, PDEStudioCore 0.7: the text of every distinct value differs;
-format 1 wrote top-level strings unquoted, so `"1"` hashed like `1`). Data folders of format 1 are renamed by
-[`rehash_sim_data`](@ref).
+SHA-256 hash (hex string) of the normalised parameters ([`get_clean_params`](@ref)): a header naming the hash format,
+then one line `key => value` per parameter, sorted by key, the key as `repr` (`:N`, `Symbol("a b")`), the value as
+[`val2str`](@ref) writes it, a string quoted and `nothing`/`missing` apart from their types. Every pair of distinct
+normalised parameters gets its own text (hash format 3, PDEStudioCore 0.8; files of earlier versions have other
+names, see [`rehash_sim_data`](@ref)).
 """
 function calculate_hash(params::AbstractDict)
     clean = _normalize_params(params)   # (as stored: a struct stored as its text hashes like that text)
-    sorted_keys = sort!(collect(keys(clean)), by = string)
-    to_hash = join(["$k => $(_hash_text(clean[k]))" for k in sorted_keys], ", ")
-    return bytes2hex(sha256(to_hash))
+    io = IOBuffer()
+    print(io, "PDEStudioCore hash format ", _HASH_FORMAT, "\n")
+    for k in sort!(collect(keys(clean)), by = string)
+        print(io, repr(k), " => ", _hash_text(clean[k]), "\n")
+    end
+    return bytes2hex(sha256(take!(io)))
 end
 
-# The text of a value in the hash: `val2str`, a top-level string quoted (no other value's text starts with a quote)
-_hash_text(v) = v isa AbstractString ? repr(String(v)) : val2str(v)
+# The text of a value in the hash: `val2str`, a top-level string quoted (no other value's text starts with a quote),
+# `nothing` and `missing` apart from the types `Nothing` and `Missing` (which `val2str` writes alike). Newlines only
+# appear escaped (strings, keys), so the lines can't be confused.
+_hash_text(v) = v isa AbstractString ? repr(String(v)) : v === nothing ? "nothing" : v === missing ? "missing" : val2str(v)
 
-# The hash format of `calculate_hash` (see there); data folders record it (`_HASH_FORMAT_FILE`)
-const _HASH_FORMAT = 2
+# The hash format of `calculate_hash` (see there): 3 since PDEStudioCore 0.8
+const _HASH_FORMAT = 3
 
 """
     get_clean_params(params::AbstractDict)

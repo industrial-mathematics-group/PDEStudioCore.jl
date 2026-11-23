@@ -465,10 +465,8 @@ end
         foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f)), readdir(fixtures))
         p = create_param_dict(:n => 5, :kind => "eul")
         @test !does_sim_data_exist(p) && sort(sim_data_table().format_version) == [1, 1]
-        @test PDEStudioCore._data_index(fresh = true).hash_format == 1   # (data files, no record: a folder of 0.6)
-        r = @test_logs (:warn, r"2 file\(s\) of PDEStudioCore 0.4") match_mode = :any rehash_sim_data()
-        @test isempty(r) && !isfile(joinpath(dir, PDEStudioCore._HASH_FORMAT_FILE))   # (still not writable)
-        @test_throws ErrorException run_all_simulations(SimulationConfig(create_param_dict(:N => 8, :sim_func_name => :counting_solver)))
+        r = @test_logs (:warn, r"2 file\(s\) were not rehashed") match_mode = :any rehash_sim_data()
+        @test isempty(r) && length(readdir(dir)) == 2   # (left as they are)
     end
 end
 
