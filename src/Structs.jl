@@ -22,7 +22,8 @@ const MethodDict = Dict{Symbol, ParamDict}
 
 Alias for `Dict{Symbol, Vector}`: the parameter sweep. The pipeline runs the Cartesian product of
 all vectors. Keys of the form `:Ns__x`/`:Ns__1` sweep a single entry of the tuple parameter `:Ns`, `:Ns__xy`
-several entries and `:Ns__all` every entry at once (see [`generate_method_tasks`](@ref)).
+several entries and `:Ns__all` every entry at once (see [`generate_method_tasks`](@ref)). A key joining parameters
+with `&` sweeps them together, from tuples of values (see [`joint_sweep`](@ref)).
 """
 const VariedDict = Dict{Symbol, Vector}
 
@@ -80,7 +81,8 @@ create_method_dict() = MethodDict()
 """
     create_varied_dict(kv...)
 
-Builds a [`VariedDict`](@ref) for a parameter sweep. Ranges are collected into vectors.
+Builds a [`VariedDict`](@ref) for a parameter sweep. Ranges are collected into vectors. Parameters that change
+together are one entry made by [`joint_sweep`](@ref).
 """
 create_varied_dict(kv::Pair...) = _to_varieddict(kv)
 create_varied_dict(kv) = _to_varieddict(kv)

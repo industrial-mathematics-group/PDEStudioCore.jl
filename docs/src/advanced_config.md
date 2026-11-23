@@ -38,6 +38,23 @@ varied = Dict(:Ns__all => [50, 100, 200])   # (50, 50), (100, 100), (200, 200)
 definition serves 1D, 2D and 3D setups. The generated parameters—and therefore the data files—are identical to
 those of an explicit tuple sweep such as `:Ns => [(50, 50), (100, 100), (200, 200)]`.
 
+### Parameters that change together
+
+Different parameters that follow each other, e.g. a grid size and an initial cell width of a few grid cells, are
+one dimension of the sweep, made by [`joint_sweep`](@ref): its `i`-th run sets every parameter to its `i`-th value
+(zipped instead of the Cartesian product), and the other swept parameters form the product with it:
+
+```julia
+Ns = [40, 80, 160]
+varied = create_varied_dict(joint_sweep(:Grid_Ns__1 => Ns, :IC_cell => 6 ./ Ns), :PDE_epsilon => [1e-2, 1e-3])
+# 3 × 2 runs: (N, cell) = (40, 0.15), (80, 0.075), (160, 0.0375) for each ε
+```
+
+The entry is a key joining the parameters with `&` (`Symbol("Grid_Ns__1&IC_cell")`, each may address tuple entries)
+with tuples of their values, so it is stored like any other sweep. The runs have the parameters, and therefore the
+data files, of configurations with these values set: results of an earlier configuration per grid size are found
+again.
+
 ## 2. Analytical Reference Functions
 
 Error statistics (L1/L2 errors, …) need the exact solution. Provide the **name of a reference factory**: a function that receives the run's parameters and returns the exact solution as a function of a spacetime coordinate `x::SVector{D}` (`x[end]` is the time for transient data). The factory lets the exact solution depend on the parameters (wave speed, initial condition, …):

@@ -88,15 +88,59 @@ function _split_varied_key(k::Symbol)
 end
 
 """
+    joint_sweep(key => values, key => values, ...) -> Pair
+
+A sweep of several parameters together (zipped, not a Cartesian product): the `i`-th run sets every parameter to its
+`i`-th value, e.g. a grid size with a cell width that follows it:
+
+```julia
+Ns = [40, 80, 160]
+create_varied_dict(joint_sweep(:Grid_Ns__1 => Ns, :IC_cell => 6 ./ Ns), :PDE_epsilon => [1e-2, 1e-3])
+```
+
+Returns the entry for a [`VariedDict`](@ref): a key naming the parameters joined by `&`
+(`Symbol("Grid_Ns__1&IC_cell")`; each may address tuple entries, see [`generate_method_tasks`](@ref)) with tuples of
+their values (`[(40, 0.15), (80, 0.075), (160, 0.0375)]`), so it is stored and written like any other sweep. A run
+has the same parameters (and hash) as a run of a configuration with these values set, so stored results are found
+again. The other swept parameters form the Cartesian product with the joint sweep as one dimension.
+"""
+function joint_sweep(pairs::Pair...)
+    length(pairs) >= 2 || throw(ArgumentError("joint_sweep: give at least two parameters (key => values)"))
+    names = Symbol[Symbol(first(p)) for p in pairs]
+    bad = filter(k -> occursin('&', String(k)) || isempty(String(k)), names)
+    isempty(bad) || throw(ArgumentError("joint_sweep: parameter names can't contain `&` or be empty, got $(repr(bad))"))
+    allunique(names) || throw(ArgumentError("joint_sweep: every parameter once, got $(repr(names))"))
+    for p in pairs
+        last(p) isa Union{AbstractVector, Tuple} ||
+            throw(ArgumentError("joint_sweep: the values of :$(first(p)) must be a vector (or range), got $(typeof(last(p)))"))
+    end
+    vals = [collect(last(p)) for p in pairs]
+    n = length(first(vals))
+    all(v -> length(v) == n, vals) ||
+        throw(ArgumentError("joint_sweep: every parameter needs the same number of values, got $(join(length.(vals), ", "))"))
+    return Symbol(join(names, '&')) => [Tuple(v[i] for v in vals) for i in 1:n]
+end
+
+# The parameters a joint key sets together (`Symbol("Grid_Ns__1&IC_cell")`, see `joint_sweep`); `nothing` for other keys
+function _joint_parts(k::Symbol)
+    s = String(k)
+    occursin('&', s) || return nothing
+    parts = split(s, '&')
+    return any(isempty, parts) ? nothing : Symbol.(parts)
+end
+
+"""
     generate_method_tasks(base_params, active_keys, active_values; ignore_keys = Symbol[])
 
 Expands one method's parameters over the Cartesian product of `active_values`. Keys of the form
 `:Ns__x`/`:Ns__1` (`__y`/`__2`, `__z`/`__3`, `__<n>`) set one entry of the tuple parameter `:Ns`;
 `:Ns__xy` (`__xz`, `__yz`, `__xyz`) sets several entries and `:Ns__all` every entry of the tuple to
 the same swept value (the result is a `Tuple`; entries past its end are added, gaps filled with `0.0`).
-A key that is itself a parameter of `base_params` (e.g. `:dt__1`) is an ordinary key. Varied keys that are
-absent from `base_params` (or ignored) are not applied to this method. Throws an `ArgumentError` if a
-suffix key addresses a parameter that is not a tuple or vector.
+A key that is itself a parameter of `base_params` (e.g. `:dt__1`) is an ordinary key. A key joining parameters with
+`&` (`Symbol("Grid_Ns__1&IC_cell")`, see [`joint_sweep`](@ref)) sets all of them from a tuple of values, as one
+dimension of the product. Varied keys (or parameters of a joint key) that are absent from `base_params` (or ignored)
+are not applied to this method. Throws an `ArgumentError` if a suffix key addresses a parameter that is not a tuple or
+vector, or if a value of a joint key is not a tuple with a value for each of its parameters.
 Returns `(tasks, grid_indices)`.
 """
 function generate_method_tasks(base_params::AbstractDict, active_keys::AbstractVector, active_values::AbstractVector;
@@ -105,28 +149,41 @@ function generate_method_tasks(base_params::AbstractDict, active_keys::AbstractV
     base = _to_paramdict(base_params)
     ignore = Symbol[Symbol(k) for k in ignore_keys]
 
-    varied_std = Tuple{Int, Symbol}[]       # (index into the value tuple, key)
-    varied_tup = Tuple{Int, Symbol, Union{Symbol, Vector{Int}}}[]  # (index into the value tuple, base key, tuple entries)
+    # (index into the value tuple, entry of a joint key's value (0: the whole value), key)
+    varied_std = Tuple{Int, Int, Symbol}[]
+    # (index into the value tuple, entry of a joint key's value, base key, tuple entries)
+    varied_tup = Tuple{Int, Int, Symbol, Union{Symbol, Vector{Int}}}[]
     for (i, k) in enumerate(Symbol.(active_keys))
         k in ignore && continue
-        base_key, idxs = haskey(base, k) ? (k, nothing) : _split_varied_key(k)
-        if idxs === nothing
-            push!(varied_std, (i, k))
-        elseif !(base_key in ignore)
-            push!(varied_tup, (i, base_key, idxs))
+        parts = haskey(base, k) ? nothing : _joint_parts(k)
+        if parts !== nothing
+            bad = findfirst(v -> !(v isa Union{Tuple, AbstractVector} && length(v) == length(parts)), active_values[i])
+            bad === nothing || throw(ArgumentError(
+                "the joint sweep :$k sets $(length(parts)) parameters, so each of its values is a tuple of " *
+                "$(length(parts)) values; got $(repr(active_values[i][bad])) (see `joint_sweep`)"))
+        end
+        for (j, pk) in (parts === nothing ? ((0, k),) : enumerate(parts))
+            pk in ignore && continue
+            base_key, idxs = haskey(base, pk) ? (pk, nothing) : _split_varied_key(pk)
+            if idxs === nothing
+                push!(varied_std, (i, j, pk))
+            elseif !(base_key in ignore)
+                push!(varied_tup, (i, j, base_key, idxs))
+            end
         end
     end
+    value_of(p_vals, i, j) = j == 0 ? p_vals[i] : p_vals[i][j]
 
     grid = isempty(active_values) ? [()] : collect(Iterators.product(active_values...))
     tasks, grid_indices = ParamDict[], Tuple[]
     for (linear_idx, p_vals) in enumerate(grid)
         task = copy(base)
-        for (i, k) in varied_std
-            haskey(task, k) && (task[k] = p_vals[i])
+        for (i, j, k) in varied_std
+            haskey(task, k) && (task[k] = value_of(p_vals, i, j))
         end
         if !isempty(varied_tup)
             updates = Dict{Symbol, Vector{Any}}()
-            for (i, base_key, idxs) in varied_tup
+            for (i, j, base_key, idxs) in varied_tup
                 haskey(task, base_key) || continue
                 value = task[base_key]
                 value isa Union{Tuple, AbstractVector} || throw(ArgumentError(
@@ -137,7 +194,7 @@ function generate_method_tasks(base_params::AbstractDict, active_keys::AbstractV
                     while length(arr) < idx
                         push!(arr, 0.0)
                     end
-                    arr[idx] = p_vals[i]
+                    arr[idx] = value_of(p_vals, i, j)
                 end
             end
             for (base_key, arr) in updates
@@ -174,8 +231,12 @@ function generate_tasks(config::SimulationConfig)
         base = method === nothing ? copy(config.shared) : assemble_params(config.shared, config.methods, method)
         ignore = method === nothing ? Symbol[] : get_ignore_keys(config.methods, method)
         for k in vkeys
-            base_key, _ = haskey(base, k) ? (k, nothing) : _split_varied_key(k)
-            (haskey(base, base_key) && !(k in ignore) && !(base_key in ignore)) && push!(used, k)
+            k in ignore && continue
+            parts = haskey(base, k) ? nothing : _joint_parts(k)
+            for pk in something(parts, [k])   # (a joint key is used if one of its parameters is)
+                base_key, _ = haskey(base, pk) ? (pk, nothing) : _split_varied_key(pk)
+                (haskey(base, base_key) && !(pk in ignore) && !(base_key in ignore)) && (push!(used, k); break)
+            end
         end
         method_tasks, _ = generate_method_tasks(base, vkeys, vvals; ignore_keys = ignore)
         for task in method_tasks
