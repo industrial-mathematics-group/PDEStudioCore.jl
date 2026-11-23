@@ -12,7 +12,7 @@ constant_solver(p::ParamDict) = review_data(p, 1.0)
 @testset "Review fixes (v0.6.2)" begin
     set_save_path!(mktempdir())
 
-    # 1. Hash format 2 (0.7, still in 3): every top-level string is hashed quoted, so no two values share a name ("1" and 1, "1" and
+    # 1. Hash format 3 (0.7): every top-level string is hashed quoted, so no two values share a name ("1" and 1, "1" and
     #    the three characters "\"1\""); a struct stored as its text hashes like that text
     @test calculate_hash(Dict(:k => 1)) != calculate_hash(Dict(:k => "1")) != calculate_hash(Dict(:k => "\"1\""))
     @test calculate_hash(Dict(:k => true)) != calculate_hash(Dict(:k => "true")) && calculate_hash(Dict(:k => Float32)) != calculate_hash(Dict(:k => "Float32"))
@@ -23,7 +23,7 @@ constant_solver(p::ParamDict) = review_data(p, 1.0)
     @test length(s.tasks) == 3 && length(s.ran) == 3 && length(unique(s.files)) == 3
     @test load_sim_data(create_param_dict(:sim_func_name => :typed_solver, :k => "1")).u[1][1] == 2.0
     @test load_sim_data(create_param_dict(:sim_func_name => :typed_solver, :k => 1)).u[1][1] == 1.0
-    # Hash format 3 (0.8): keys as `repr`, so a key can't forge other pairs; `nothing` apart from the type `Nothing`
+    # Hash format 3: keys as `repr`, so a key can't forge other pairs; `nothing` apart from the type `Nothing`
     @test calculate_hash(Dict(:a => "label", :b => 2)) != calculate_hash(Dict(Symbol("a => \"label\", b") => 2))
     @test calculate_hash(Dict(:k => nothing)) != calculate_hash(Dict(:k => Nothing))
     @test calculate_hash(Dict(:k => missing)) != calculate_hash(Dict(:k => Missing))

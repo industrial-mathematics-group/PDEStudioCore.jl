@@ -97,7 +97,7 @@ end
     @test get_clean_params(create_param_dict(:m => [1 2; 3 4]))[:m] == [1 2; 3 4]
     @test calculate_hash(create_param_dict(:m => [1 2; 3 4])) != calculate_hash(create_param_dict(:m => [1, 3, 2, 4]))
 
-    # The hash format is stable (regression values of hash format 3, PDEStudioCore 0.8), so stored data is found again
+    # The hash format is stable (regression values of hash format 3, PDEStudioCore 0.7), so stored data is found again
     # across sessions
     @test calculate_hash(create_param_dict(:N => 50, :cfl => 0.5, :scheme => "upwind")) ==
           "c681b3a398ab27f91f2c882ba77b9a2abe20a0293f39d6a51870c95843e6770d"

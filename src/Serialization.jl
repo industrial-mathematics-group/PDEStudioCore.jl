@@ -438,7 +438,7 @@ _normalize_params(params) = ParamDict(Symbol(k) => _normalize_param(v) for (k, v
 SHA-256 hash (hex string) of the normalised parameters ([`get_clean_params`](@ref)): a header naming the hash format,
 then one line `key => value` per parameter, sorted by key, the key as `repr` (`:N`, `Symbol("a b")`), the value as
 [`val2str`](@ref) writes it, a string quoted and `nothing`/`missing` apart from their types. Every pair of distinct
-normalised parameters gets its own text (hash format 3, PDEStudioCore 0.8; files of earlier versions have other
+normalised parameters gets its own text (hash format 3, PDEStudioCore 0.7; files of earlier versions have other
 names, see [`rehash_sim_data`](@ref)).
 """
 function calculate_hash(params::AbstractDict)
@@ -456,7 +456,7 @@ end
 # appear escaped (strings, keys), so the lines can't be confused.
 _hash_text(v) = v isa AbstractString ? repr(String(v)) : v === nothing ? "nothing" : v === missing ? "missing" : val2str(v)
 
-# The hash format of `calculate_hash` (see there): 3 since PDEStudioCore 0.8
+# The hash format of `calculate_hash` (see there): 3 since PDEStudioCore 0.7 (2 was never released)
 const _HASH_FORMAT = 3
 
 """

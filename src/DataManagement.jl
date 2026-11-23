@@ -144,7 +144,7 @@ end
 
 Re-normalises the parameters of a `.jld2` file (or of every `.jld2` file below a directory), recomputes their hash
 and stores the data under its new name. Use it after renaming or removing parameters, or to give files of earlier
-PDEStudioCore versions (file format 3, 0.5–0.7) the names of this version, which aren't found otherwise (see
+PDEStudioCore versions (file format 3, 0.5 and 0.6) the names of this version, which aren't found otherwise (see
 [`calculate_hash`](@ref)). A file whose parameters stay the same is renamed, not written again.
 
 Every file is read and its new name chosen before anything is moved: a new name is never an existing file (two

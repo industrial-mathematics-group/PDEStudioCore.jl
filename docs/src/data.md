@@ -89,9 +89,9 @@ On disk, the solution is stored once (in `u`).
 
 ## 3. Storage Layout
 
-Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed from the normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone; a lookup also checks the parameters stored in the file, so a file is never taken for other parameters (and a save never replaces one). Every pair of distinct parameter sets has its own hash text (hash format 3, PDEStudioCore 0.8).
+Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed from the normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone; a lookup also checks the parameters stored in the file, so a file is never taken for other parameters (and a save never replaces one). Every pair of distinct parameter sets has its own hash text (hash format 3, PDEStudioCore 0.7).
 
-**Data of earlier versions** isn't found under its old names: PDEStudioCore is in an early stage and keeps no compatibility with them. Recompute it, or rename files of PDEStudioCore 0.5–0.7 (file format 3) with [`rehash_sim_data`](@ref) (on a copy first, if the data is valuable). Files of PDEStudioCore 0.4 aren't read at all.
+**Data of earlier versions** isn't found under its old names: PDEStudioCore is in an early stage and keeps no compatibility with them. Recompute it, or rename files of PDEStudioCore 0.5 and 0.6 (file format 3) with [`rehash_sim_data`](@ref) (on a copy first, if the data is valuable). Files of PDEStudioCore 0.4 aren't read at all.
 
 Each file contains:
 
