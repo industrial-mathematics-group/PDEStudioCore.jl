@@ -2,18 +2,16 @@
 # --- Parameter serialisation, safe parsing & hashing ---
 # ==============================================================================
 
-# A top-level string whose unquoted text would read as further `key => value` pairs in the hash text (pairs joined by
-# `, `, keys are identifiers): `Dict(:a => "x, b => 1")` would otherwise hash like `Dict(:a => "x", :b => 1)`; and
-# `"<empty>"`, which would read as `""`. Such strings are written quoted (`str2val` reads them back). Any other
-# text stays unquoted, so the hashes of stored parameters (descriptive strings of structs with commas, …) don't change.
-# (The hash writes every top-level string quoted, see `_hash_text`; `val2str` doesn't, since frontends write their
-# own literal text through it, e.g. PDEStudio's typed CSV values such as `1.5f0`.)
+# A top-level string whose unquoted text would read as further `key => value` pairs (pairs joined by `, `, keys are
+# identifiers), e.g. `"x, b => 1"`, and `"<empty>"`, which would read as `""`: such strings are written quoted
+# (`str2val` reads them back). Any other top-level text stays unquoted, since frontends write their own literal text
+# through `val2str`, e.g. PDEStudio's typed CSV values such as `1.5f0`. (The hash doesn't depend on it, see `_identity`.)
 _ambiguous_text(s::AbstractString) = s == "<empty>" || occursin(r", [A-Za-z_]\w* => ", s)
 
 """
     val2str(v; top_level::Bool = true)
 
-Converts a value into a Julia-literal-like string (the basis of the parameter hash).
+Converts a value into a Julia-literal-like string (the basis of parameter normalisation).
 Top-level strings are written unquoted (unless their text could be read as something else, see below),
 strings inside containers are quoted, functions become
 `"Closure"`, enum values are written as `TypeName.value` and custom structs as
@@ -425,8 +423,7 @@ end
 # Normalisation used before saving and hashing: strings are kept verbatim (they are never
 # re-interpreted as code), closures become "Closure", other values round-trip through val2str.
 # Known limitation: `nothing`/`missing` *inside* containers come back as the types `Nothing`/`Missing`
-# (or the container as a string). The hashes would not change (`val2str(nothing) == val2str(Nothing)`), but the
-# stored "params" of existing files would no longer match newly normalised filters (`find_sim_data`, deletion).
+# (or the container as a string); the normalised form is normalised again to itself, so lookups stay consistent.
 _normalize_param(v::AbstractString) = String(v)
 _normalize_param(v::Union{Nothing, Missing}) = v  # would otherwise become the types `Nothing`/`Missing`
 _normalize_param(v) = str2val(val2str(v))
@@ -435,34 +432,69 @@ _normalize_params(params) = ParamDict(Symbol(k) => _normalize_param(v) for (k, v
 """
     calculate_hash(params::AbstractDict)
 
-SHA-256 hash (hex string) of the normalised parameters ([`get_clean_params`](@ref)): a header naming the hash format,
-then one line `key => value` per parameter, sorted by key, the key as `repr` (`:N`, `Symbol("a b")`), the value as
-[`val2str`](@ref) writes it, a string quoted and `nothing`/`missing` apart from their types. Every pair of distinct
-normalised parameters gets its own text (hash format 3, PDEStudioCore 0.7; files of earlier versions have other
-names, see [`rehash_sim_data`](@ref)).
+SHA-256 hash (hex string) of the normalised parameters ([`get_clean_params`](@ref)), the name of their data file
+(`<save path>/data/<hash>.jld2`). It digests a canonical encoding of the parameters: a header naming the hash format,
+then every value tagged with its kind (string, symbol, number with its type, container with its type and size, …) and
+every text prefixed by its length, keys sorted. Distinct normalised parameters therefore have distinct encodings
+(`true` and `1`, `"1"` and `1`, `nothing` and `Nothing`, `[1 2]` and `[1, 2]` differ) and, up to SHA-256 collisions,
+distinct hashes. Hash format 4 (PDEStudioCore 0.8); data of earlier versions is brought in with
+[`import_sim_data`](@ref).
 """
 function calculate_hash(params::AbstractDict)
     clean = _normalize_params(params)   # (as stored: a struct stored as its text hashes like that text)
-    return bytes2hex(sha256("PDEStudioCore hash format $(_HASH_FORMAT)\n" * _identity_text(clean)))
+    return bytes2hex(sha256(_identity(clean)))
 end
 
-# The text that identifies normalised parameters (what the hash digests): it tells `true` from `1` and `nothing`
-# from `Nothing`, which `isequal` does not, so stored parameters are compared by it, not by `isequal`.
-function _identity_text(clean::AbstractDict)
+# The canonical encoding of normalised parameters (what the hash digests). Stored parameters are compared by it, not
+# by `isequal` (which takes `true` for `1`), so a file is only ever taken for the parameters its name stands for.
+function _identity(clean::AbstractDict)
     io = IOBuffer()
-    for k in sort!(collect(keys(clean)), by = string)
-        print(io, repr(k), " => ", _hash_text(clean[k]), "\n")
-    end
+    print(io, "PDEStudioCore hash format ", _HASH_FORMAT, "\n")
+    _encode(io, clean)
     return String(take!(io))
 end
 
-# The text of a value in the hash: `val2str`, a top-level string quoted (no other value's text starts with a quote),
-# `nothing` and `missing` apart from the types `Nothing` and `Missing` (which `val2str` writes alike). Newlines only
-# appear escaped (strings, keys), so the lines can't be confused.
-_hash_text(v) = v isa AbstractString ? repr(String(v)) : v === nothing ? "nothing" : v === missing ? "missing" : val2str(v)
+# A tag (one character) for the kind of a value, then its content: texts with their length (`<n>:<text>`), containers
+# with their type, size and encoded elements. Every encoding reads back in one way only (the tag says what follows,
+# lengths and counts say where it ends), so distinct values never share one.
+_encode_text(io::IO, s::AbstractString) = (s = String(s); print(io, ncodeunits(s), ":", s); nothing)
+_encode(io::IO, ::Nothing) = (print(io, "n"); nothing)
+_encode(io::IO, ::Missing) = (print(io, "m"); nothing)
+_encode(io::IO, v::Bool) = (print(io, v ? "b1" : "b0"); nothing)
+_encode(io::IO, v::AbstractString) = (print(io, "s"); _encode_text(io, v))
+_encode(io::IO, v::Symbol) = (print(io, "y"); _encode_text(io, String(v)))
+_encode(io::IO, v::AbstractChar) = (print(io, "c"); _encode_text(io, repr(v)))
+_encode(io::IO, v::Number) = (print(io, "#"); _encode_text(io, string(typeof(v))); _encode_text(io, string(v)))
+_encode(io::IO, v::Type) = (print(io, "t"); _encode_text(io, string(v)))
+_encode(io::IO, v::Pair) = (print(io, "p"); _encode(io, v.first); _encode(io, v.second))
+function _encode(io::IO, v::Tuple)
+    print(io, "(", length(v), ":")
+    foreach(x -> _encode(io, x), v)
+    return nothing
+end
+function _encode(io::IO, v::AbstractArray)
+    print(io, "a")
+    _encode_text(io, string(nameof(typeof(v))))   # (Array, SArray, UnitRange, …)
+    _encode_text(io, string(eltype(v)))
+    print(io, ndims(v), ":", join(size(v), ","), ":")
+    foreach(x -> _encode(io, x), v)
+    return nothing
+end
+function _encode(io::IO, v::AbstractDict)
+    entries = [(sprint(_encode, k), sprint(_encode, x)) for (k, x) in v]
+    print(io, "d")
+    _encode_text(io, string(typeof(v)))
+    print(io, length(entries), ":")
+    for (k, x) in sort!(entries, by = first)   # (sorted by the encoded key: one order for every dictionary)
+        print(io, k, x)
+    end
+    return nothing
+end
+# anything else (e.g. `Val`s): its type and `val2str` text
+_encode(io::IO, v) = (print(io, "x"); _encode_text(io, string(typeof(v))); _encode_text(io, val2str(v)))
 
-# The hash format of `calculate_hash` (see there): 3 since PDEStudioCore 0.7 (2 was never released)
-const _HASH_FORMAT = 3
+# The hash format of `calculate_hash` (see there): 4 since PDEStudioCore 0.8 (3: 0.7, 2 was never released)
+const _HASH_FORMAT = 4
 
 """
     get_clean_params(params::AbstractDict)

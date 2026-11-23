@@ -1,5 +1,5 @@
 # ==============================================================================
-# --- Data health checks, deletion & rehashing ---
+# --- Data health checks, listing, deletion & import ---
 # ==============================================================================
 
 function _aggregate_component(iterator)
@@ -64,14 +64,17 @@ function _file_params(path::AbstractString)
     end
 end
 
-# `path => params` of every data file (newest first) whose stored parameters contain all pairs of
-# `match_params` (keys may be strings or symbols; values are normalised like stored parameters).
+# `path => params` of every run in the store (most recently written first) whose stored parameters contain all pairs of
+# `match_params` (keys may be strings or symbols; values are normalised like stored parameters). Only files at their
+# name count (`<hash>.jld2` of the parameters they hold): the files lookups use (see `tidy_sim_data` for the others).
 function _files_with_params(match_params::AbstractDict)
     wanted = Dict(Symbol(k) => _normalize_param(v) for (k, v) in match_params)
     matched = Pair{String, Any}[]
-    for path in _sort_newest!(_data_files())
+    for path in sort!(_data_files(), by = p -> (mtime(p), basename(p)), rev = true)
+        h = _filename_hash(basename(path))
+        h === nothing && continue
         file_params = _file_params(path)
-        file_params === nothing && continue
+        file_params isa AbstractDict && calculate_hash(file_params) == h || continue
         all(((k, v),) -> haskey(file_params, k) && isequal(file_params[k], v), wanted) || continue
         push!(matched, path => file_params)
     end
@@ -84,16 +87,16 @@ _param_summary(params, skip) = join(("$k = $(val2str(v))" for (k, v) in sort(col
 """
     find_sim_data(match_params = Dict(); io = stdout, verbose = true)
 
-Lists the data files whose stored parameters contain all the given key-value pairs, i.e. any subset of a
-run's parameters (keys may be strings or symbols; an empty filter lists every file). Only the lightweight
-`params` metadata is read. Prints one line per file (newest first) with the parameters that were not part
-of the filter, and returns the file paths.
+Lists the data files of the runs whose stored parameters contain all the given key-value pairs, i.e. any subset of a
+run's parameters (keys may be strings or symbols; an empty filter lists every run). Only the lightweight `params`
+metadata is read. Prints one line per file (most recently written first) with the parameters that were not part of
+the filter, and returns the file paths. Files that aren't part of the store (see [`tidy_sim_data`](@ref)) aren't listed.
 
 ```julia-repl
 julia> find_sim_data(Dict("N" => 100));
 2 data files with N = 100:
-  2026-10-21_17-45-00_123_3f9a….jld2   cfl = 0.5, scheme = upwind, sim_func_name = :advection_solver_1d
-  2026-10-21_17-44-58_907_b02c….jld2   cfl = 0.5, scheme = lax_friedrichs, sim_func_name = :advection_solver_1d
+  3f9a51c0….jld2   cfl = 0.5, scheme = upwind, sim_func_name = :advection_solver_1d
+  b02c7e14….jld2   cfl = 0.5, scheme = lax_friedrichs, sim_func_name = :advection_solver_1d
 ```
 """
 function find_sim_data(match_params::AbstractDict = Dict{Symbol, Any}(); io::IO = stdout, verbose::Bool = true)
@@ -132,185 +135,123 @@ function delete_sim_data(match_params::AbstractDict; dry_run::Bool = false)
         else
             @warn "Deleting file matching criteria: $(basename(path))"
             rm(path)
-            _invalidate_index!()
         end
     end
     return matched
 end
 
 """
-    rehash_sim_data(target_path = joinpath(get_save_path(), "data"); delete_old = true, filter_pairs = nothing,
-                    remove_keys = Symbol[], prompt_keys = Symbol[]) -> Vector{Pair{String, String}}
+    import_sim_data(source; filter_pairs = nothing, remove_keys = Symbol[], prompt_keys = Symbol[],
+                    overwrite = false) -> Vector{Pair{String, String}}
 
-Re-normalises the parameters of a `.jld2` file (or of every `.jld2` file below a directory), recomputes their hash
-and stores the data under its new name. Use it after renaming or removing parameters, or to give files of earlier
-PDEStudioCore versions (file format 3, 0.5 and 0.6) the names of this version, which aren't found otherwise (see
-[`calculate_hash`](@ref)). A file whose parameters stay the same is renamed, not written again.
+Copies runs into the data folder of the current save path: the `.jld2` file `source`, or every `.jld2` file below the
+directory `source` (e.g. the data folder of an earlier PDEStudioCore version or of another machine). The parameters
+of each run are normalised again (after removing `remove_keys` and asking for `prompt_keys`) and the run is stored
+under their hash, as `data/<hash>.jld2` ([`calculate_hash`](@ref)). The source is only read: nothing in it is moved,
+renamed, rewritten or deleted, and every copy is written atomically, so an interrupted import is simply run again.
 
-Every file is read and its new name chosen before anything is moved: a new name is never an existing file (two
-files of the same time and hash get distinct names, a counter is appended), and files that take each other's names
-are moved in two steps. A file that can't be read (or of PDEStudioCore 0.4, file format below 3, which this version
-doesn't read) is reported and left as it is.
+A run that is stored already is skipped (`overwrite = true` replaces the stored data of the same parameters); a file
+of other parameters at its name is never replaced. Of several source files of the same parameters the first (by
+path) is imported, the others are reported. Files that can't be read, have no dataset, or were written by
+PDEStudioCore 0.4 (file format below 3) are reported and skipped.
+
+To change parameters of stored runs (e.g. drop one that no longer exists), import the data folder itself:
+`import_sim_data(joinpath(get_save_path(), "data"); remove_keys = [:obsolete])` stores every run under its new
+parameters; the files of the old parameters stay until you delete them ([`delete_sim_data`](@ref)).
 
 # Keywords
-- `delete_old`: rename (or, with changed parameters, replace) the old file; `false` keeps it under its old name and
-  writes a copy. For a symlink, the link is renamed (rewritten data: a regular file replaces the link; its target
-  is never deleted).
-- `filter_pairs`: only process files whose parameters contain these exact pairs.
-- `remove_keys`: parameter keys to drop before rehashing.
-- `prompt_keys`: interactively ask (in the REPL) for new values of these keys for every file.
+- `filter_pairs`: only import runs whose stored parameters contain these exact pairs.
+- `remove_keys`: parameter keys to drop.
+- `prompt_keys`: interactively ask (in the REPL) for new values of these keys for every run.
+- `overwrite`: replace the stored data of the same parameters.
 
-Returns the `old_path => new_path` pairs of the files it renamed or wrote.
+Returns the `source => destination` pairs of the runs it copied.
 """
-function rehash_sim_data(target_path::AbstractString = _data_dir(); delete_old::Bool = true, filter_pairs = nothing,
-                         remove_keys::AbstractVector = Symbol[], prompt_keys::AbstractVector = Symbol[])
-    paths = if isfile(target_path) && endswith(target_path, ".jld2")
-        [String(target_path)]
-    elseif isdir(target_path)
-        sort!([joinpath(root, f) for (root, _, files) in walkdir(target_path) for f in files if endswith(f, ".jld2")])
+function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_keys::AbstractVector = Symbol[],
+                         prompt_keys::AbstractVector = Symbol[], overwrite::Bool = false)
+    paths = if isfile(source)
+        [String(source)]
+    elseif isdir(source)
+        sort!([joinpath(root, f) for (root, _, files) in walkdir(source) for f in files if endswith(f, ".jld2")])
     else
-        @warn "Path is neither a .jld2 file nor a directory: $target_path"
-        String[]
+        throw(ArgumentError("import_sim_data: $source is neither a file nor a directory"))
     end
     remove, prompt = Symbol.(remove_keys), Symbol.(prompt_keys)
-    # (files of an earlier run that was interrupted while staged are first put back)
-    foreach(_restore_staged!, unique(dirname.(paths)))
-    paths = filter(ispath, paths)
-
-    # Links to files of this batch would dangle once their target moves: they are not rehashed (removed at the end
-    # with `delete_old`, their target's data lives on under the new name); links to other files are read through.
-    in_batch = Set(abspath.(paths))
-    linked = String[p for p in paths if islink(p) && (t = try realpath(p) catch; "" end; !isempty(t) && t in in_batch)]
-    isempty(linked) || @warn "Not rehashed, links to files of this batch: " * join(basename.(linked), ", ") *
-                             (delete_old ? " (removed with their targets' old names)" : "")
-    paths = filter(p -> !(p in linked), paths)
-
-    # 1. Plan: the new parameters of every file (nothing is moved yet)
-    failed, plan = String[], NamedTuple[]
-    for path in paths
-        version = try
-            jldopen(_format_version, path, "r")
+    dir = _data_dir()
+    imported, skipped, failed = Pair{String, String}[], String[], String[]
+    sources = Dict{String, String}()   # destination => the source imported to it here
+    for src in paths
+        stored = try
+            jldopen(src, "r") do f
+                _format_version(f) < _FORMAT_VERSION ? :old : haskey(f, "raw") && haskey(f, "params") ? f["params"] : nothing
+            end
         catch e
-            @warn "Failed to open $(basename(path))" exception = e
-            push!(failed, path); continue
+            e isa InterruptException && rethrow()
+            @warn "Not imported: $src can't be read" exception = e
+            push!(failed, src); continue
         end
-        if version < _FORMAT_VERSION
-            @warn "$(basename(path)) is a file of PDEStudioCore 0.4 (file format $version), which this version doesn't read"
-            push!(failed, path); continue
+        if !(stored isa AbstractDict)
+            @warn "Not imported: $src " * (stored === :old ? "was written by PDEStudioCore 0.4, which this version doesn't read" :
+                                                           "has no dataset or no parameters")
+            push!(failed, src); continue
         end
-        stored = _file_params(path)
-        stored isa AbstractDict || (push!(failed, path); continue)
         old = _normalize_params(stored)
         filter_pairs === nothing ||
             all(((k, v),) -> haskey(old, Symbol(k)) && isequal(old[Symbol(k)], _normalize_param(v)), filter_pairs) || continue
         params = copy(old)
         foreach(k -> delete!(params, k), remove)
-        isempty(prompt) || _prompt_param_values!(params, prompt, basename(path))
+        isempty(prompt) || _prompt_param_values!(params, prompt, basename(src))
         params = _normalize_params(params)
-        push!(plan, (path = path, params = params, rename = isequal(params, stored)))   # (the stored form unchanged)
-    end
-
-    # 2. New names: the time of the old name and the new hash; never an existing file other than one renamed away here
-    movable = delete_old ? Set(abspath(j.path) for j in plan) : Set{String}()
-    taken, jobs = Set{String}(), NamedTuple[]
-    stamp_of(path) = (m = match(r"^(.+?)_[0-9a-f]{64}(?:_\d+)?\.jld2$", basename(path)); m === nothing ? _timestamp() : m.captures[1])
-    natural(j) = joinpath(dirname(j.path), "$(stamp_of(j.path))_$(calculate_hash(j.params)).jld2")
-    # (files at their name already keep it: they come first)
-    for j in sort(plan, by = j -> !(j.rename && abspath(natural(j)) == abspath(j.path)))
-        dest, k = natural(j), 1
-        stamp, h = stamp_of(j.path), calculate_hash(j.params)
-        while abspath(dest) in taken || (ispath(dest) && abspath(dest) != abspath(j.path) && !(abspath(dest) in movable))
-            k += 1
-            dest = joinpath(dirname(j.path), "$(stamp)_$(h)_$(k).jld2")
+        dest = _hash_path(calculate_hash(params), dir)
+        if haskey(sources, dest)
+            @warn "Not imported: $src holds the parameters of $(sources[dest]), imported before"
+            push!(skipped, src); continue
         end
-        push!(taken, abspath(dest))
-        (abspath(dest) == abspath(j.path) && j.rename) && continue   # (name and parameters as they are)
-        push!(jobs, merge(j, (dest = dest,)))
-    end
-
-    # 3. Moves: the renamed files first step aside (so no new name is a file still in place), then go to their names.
-    # They step aside into a staging folder next to them under their own names (no longer names: a long one would
-    # fail; an interrupted run is undone by the next, see `_restore_staged!`); a failing move puts everything back.
-    staged = Dict{String, String}()
-    if delete_old
-        try
-            for j in jobs
-                stage = joinpath(dirname(j.path), _STAGE_PREFIX * string(getpid()))
-                mkpath(stage)
-                tmp = joinpath(stage, basename(j.path))
-                mv(j.path, tmp; force = true)
-                staged[j.path] = tmp
-            end
-        catch e
-            e isa InterruptException && rethrow()
-            for (path, tmp) in staged   # (nothing has been rewritten yet)
-                ispath(path) || mv(tmp, path)
-            end
-            foreach(_remove_stage_dir!, unique(dirname.(values(staged))))
-            _invalidate_index!()
-            error("rehash_sim_data: could not set a file aside ($(sprint(showerror, e))); nothing was changed")
+        ispath(dest) && samefile(src, dest) && continue   # (in the store under its name already)
+        state = _file_state(dest, params)
+        if state === :other || state === :unreadable
+            @warn "Not imported: $src. " * sprint(showerror, _name_taken(dest, state))
+            push!(failed, src); continue
+        elseif state === :same && !overwrite
+            @info "Already stored: $src (as $(basename(dest)); `overwrite = true` replaces it)"
+            push!(skipped, src); continue
         end
-    end
-    renamed = Pair{String, String}[]
-    for j in jobs
-        src = get(staged, j.path, j.path)
         try
-            if j.rename
-                delete_old ? mv(src, j.dest) : cp(src, j.dest)
-            else
+            mkpath(dir)
+            if _identity(ParamDict(Symbol(k) => v for (k, v) in stored)) == _identity(params)
+                _copy_file(src, dest)   # (stored as it is: a byte copy)
+            else   # (other parameters: the data is written again with them)
                 raw = _open_data(f -> (r = f["raw"]; r.metadata = _file_metadata(f); r), src)
-                empty!(raw.params); merge!(raw.params, j.params)
-                _write_sim_file(j.dest, raw, Dict{String, Any}(), src)
-                islink(src) && @warn "$(basename(j.path)) is a symlink: the rehashed data is written to $(basename(j.dest)) " *
-                    "and the link is removed; its target $(realpath(src)) is not deleted."
-                delete_old && rm(src; force = true)
+                empty!(raw.params)
+                merge!(raw.params, params)
+                _write_sim_file(dest, raw, Dict{String, Any}(), src)
             end
-            push!(renamed, j.path => j.dest)
-            @info "Rehashed: $(basename(j.path)) -> $(basename(j.dest))"
         catch e
             e isa InterruptException && rethrow()
-            @warn "Could not rehash $(basename(j.path)); it is left as it was" exception = e
-            delete_old && (islink(src) || ispath(src)) && !ispath(j.path) && mv(src, j.path)
-            push!(failed, j.path)
+            @warn "Not imported: $src" exception = e
+            push!(failed, src); continue
         end
+        sources[dest] = src
+        push!(imported, src => dest)
     end
-    if delete_old
-        foreach(_remove_stage_dir!, unique(dirname.(values(staged))))
-        for link in linked
-            rm(link; force = true)
-        end
-    end
-    _invalidate_index!()
-    isempty(failed) || @warn "$(length(failed)) file(s) were not rehashed (see above): " * join(basename.(failed), ", ")
-    return renamed
+    @info "Imported $(length(imported)) run(s) into $dir" *
+          (isempty(skipped) ? "" : "; $(length(skipped)) skipped (stored already)") *
+          (isempty(failed) ? "" : "; $(length(failed)) file(s) not imported (see above)")
+    return imported
 end
 
-const _STAGE_PREFIX = ".rehash-"
-
-# Puts the files of staging folders in `dir` back under their names (a run of `rehash_sim_data` interrupted while its
-# files were set aside): a file whose name is taken again is left in the folder and named
-function _restore_staged!(dir::AbstractString)
-    isdir(dir) || return nothing
-    for entry in readdir(dir)
-        startswith(entry, _STAGE_PREFIX) || continue
-        stage = joinpath(dir, entry)
-        isdir(stage) || continue
-        for name in readdir(stage)
-            back = joinpath(dir, name)
-            if ispath(back)
-                @warn "$(joinpath(entry, name)) was set aside by an interrupted rehash and $name exists again: it is left there"
-            else
-                mv(joinpath(stage, name), back)
-                @info "Restored $name, set aside by an interrupted rehash"
-            end
-        end
-        _remove_stage_dir!(stage)
+# Copies a file (the file a link points to) to `dest` atomically: into a temporary file next to it, renamed into place
+function _copy_file(src::AbstractString, dest::AbstractString)
+    tmp = _tmp_path(dest)
+    try
+        cp(src, tmp; follow_symlinks = true)
+        mv(tmp, dest; force = true)
+    catch
+        rm(tmp; force = true)
+        rethrow()
     end
-    _invalidate_index!()
-    return nothing
+    return dest
 end
-
-_remove_stage_dir!(stage::AbstractString) = (isdir(stage) && isempty(readdir(stage)) && rm(stage); nothing)
 
 function _prompt_param_values!(params::ParamDict, prompt_keys::Vector{Symbol}, name::AbstractString)
     println("\n--- Current parameters of $name ---")
@@ -339,30 +280,25 @@ end
 
 
 """
-    tidy_sim_data(; dry_run = false, min_tmp_age = 3600) -> (duplicates, temp_files)
+    tidy_sim_data(; dry_run = false, min_tmp_age = 3600) -> (temp_files, foreign)
 
-Removes files in the data directory that nothing uses:
-- older files of a run stored more than once (e.g. by parallel jobs computing the same parameters): files holding
-  the same parameters, whatever they are named; lookups always use the newest of them, the older ones only take
-  space. A file that can't be read is never removed here;
-- temporary files of writes that never finished (a process killed while writing), older than `min_tmp_age`
-  seconds (a running write keeps its temporary file younger).
-Returns the paths it removed (with `dry_run = true`: would remove).
+Removes the temporary files of writes that never finished (a process killed while writing) from the data folder, if
+they are older than `min_tmp_age` seconds (a running write keeps its temporary file younger), and lists the files
+there that aren't part of the store: `.jld2` files under other names than `<hash>.jld2` (e.g. data of earlier
+versions or copies), files whose stored parameters have another hash than their name, and files whose parameters
+can't be read. Lookups never use them, and they are never deleted here: bring their runs into the store with
+[`import_sim_data`](@ref), then delete them yourself.
+
+Returns the paths of the temporary files it removed (with `dry_run = true`: would remove) and of the foreign files.
 """
 function tidy_sim_data(; dry_run::Bool = false, min_tmp_age::Real = 3600)
     dir = _data_dir()
-    duplicates, temp_files = String[], String[]
-    isdir(dir) || return (duplicates = duplicates, temp_files = temp_files)
-    # (by what the files hold: two files of one name hash may be different runs, one of them misplaced)
-    groups = Dict{String, Vector{String}}()
-    for f in _data_index(fresh = true).files
-        s = _stored_params(f; fresh = true)
-        isnothing(s) && continue
-        push!(get!(groups, s.identity, String[]), f)
-    end
-    for (_, files) in groups
-        length(files) > 1 || continue
-        append!(duplicates, _sort_newest!(copy(files))[2:end])
+    temp_files, foreign = String[], String[]
+    isdir(dir) || return (temp_files = temp_files, foreign = foreign)
+    for path in _data_files(dir)
+        h = _filename_hash(basename(path))
+        p = h === nothing ? nothing : _file_params(path)
+        p isa AbstractDict && calculate_hash(p) == h || push!(foreign, path)
     end
     now_s = time()
     for f in readdir(dir)
@@ -371,21 +307,19 @@ function tidy_sim_data(; dry_run::Bool = false, min_tmp_age::Real = 3600)
         now_s - mtime(path) >= min_tmp_age && push!(temp_files, path)
     end
     if !dry_run
-        for path in (duplicates..., temp_files...)
-            rm(path; force = true)
-        end
-        _invalidate_index!()
-        isempty(duplicates) && isempty(temp_files) ||
-            @info "Removed $(length(duplicates)) duplicate data file(s) and $(length(temp_files)) temporary file(s)."
+        foreach(path -> rm(path; force = true), temp_files)
+        isempty(temp_files) || @info "Removed $(length(temp_files)) temporary file(s)."
     end
-    return (duplicates = duplicates, temp_files = temp_files)
+    isempty(foreign) || @info "$(length(foreign)) file(s) in $dir aren't part of the store (lookups don't use them): " *
+                              join(basename.(foreign), ", ")
+    return (temp_files = temp_files, foreign = foreign)
 end
 
 """
     sim_data_table(match_params = Dict()) -> DataFrame
 
-One row per stored run whose parameters contain all pairs of `match_params` (as [`find_sim_data`](@ref)), newest
-first: `file`, `created` (from the file name), `size_mb`, `kind` (`:eulerian` / `:lagrangian`), `shape`,
+One row per stored run whose parameters contain all pairs of `match_params` (as [`find_sim_data`](@ref)), most
+recently written first: `file`, `created` (when the data was made, from its provenance), `size_mb`, `kind` (`:eulerian` / `:lagrangian`), `shape`,
 `format_version`, `stats` (the available statistics), `postprocessed` (the names of the post-processors that ran, or `missing`),
 `wall_time` (seconds the solver took, if recorded), `solver`, then one column per parameter (`missing` where a
 run doesn't have it; a parameter named like one of the columns before gets the column `param_<name>`, with more
@@ -410,8 +344,7 @@ function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
     end
     for (path, params) in files
         row = Dict{Symbol, Any}(:file => basename(path), :size_mb => round(filesize(path) / 2^20, digits = 3))
-        stamp = match(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d{3})_", basename(path))
-        row[:created] = stamp === nothing ? missing : DateTime(stamp.captures[1], dateformat"yyyy-mm-dd_HH-MM-SS_sss")
+        row[:created] = missing
         try
             jldopen(path, "r") do f
                 row[:kind] = haskey(f, "native") ? f["native"] : missing
@@ -424,6 +357,8 @@ function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
                                       join(sort!(string.(collect(keys(post)))), ", ") : missing
                 prov = get(md, :provenance, nothing)
                 row[:wall_time] = prov isa AbstractDict ? get(prov, :wall_time, missing) : missing
+                created = prov isa AbstractDict ? get(prov, :created, nothing) : nothing
+                row[:created] = created isa AbstractString ? something(tryparse(DateTime, created), missing) : missing
                 row[:solver] = prov isa AbstractDict ? get(prov, :solver, missing) : missing
             end
         catch e   # (a file that can't be read leaves its columns `missing`, the table goes on)

@@ -97,14 +97,21 @@ end
     @test get_clean_params(create_param_dict(:m => [1 2; 3 4]))[:m] == [1 2; 3 4]
     @test calculate_hash(create_param_dict(:m => [1 2; 3 4])) != calculate_hash(create_param_dict(:m => [1, 3, 2, 4]))
 
-    # The hash format is stable (regression values of hash format 3, PDEStudioCore 0.7), so stored data is found again
+    # The hash format is stable (regression values of hash format 4, PDEStudioCore 0.8), so stored data is found again
     # across sessions
     @test calculate_hash(create_param_dict(:N => 50, :cfl => 0.5, :scheme => "upwind")) ==
-          "c681b3a398ab27f91f2c882ba77b9a2abe20a0293f39d6a51870c95843e6770d"
+          "3c92391b93e06f73fdaef02e7882ae09c3524454c0ac20ed1ba6d1d528390a98"
     @test calculate_hash(create_param_dict(:Ns => (20, 15), :sim_func_name => :advection_solver_1d,
                                            :tag => "", :values => [0.1, 0.2])) ==
-          "964a7d65a7708d8fa2aab863ac7bbab70578559e5b3fb1afb231a9bc5126ace3"
-    @test calculate_hash(create_param_dict(:N => 50, :cfl => 0.5)) == "177d84553196fd057f8b26ab68fb9d24fdbf6adee9df5aa7bb3692c046c5506d"
+          "c58c578bfe5535b8f407a14468a1d8932919fb7ae8d5ca814a1f9976f65c3c3f"
+    @test calculate_hash(create_param_dict(:N => 50, :cfl => 0.5)) == "122a1fb4e9b0a6ae99f3639c865def41dade5a32475aceb019b4b73828b7c9de"
+    @test PDEStudioCore._identity(get_clean_params(create_param_dict(:N => 50, :s => "a"))) ==
+          "PDEStudioCore hash format 4\nd17:Dict{Symbol, Any}2:y1:N#5:Int642:50y1:ss1:a"
+    # values that `isequal` (or a printed text) takes for one another have distinct encodings
+    for (a, b) in ((1, 1.0), (true, 1), (1, "1"), ([1 2], [1, 2]), ([1, 2], (1, 2)), (Int[], Float64[]),
+                   (Dict(1 => 2), Dict(1.0 => 2)), (:a, "a"), ("a" => 1, ("a", 1)), (nothing, "nothing"), (0.0, -0.0))
+        @test calculate_hash(Dict(:k => a)) != calculate_hash(Dict(:k => b))
+    end
 end
 
 @testset "Hash text: ambiguous top-level strings are quoted" begin
