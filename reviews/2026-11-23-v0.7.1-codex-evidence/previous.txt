@@ -1,0 +1,6 @@
+package 0.7.0
+cleanup: valid file=true usable run=true partial has raw=false
+all files staged: recovered=false
+unmatched filter: link preserved=true
+external relative link: rewrites=1 new run=true target preserved=true
+single-file operation: unrelated notes stayed=true moved into data=false
