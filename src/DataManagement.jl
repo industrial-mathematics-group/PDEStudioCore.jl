@@ -151,14 +151,16 @@ under their hash, as `data/<hash>.jld2` ([`calculate_hash`](@ref)). The source i
 renamed, rewritten or deleted (also with `overwrite = true`, also when it is the data folder itself), and every copy
 is written atomically, so an interrupted import is simply run again.
 
-Every source file is checked before anything is written: it must hold a dataset (`"raw"`) whose parameters, kind and
-shape are those stored in the file, in the file format of PDEStudioCore 0.5 and later. Files that fail (can't be read,
-no dataset, written by PDEStudioCore 0.4, …) are reported and skipped.
+Every source file the filter selects is checked before anything is written: it must hold a dataset (`"raw"`) whose
+parameters, kind and shape are those stored in the file, in the file format of PDEStudioCore 0.5 and later. Files that
+fail (can't be read, no dataset, written by PDEStudioCore 0.4, …) are reported and skipped. What is installed is a
+copy of the source, checked again (also that its parameters are still the ones planned): a source that changed in
+between is reported, and its destination is left as it is.
 
 A run that is stored already is skipped (`overwrite = true` replaces the stored data of the same parameters); a stored
 file of the same parameters that isn't a usable run (e.g. without its dataset) is replaced, with a message. A file
 at the destination is never replaced if it holds other parameters or its parameters can't be read, if it is a
-symbolic link (the store neither writes through links nor replaces them), or if it is one of the source files. Of
+symbolic link (an import neither writes through links nor replaces them), or if it is one of the source files. Of
 several source files of the same parameters the first (by path) is imported, the others are reported.
 
 To change parameters of stored runs (e.g. drop one that no longer exists), import the data folder itself:
@@ -197,6 +199,9 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
     # 1. Plan: check every source file and choose its destination (nothing is written yet)
     plan = NamedTuple[]
     for src in paths
+        # (the filter on the lightweight parameters first: the dataset of a run it excludes isn't loaded)
+        stored = try jldopen(f -> haskey(f, "params") ? f["params"] : nothing, src, "r") catch; nothing end
+        filter_pairs === nothing || !(stored isa AbstractDict) || _has_pairs(_normalize_params(stored), filter_pairs) || continue
         problem = _run_problem(src)
         if problem !== nothing
             @warn "Not imported: $src: $problem"
@@ -204,7 +209,6 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
         end
         stored = _file_params(src)
         old = _normalize_params(stored)
-        filter_pairs === nothing || _has_pairs(old, filter_pairs) || continue
         params = copy(old)
         foreach(k -> delete!(params, k), remove)
         isempty(prompt) || _prompt_param_values!(params, prompt, basename(src))
@@ -212,7 +216,8 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
         push!(plan, (src = src, stored = stored, params = params, dest = _hash_path(calculate_hash(params), dir)))
     end
 
-    # 2. Copies
+    # 2. Copies: each source is copied next to its destination first, and that copy (the bytes installed) is checked
+    # again, so a source changed since the plan (e.g. during a prompt) is reported instead of installed
     sources = Dict{String, String}()   # destination => the source imported to it here
     for (; src, stored, params, dest) in plan
         if haskey(sources, dest)
@@ -221,7 +226,7 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
         end
         ispath(dest) && samefile(src, dest) && continue   # (in the store under its name already)
         if islink(dest)
-            @warn "Not imported: $src. Its destination $dest is a symbolic link, which the store neither writes " *
+            @warn "Not imported: $src. Its destination $dest is a symbolic link, which an import neither writes " *
                   "through nor replaces; remove the link (its target stays), then import again."
             push!(failed, src); continue
         end
@@ -240,21 +245,32 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
                   "writes (also not with `overwrite = true`)."
             push!(failed, src); continue
         end
-        problem === nothing || @info "Replacing $dest, which isn't a usable run ($problem), with $src"
+        mkpath(dir)
+        staged = _tmp_path(dest)
         try
-            mkpath(dir)
-            if _identity(ParamDict(Symbol(k) => v for (k, v) in stored)) == _identity(params)
-                _copy_file(src, dest)   # (stored as it is: a byte copy)
-            else   # (other parameters: the data is written again with them)
-                raw = _open_data(f -> (r = f["raw"]; r.metadata = _file_metadata(f); r), src)
+            cp(src, staged; follow_symlinks = true)
+            changed = _run_problem(staged)
+            changed === nothing && _raw_identity(_file_params(staged)) != _raw_identity(stored) &&
+                (changed = "its parameters changed")
+            if changed !== nothing
+                @warn "Not imported: $src changed since it was checked ($changed); $dest is left as it was"
+                push!(failed, src); continue
+            end
+            problem === nothing || @info "Replacing $dest, which isn't a usable run ($problem), with $src"
+            if _raw_identity(stored) == _identity(params)
+                mv(staged, dest; force = true)   # (stored as it is: the checked copy)
+            else   # (other parameters: the data of the checked copy is written again with them)
+                raw = _open_data(f -> (r = f["raw"]; r.metadata = _file_metadata(f); r), staged)
                 empty!(raw.params)
                 merge!(raw.params, params)
-                _write_sim_file(dest, raw, Dict{String, Any}(), src)
+                _write_sim_file(dest, raw, Dict{String, Any}(), staged)
             end
         catch e
             e isa InterruptException && rethrow()
             @warn "Not imported: $src" exception = e
             push!(failed, src); continue
+        finally
+            rm(staged; force = true)
         end
         sources[dest] = src
         push!(imported, src => dest)
@@ -287,18 +303,6 @@ function _run_problem(path::AbstractString)
     end
 end
 
-# Copies a file (the file a link points to) to `dest` atomically: into a temporary file next to it, renamed into place
-function _copy_file(src::AbstractString, dest::AbstractString)
-    tmp = _tmp_path(dest)
-    try
-        cp(src, tmp; follow_symlinks = true)
-        mv(tmp, dest; force = true)
-    catch
-        rm(tmp; force = true)
-        rethrow()
-    end
-    return dest
-end
 
 function _prompt_param_values!(params::ParamDict, prompt_keys::Vector{Symbol}, name::AbstractString)
     println("\n--- Current parameters of $name ---")

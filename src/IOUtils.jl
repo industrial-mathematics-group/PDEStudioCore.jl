@@ -381,7 +381,9 @@ _without_metadata(d::LSimData{D, DS, M, T}) where {D, DS, M, T} =
 Saves the dataset under the hash of its (normalised) parameters, `<save path>/data/<hash>.jld2`, and returns the file
 path. The data stored for these parameters is only replaced when `overwrite = true` (which also drops stale
 conversion caches); a file at that name that holds other parameters, or whose parameters can't be read (also a link
-whose target is missing), is never replaced (an error).
+whose target is missing), is never replaced (an error). A symbolic link at that name is followed: the file it points
+to is written, if it holds these parameters, and the link stays (unlike [`import_sim_data`](@ref), which never writes
+through links).
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 The dataset's `metadata` field is saved with it; `metadata` entries given here are added to it first.
 The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources` or
