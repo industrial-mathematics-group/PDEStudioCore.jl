@@ -1,0 +1,5 @@
+Julia 1.13.4, hash format 3
+legacy source emitted by 0.7.1: 2026-11-23_22-25-25_399_90be29a8a7f394398e45a060faf631c0cec958b26bbb45d249422b30e65b0c21.jld2
+Julia 1.13.4, hash format 4
+legacy import: initially exists=false
+legacy import: imports=1 source bytes preserved=true field=42.0 metadata=legacy notes
