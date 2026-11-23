@@ -267,8 +267,9 @@ end
     run_smart_simulation(sim_func, params; force_overwrite = false, metadata = Dict())
 
 Runs `sim_func(params)` unless a dataset for `params` already exists (then returns `NoSimData()`).
-The solver receives a copy of the parameters; the result is always stored under the task
-parameters so it can be found again. Its `metadata` (which the solver may fill) is saved with it, plus `metadata`
+The solver receives a deep copy of the parameters (what it changes, also inside arrays, changes neither `params`
+nor the parameters the result is stored under); the result is always stored under the task parameters so it can be
+found again. Its `metadata` (which the solver may fill) is saved with it, plus `metadata`
 given here and `:provenance` (versions, host, git commit, the solver and the seconds it took; see
 [`sim_data_table`](@ref)); a post-processing record of earlier data is dropped. Returns the produced data (or
 `NoSimData()`).
@@ -279,7 +280,7 @@ function run_smart_simulation(sim_func, params::AbstractDict; force_overwrite::B
     task_params = _to_paramdict(params)
     # invokelatest: the solver may have been defined after the caller started (e.g. via `sources`).
     t0 = time()
-    sim_data = Base.invokelatest(sim_func, copy(task_params))
+    sim_data = Base.invokelatest(sim_func, deepcopy(task_params))
     wall_time = time() - t0
     (sim_data === nothing || sim_data isa NoSimData) && return NoSimData()
     sim_data isa AbstractSimData || throw(ArgumentError(
@@ -356,21 +357,47 @@ function _source_metadata(sources::AbstractVector{<:AbstractString})
     return Dict{String, Any}("sources" => digests)
 end
 
-function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, force_overwrite::Bool, dry_run::Bool)
+function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, force_overwrite::Bool, dry_run::Bool,
+                     ref_record::AbstractString = "")
     try
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
         has_reference = ref_factory !== nothing
-        (force_overwrite || _needs_stats(path, required, has_reference)) || return (:cached, nothing)
+        # (statistics evaluated with another reference, or an unknown one, are evaluated again, all of them)
+        force = force_overwrite || (has_reference && _reference_changed(path, ref_record))
+        (force || _needs_stats(path, required, has_reference)) || return (:cached, nothing)
         dry_run && return (:ran, nothing)
         sim_data = _load_key(path, "raw")
         ref_func = has_reference ? ref_factory(params) : nothing
-        _calculate_all_stats!(sim_data, ref_func, force_overwrite, true, true)
+        _calculate_all_stats!(sim_data, ref_func, force, true, true; reference = ref_record)
         return (:ran, nothing)
     catch e
         e isa InterruptException && rethrow()
         @error "Statistics failed for parameters $params" exception = (e, catch_backtrace())
         return (:failed, _error_text(e))
+    end
+end
+
+# What identifies the reference statistics were evaluated with (stored as "evaluated_reference"): the name of the
+# factory, its package's version and the digest of the file that defines it, so a changed reference (another name, or
+# its file edited) makes the statistics due again. "" without a reference.
+function _reference_record(name, factory)
+    factory === nothing && return ""
+    parts = ["name=$name"]
+    v = _func_version(factory)
+    isnothing(v) || push!(parts, "version=$v")
+    file = try String(first(methods(factory)).file) catch; "" end
+    isfile(file) && push!(parts, "file=" * bytes2hex(open(sha256, file)))
+    return join(parts, "; ")
+end
+
+# Whether the statistics of a file were evaluated with a reference other than `record` (or one not recorded: files
+# of 0.6.2 and earlier, `calculate_all_stats!`)
+function _reference_changed(path::AbstractString, record::AbstractString)
+    return jldopen(path, "r") do file
+        with_ref = haskey(file, "evaluated_with_reference") && file["evaluated_with_reference"] === true
+        stored = haskey(file, "evaluated_reference") ? file["evaluated_reference"] : ""
+        return with_ref && (isempty(stored) || stored != record)
     end
 end
 
@@ -453,7 +480,8 @@ What [`run_all_simulations`](@ref) did (or, with `dry_run = true`, would do), sh
 - `changed`: stored results made with other source code (other contents of the source files, or another version of
   the solver's package), kept (`on_changed_sources = :warn`) or recomputed (`:recompute`); empty with `:ignore`;
 - `stats`, `postprocessing`: counts per outcome (`:ran`, `:cached` / `:skipped`, `:outdated` (post-processed by
-  another version of the post-processor, see [`run_all_simulations`](@ref)), `:failed`, `:missing`), and
+  another version of the post-processor, see [`run_all_simulations`](@ref)), `:failed`, `:missing`, `:not_run` (the
+  solver failed or returned nothing in pass 1: data stored before is left as it is)), and
   `stats_failed`, `postprocessing_failed` (`params => error message`);
 - `files`: the data file of each task (in the order of `tasks`), `nothing` where nothing usable is stored. After a
   run, the files holding the results; after a dry run, the files stored now, i.e. the data the configuration needs
@@ -576,6 +604,9 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
     changed = ParamDict[tasks[i] for i in 1:n if results[i][3]]
     ran, cached, empty_ = pick((:ran,)), pick((:cached, :changed)), pick((:empty,))
     would_run = [r[1] === :ran for r in results]
+    # (a solver that failed or returned nothing: data stored before, e.g. under `force_overwrite`, is not this run's
+    # result, so statistics and post-processing leave it as it is)
+    not_run = [r[1] in (:failed, :empty) for r in results]
     @info "Pass 1 finished: $(length(ran)) $(dry_run ? "would run" : "run"), $(length(cached)) cached, " *
           "$(length(empty_)) without output, $(length(failed)) failed."
     if !isempty(changed) && on_changed_sources === :warn
@@ -596,12 +627,15 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
     if calculate_stats
         @info "Pass 2: $(dry_run ? "checking" : "calculating") statistics..."
         ref_factory = resolve_dynamic_function(config.reference)
+        ref_record = _reference_record(config.reference, ref_factory)
         required = sort!(Symbol[k for k in keys(get_stat_registry()) if k !== :Solution])
         progress = Progress(n; desc = "Calculating stats...", enabled = !dry_run)
         for (i, params) in enumerate(tasks)
             # (in a dry run, the tasks that would run would get their statistics and post-processing, too)
-            st, err = dry_run && would_run[i] ? (isempty(required) ? :cached : :ran, nothing) :
-                      Base.invokelatest(_stats_task, params, ref_factory, required, force_overwrite || force_stats, dry_run)
+            st, err = not_run[i] ? (:not_run, nothing) :
+                      dry_run && would_run[i] ? (isempty(required) ? :cached : :ran, nothing) :
+                      Base.invokelatest(_stats_task, params, ref_factory, required, force_overwrite || force_stats, dry_run,
+                                        ref_record)
             stats[st] = get(stats, st, 0) + 1
             st === :failed && push!(stats_failed, params => err)
             next!(progress)
@@ -616,7 +650,8 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
         record = _postprocess_record(config.postprocess, post_func, metadata)
         progress = Progress(n; desc = "Post-processing...", enabled = !dry_run)
         for (i, params) in enumerate(tasks)
-            st, err = dry_run && would_run[i] ? (:ran, nothing) :
+            st, err = not_run[i] ? (:not_run, nothing) :
+                      dry_run && would_run[i] ? (:ran, nothing) :
                       Base.invokelatest(_post_task, params, post_func, record, force_postprocess, dry_run,
                                         on_changed_sources === :ignore)
             post[st] = get(post, st, 0) + 1
@@ -639,10 +674,15 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
 end
 
 # The data file of `params` that loading would use, or `nothing` (also for a file whose data doesn't load as a dataset
-# of this version: the pipeline recomputes it; nothing is written here)
+# of this version: the pipeline recomputes it; or that can't be read; nothing is written here)
 function _stored_file(params::AbstractDict)
-    path = _find_file(params)
-    return path !== nothing && _is_current_file(path; upgrade = false) ? path : nothing
+    try
+        path = _find_file(params)
+        return path !== nothing && _is_current_file(path; upgrade = false) ? path : nothing
+    catch e
+        e isa InterruptException && rethrow()
+        return nothing   # (an unreadable file, e.g. truncated: pass 1 reported it)
+    end
 end
 
 # ==============================================================================

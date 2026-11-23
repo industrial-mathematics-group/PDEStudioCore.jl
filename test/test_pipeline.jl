@@ -280,7 +280,8 @@ end
     @test length(s.empty) == 1 && s.empty[1][:sim_func_name] === :empty_solver
     @test length(s.failed) == 1 && first(s.failed[1])[:sim_func_name] === :failing_solver
     @test last(s.failed[1]) == "intentional failure"
-    @test s.stats == Dict(:ran => 1, :missing => 2) && s.postprocessing == Dict(:ran => 1, :missing => 2)
+    # (the failed and the empty task: nothing of theirs to evaluate)
+    @test s.stats == Dict(:ran => 1, :not_run => 2) && s.postprocessing == Dict(:ran => 1, :not_run => 2)
     text = repr("text/plain", s)
     @test occursin("3 task(s)", text) && occursin("1 ran", text) && occursin("1 failed", text)
     @test occursin("failed: N = 6", text) && occursin("intentional failure", text) && !occursin("sim_func_name", text)

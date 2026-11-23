@@ -114,7 +114,8 @@ _check_stat_shape(::AbstractSimData, ::Symbol, value, kept) = nothing
 Attaches a pre-computed statistic and records the dimensions it keeps (`:all`, `:space`, `:time`,
 dimension names, or `Symbol[]` for a scalar) so that conversions and frontends can slice it.
 Numbers and arrays of numbers are converted to `SVector`s with the dataset's component count, and
-shapes are checked against the kept axes (Eulerian) or time steps and particles (Lagrangian).
+shapes are checked against the kept axes (Eulerian) or time steps and particles (Lagrangian); a single value needs
+`kept_dims = Symbol[]`.
 
 [`calculate_all_stats!`](@ref) leaves such statistics alone, unless the same name is registered
 globally (then it is recomputed with `force_overwrite = true` or when the kept dimensions differ).
@@ -123,7 +124,12 @@ function add_stat!(sim_data::AbstractSimData{D, DS, M, T}, name::Symbol, value, 
     name === :Solution && throw(ArgumentError("use `data.u = ...` (or `data.stats[:Solution] = ...`) to replace the solution"))
     reg_val = _registry_value(kept_dims)
     stored = _stat_value(value, Val(M), T)
-    _check_stat_shape(sim_data, name, stored, _kept_dims(reg_val, sim_data.domain))
+    kept = _kept_dims(reg_val, sim_data.domain)
+    # (a single value has no entry per coordinate of the dimensions it would keep)
+    isempty(kept) || !(stored isa SVector || stored isa Number) || throw(DimensionMismatch(
+        "statistic :$name keeps the dimensions $(Tuple(kept)), so it needs one value per coordinate of them (an " *
+        "array, or one vector per time step for particle fields), got a single value; use `Symbol[]` (or `:none`) for a scalar"))
+    _check_stat_shape(sim_data, name, stored, kept)
     global_dims = get(get_stat_registry(), name, nothing)
     if global_dims !== nothing && global_dims != reg_val
         @warn "Statistic :$name is registered globally with kept dimensions $global_dims; " *
@@ -155,15 +161,17 @@ calc_stat(stat, fixed_coords, u, ana, domain) = zero(eltype(u)) .* NaN
 """
     is_all_nan(val)
 
-`true` if every entry of a statistic (scalar `SVector`, array or per-particle series) contains a NaN.
+`true` if every value of a statistic (scalar `SVector`, array or per-particle series) is NaN, every component of
+every entry: a statistic defined for some components only (e.g. a relative error where one component of the reference
+is zero) is kept.
 """
 function is_all_nan(val)
     if val isa Vector{<:Vector}
-        return all(step -> all(svec -> any(isnan, svec), step), val)
+        return all(step -> all(svec -> all(isnan, svec), step), val)
     elseif val isa SVector
-        return any(isnan, val)
+        return all(isnan, val)
     elseif val isa AbstractArray
-        return all(svec -> any(isnan, svec), val)
+        return all(svec -> all(isnan, svec), val)
     end
     return false
 end
@@ -222,7 +230,8 @@ calculate_all_stats!(sim_data::AbstractSimData, ref_func = nothing; force_overwr
 
 # `known_native = true`: `sim_data` was just loaded as "raw" from its file (the pipeline), so the comparison
 # with the stored solution can be skipped.
-function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwrite::Bool, save::Bool, known_native::Bool)
+function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwrite::Bool, save::Bool, known_native::Bool;
+                               reference::AbstractString = "")
     names, changed = _sync_registry!(sim_data)
     raw = _raw_stats(sim_data)
     pending = force_overwrite ? names : filter(n -> !haskey(raw, n), names)
@@ -263,7 +272,9 @@ function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwr
             # Remember what was evaluated (and whether a reference was available), so the pipeline does
             # not reload data for stats that came out NaN, but retries them once a reference exists.
             # Written together with the data if that is (re)written; otherwise only if the entries differ.
-            evaluated = Dict{String, Any}("evaluated_stats" => names, "evaluated_with_reference" => ref_func !== nothing)
+            # (and which reference that was, `_reference_record`: "" from `calculate_all_stats!`, which doesn't know it)
+            evaluated = Dict{String, Any}("evaluated_stats" => names, "evaluated_with_reference" => ref_func !== nothing,
+                                          "evaluated_reference" => ref_func === nothing ? "" : String(reference))
             # (the same data rewritten: it keeps the pipeline's entries of the stored metadata, see `_carry_metadata!`)
             changed && path !== nothing && _carry_metadata!(sim_data, path)
             path = _save_sim_data(sim_data, changed, false, evaluated)
