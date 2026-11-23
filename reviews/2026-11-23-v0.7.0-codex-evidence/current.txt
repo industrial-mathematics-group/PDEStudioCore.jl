@@ -1,0 +1,6 @@
+PDEStudioCore 0.7.0 Julia 1.13.4
+first default save: marker=false
+second default save: requires rehash
+distinct parameter keys: same hash=true files=1 first field=10.0 expected=20
+nothing and its type: normalized equal=false same hash=true first field=40.0 expected=30
+wide Float16 grid: conversion failed; InexactError=true

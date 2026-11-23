@@ -1,0 +1,538 @@
+# An independent AI review, recorded by 'aisignoff attest'. The review folder keeps it as it is:
+# a later review goes into a new file.
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "f0d5b9e2a4b6482a3d80170beb74797f0826edf7"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "critical"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "critical"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "critical"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "docs/src/index.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "docs/src/statistics.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/ConversionUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/Examples/_main.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/PDEStudioCore.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/SimData.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/Simulations.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "test/test_data.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "test/test_review_fixes.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "test/test_serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "fd5cf2bd2c214656eb1cad562ec3c972482fd8a1"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/DataManagement.jl"
+blob = "4cd6ec8bd911c8e1167904b108c5e2ef70b45425"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "critical"
+
+[[attestations]]
+path = "src/IOUtils.jl"
+blob = "2ec5d5ef201bc8f77035f476e07eada83095cf37"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "critical"
+
+[[attestations]]
+path = "src/Serialization.jl"
+blob = "263266c4d5cffc5d0dbdb5e328046abb12736cd4"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "critical"
+
+[[attestations]]
+path = "docs/src/data.md"
+blob = "0c8f70e796d49a266a21ef46ded9643c4b49f27f"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+path = "src/ConversionUtils.jl"
+blob = "dfafa373f3c9d110c37dec418434393c7945b797"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+path = ".github/CODEOWNERS"
+blob = "d4a4a7377ab0d98ee10c4e8f57147fe55137c452"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/dependabot.yml"
+blob = "d85b6d08ba1de7ecaf8e05351dc146300b19cf9a"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/CI.yml"
+blob = "45084783180c6f50b6c43ebe4a1f5c39425b4209"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/TagBot.yml"
+blob = "e33ea99eb9a8aedcc19cc41898d240920db9a322"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/citation.yml"
+blob = "80ed5ba2573dfd68d39395dfda9ef40e7206db1b"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/file-signoff.yml"
+blob = "efc043799e472a6b91ad3d1c3d4a157164fc8fbb"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/pr-signoff.yml"
+blob = "1a5c32f6a2b371cf95559968674cb07ce29425de"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/reuse.yml"
+blob = "6b262280dc83ab0cacf73b546d0e15e53882a8df"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".gitignore"
+blob = "efbb13f92781117e37b2137af1caed0d3c18f258"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "CITATION.cff"
+blob = "552002752c671ef8a50ce1a4873dd2747d549c7d"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "CLAUDE.md"
+blob = "ab9f593334a39745b80ea9847a9b8938267c8b67"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "Project.toml"
+blob = "f879d01efdbe41fa888f51ffcd9daa92abc7fcca"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "README.md"
+blob = "080a75df9744085409f9a42eac74082523f23c67"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "REUSE.toml"
+blob = "a18c1092482408854190f9003e4c05be7a3fe7ff"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/Project.toml"
+blob = "72243dc4d63a03a7f6d45f15130fe4469e545f31"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/make.jl"
+blob = "0d29c006639e8e4891fdaae27b8c8ba40b6aff7a"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/advanced_config.md"
+blob = "5da52beadbb3e69848986676405935c1903f1f23"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/aisignoff.md"
+blob = "915bd57087a875d52f0ab1e08efe6f7da4535a9f"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/api.md"
+blob = "a564f82438f088fe2a8db07b0f753e1d2be1cd5e"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/examples.md"
+blob = "710af0207641ea87f65bb1b2ae0ef51f37f58ef4"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/index.md"
+blob = "38f473055015ed0fcd05d72091b0bf1d5148a5c8"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/simulation_config.md"
+blob = "a65dc17db8fd77747da4597e8fb65814384bf9ed"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/statistics.md"
+blob = "160a5093f9b71b36bd474fa2411ad9b6bd333812"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "presets/hyperbolic.jl"
+blob = "5a5dd994ba64ec30f0f185f40aec1af6976d7293"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Config.jl"
+blob = "807f91976de11de7dd43af3ea7626f2ada5c7d54"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Constructors.jl"
+blob = "b5a183c90ad0ee559afabb9633e247a9a71e049c"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Display.jl"
+blob = "53b28bfc2c438434b140f10fb36dca960dcee740"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/_main.jl"
+blob = "49f51a82ba81b4204df76868d6776e3357670aeb"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/advection_1d.jl"
+blob = "7f14f8e8ef40729e8660b19f5718f339bd6738b8"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/burgers_1d.jl"
+blob = "48a0f7303f6bc4523c69fd57152e2c1686af59aa"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/heat_1d.jl"
+blob = "d56405609b976ee1596bca031b444458ffdcba34"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/heat_2d.jl"
+blob = "cac60ac628396079ba93d4b7573fffc8d028d34e"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/particles_2d.jl"
+blob = "d5e834e9e60e73266c7c4e7e2898eeefd071b503"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/poisson_2d.jl"
+blob = "a332297432f3932e298f901474d2c71f24652023"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/PDEStudioCore.jl"
+blob = "dc6b8fd78af0d961622cb8ad8d2527765359635b"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/SimData.jl"
+blob = "e367f28a245b0cddc17e0564ba548cbf6ae08525"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Simulations.jl"
+blob = "60e285f3c62dc52ce3bf0bb3113af6b60179da6c"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/StatCalculation.jl"
+blob = "36cfde9313a2157a5e698b0289b7bf05e8ac785d"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Structs.jl"
+blob = "924fa1cfc8e4bd2bc15c5d704d5aedb7fadd5a48"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/Project.toml"
+blob = "40eb4ce7504a62067e4faa0526f6d8143643772c"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/fixtures/v0.4/write_fixtures.jl"
+blob = "a83b76f0859674a269ea1710b87bed20202d4225"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/reference_str2val.jl"
+blob = "8a3f2c29f11e80ea6b9af22d53c2c1c0f1161fba"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/runtests.jl"
+blob = "cfe73efe19ec602a3f993997b4b7a726700af22c"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/solvers.jl"
+blob = "e69213647433f76496f2ea0e8f4f24553ef850ff"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_constructors.jl"
+blob = "3f78b0ebaa5739e9ab15ec0f9d2935a153387b44"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_data.jl"
+blob = "fc4a76b909f9915d9c3d1586acb878aa9d9a66fd"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_examples.jl"
+blob = "9cc3591c5be386c375c5af3f41fb1c64f312cef8"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_pipeline.jl"
+blob = "c1db7e020bc7dde258a25ac7216e6c2913f462ce"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_review_fixes.jl"
+blob = "404c6a334d30856c5110624a1bdbe190c9220dc2"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_roundtrip.jl"
+blob = "d14b595190348f5f5dfe2e3e41e1cd727c40171e"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_serialization.jl"
+blob = "e17c8083bddc90e7cbaade103af9598c7f2d2f1d"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_statistics.jl"
+blob = "fb47fb22ced4cdae5b1bd29def3e7e631f29379d"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_str2val_differential.jl"
+blob = "bfda234824e9ad89750ec25b52a545fc88056d1b"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_types.jl"
+blob = "e2925dd0ba844d64db921531ada4ee264a71d3eb"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.7.0-codex.md"]
+AI-Review-Findings = "none"
