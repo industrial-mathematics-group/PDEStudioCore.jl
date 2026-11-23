@@ -140,48 +140,117 @@ end
 
 """
     rehash_sim_data(target_path = joinpath(get_save_path(), "data"); delete_old = true, filter_pairs = nothing,
-                    remove_keys = Symbol[], prompt_keys = Symbol[])
+                    remove_keys = Symbol[], prompt_keys = Symbol[]) -> Vector{Pair{String, String}}
 
-Re-normalises the parameters of a `.jld2` file (or of every `.jld2` file below a directory),
-recomputes the hash and stores the data under its new name. Use it after renaming or removing
-parameters, or after changes to the hashing: **once for every data folder written by PDEStudioCore 0.6 or earlier**
-(their file names differ for runs with string parameters; until then the pipeline writes nothing into such a folder,
-see [`calculate_hash`](@ref)). A file whose parameters stay the same is only renamed. Rehashing the data folder
-records its hash format, which makes it writable. Files of PDEStudioCore 0.4 (file format below 3) aren't read by this
-version: upgrade them with PDEStudioCore 0.6 (`upgrade_sim_data`) first; they are listed and left as they are.
+Re-normalises the parameters of a `.jld2` file (or of every `.jld2` file below a directory), recomputes their hash
+and stores the data under its new name. Use it after renaming or removing parameters, or to give files of earlier
+PDEStudioCore versions (file format 3, 0.5 and 0.6) the names of this version, which aren't found otherwise (see
+[`calculate_hash`](@ref)). A file whose parameters stay the same is renamed, not written again.
+
+Every file is read and its new name chosen before anything is moved: a new name is never an existing file (two
+files of the same time and hash get distinct names, a counter is appended), and files that take each other's names
+are moved in two steps. A file that can't be read (or of PDEStudioCore 0.4, file format below 3, which this version
+doesn't read) is reported and left as it is.
 
 # Keywords
-- `delete_old`: remove the old file once the new one has been written. For a symlink only the link is removed
-  (with a warning naming its target, which may be shared).
+- `delete_old`: rename (or, with changed parameters, replace) the old file; `false` keeps it under its old name and
+  writes a copy. For a symlink, the link is renamed (rewritten data: a regular file replaces the link; its target
+  is never deleted).
 - `filter_pairs`: only process files whose parameters contain these exact pairs.
 - `remove_keys`: parameter keys to drop before rehashing.
 - `prompt_keys`: interactively ask (in the REPL) for new values of these keys for every file.
 
-Returns a vector of `old_path => new_path` pairs.
+Returns the `old_path => new_path` pairs of the files it renamed or wrote.
 """
 function rehash_sim_data(target_path::AbstractString = _data_dir(); delete_old::Bool = true, filter_pairs = nothing,
                          remove_keys::AbstractVector = Symbol[], prompt_keys::AbstractVector = Symbol[])
     paths = if isfile(target_path) && endswith(target_path, ".jld2")
         [String(target_path)]
     elseif isdir(target_path)
-        [joinpath(root, f) for (root, _, files) in walkdir(target_path) for f in files if endswith(f, ".jld2")]
+        sort!([joinpath(root, f) for (root, _, files) in walkdir(target_path) for f in files if endswith(f, ".jld2")])
     else
         @warn "Path is neither a .jld2 file nor a directory: $target_path"
         String[]
     end
-    renamed = Pair{String, String}[]
-    old_format = String[]
+    remove, prompt = Symbol.(remove_keys), Symbol.(prompt_keys)
+
+    # 1. Plan: the new parameters of every file (nothing is moved yet)
+    failed, plan = String[], NamedTuple[]
     for path in paths
-        result = _rehash_single_file(path, delete_old, filter_pairs, Symbol.(remove_keys), Symbol.(prompt_keys))
-        result === :old_format ? push!(old_format, path) : result === nothing || push!(renamed, result)
+        version = try
+            jldopen(_format_version, path, "r")
+        catch e
+            @warn "Failed to open $(basename(path))" exception = e
+            push!(failed, path); continue
+        end
+        if version < _FORMAT_VERSION
+            @warn "$(basename(path)) is a file of PDEStudioCore 0.4 (file format $version), which this version doesn't read"
+            push!(failed, path); continue
+        end
+        stored = _file_params(path)
+        stored isa AbstractDict || (push!(failed, path); continue)
+        old = _normalize_params(stored)
+        filter_pairs === nothing ||
+            all(((k, v),) -> haskey(old, Symbol(k)) && isequal(old[Symbol(k)], _normalize_param(v)), filter_pairs) || continue
+        params = copy(old)
+        foreach(k -> delete!(params, k), remove)
+        isempty(prompt) || _prompt_param_values!(params, prompt, basename(path))
+        params = _normalize_params(params)
+        push!(plan, (path = path, params = params, rename = isequal(params, stored)))   # (the stored form unchanged)
     end
-    if !isempty(old_format)
-        @warn "$(length(old_format)) file(s) of PDEStudioCore 0.4 were left as they are (upgrade them with PDEStudioCore 0.6's " *
-              "`upgrade_sim_data`, then rehash): " * join(basename.(old_format), ", ")
-    elseif isdir(target_path) && abspath(target_path) == abspath(_data_dir()) && filter_pairs === nothing
-        _write_hash_format!(_data_dir())   # (every file has its name of this hash format now)
+
+    # 2. New names: the time of the old name and the new hash; never an existing file other than one renamed away here
+    movable = delete_old ? Set(abspath(j.path) for j in plan) : Set{String}()
+    taken, jobs = Set{String}(), NamedTuple[]
+    stamp_of(path) = (m = match(r"^(.+?)_[0-9a-f]{64}(?:_\d+)?\.jld2$", basename(path)); m === nothing ? _timestamp() : m.captures[1])
+    natural(j) = joinpath(dirname(j.path), "$(stamp_of(j.path))_$(calculate_hash(j.params)).jld2")
+    # (files at their name already keep it: they come first)
+    for j in sort(plan, by = j -> !(j.rename && abspath(natural(j)) == abspath(j.path)))
+        dest, k = natural(j), 1
+        stamp, h = stamp_of(j.path), calculate_hash(j.params)
+        while abspath(dest) in taken || (ispath(dest) && abspath(dest) != abspath(j.path) && !(abspath(dest) in movable))
+            k += 1
+            dest = joinpath(dirname(j.path), "$(stamp)_$(h)_$(k).jld2")
+        end
+        push!(taken, abspath(dest))
+        (abspath(dest) == abspath(j.path) && j.rename) && continue   # (name and parameters as they are)
+        push!(jobs, merge(j, (dest = dest,)))
+    end
+
+    # 3. Moves: the renamed files first step aside (so no new name is a file still in place), then go to their names
+    staged = Dict{String, String}()
+    if delete_old
+        for j in jobs
+            tmp = string(j.path, ".rehash.", getpid(), ".tmp")
+            mv(j.path, tmp; force = true)
+            staged[j.path] = tmp
+        end
+    end
+    renamed = Pair{String, String}[]
+    for j in jobs
+        src = get(staged, j.path, j.path)
+        try
+            if j.rename
+                delete_old ? mv(src, j.dest) : cp(src, j.dest)
+            else
+                raw = _open_data(f -> (r = f["raw"]; r.metadata = _file_metadata(f); r), src)
+                empty!(raw.params); merge!(raw.params, j.params)
+                _write_sim_file(j.dest, raw, Dict{String, Any}(), src)
+                islink(src) && @warn "$(basename(j.path)) is a symlink: the rehashed data is written to $(basename(j.dest)) " *
+                    "and the link is removed; its target $(realpath(src)) is not deleted."
+                delete_old && rm(src; force = true)
+            end
+            push!(renamed, j.path => j.dest)
+            @info "Rehashed: $(basename(j.path)) -> $(basename(j.dest))"
+        catch e
+            e isa InterruptException && rethrow()
+            @warn "Could not rehash $(basename(j.path)); it is left as it was" exception = e
+            delete_old && ispath(src) && !ispath(j.path) && mv(src, j.path)
+            push!(failed, j.path)
+        end
     end
     _invalidate_index!()
+    isempty(failed) || @warn "$(length(failed)) file(s) were not rehashed (see above): " * join(basename.(failed), ", ")
     return renamed
 end
 
@@ -209,86 +278,6 @@ function _prompt_param_values!(params::ParamDict, prompt_keys::Vector{Symbol}, n
     return params
 end
 
-function _rehash_single_file(path::String, delete_old::Bool, filter_pairs, remove_keys::Vector{Symbol},
-                             prompt_keys::Vector{Symbol})
-    version = try
-        jldopen(_format_version, path, "r")
-    catch e
-        @warn "Failed to open $(basename(path))" exception = e
-        return nothing
-    end
-    version < _FORMAT_VERSION && return :old_format
-    # (parameters that stay as they are: only the file name changes, the file is renamed, not written again)
-    stored = _file_params(path)
-    if stored isa AbstractDict && isempty(remove_keys) && isempty(prompt_keys) && isequal(_normalize_params(stored), stored) &&
-       (filter_pairs === nothing || all(((k, v),) -> haskey(stored, Symbol(k)) && isequal(stored[Symbol(k)], _normalize_param(v)), filter_pairs))
-        m = match(r"^(.+)_[0-9a-fA-F]{64}\.jld2$", basename(path))
-        new_path = joinpath(dirname(path), "$(m === nothing ? _timestamp() : m.captures[1])_$(calculate_hash(stored)).jld2")
-        abspath(new_path) == abspath(path) && return nothing
-        isfile(new_path) && @warn "$(basename(new_path)) already exists and is replaced by the renamed $(basename(path))."
-        delete_old ? mv(path, new_path; force = true) : cp(path, new_path; force = true)
-        _invalidate_index!()
-        @info "Renamed: $(basename(path)) -> $(basename(new_path))"
-        return path => new_path
-    end
-    raw = try
-        _open_data(f -> haskey(f, "raw") ? (r = f["raw"]; r isa AbstractSimData && (r.metadata = _file_metadata(f)); r) : nothing, path)
-    catch e
-        @warn "Failed to open $(basename(path))" exception = e
-        nothing
-    end
-    raw isa Union{ESimData, LSimData} || return nothing
-    params = raw.params
-
-    if filter_pairs !== nothing
-        all(((k, v),) -> haskey(params, Symbol(k)) && isequal(params[Symbol(k)], _normalize_param(v)), filter_pairs) ||
-            return nothing
-    end
-    bname = basename(path)
-    @info "Processing matched file: $bname"
-
-    for key in remove_keys
-        haskey(params, key) || continue
-        delete!(params, key)
-        @info "  Removed key :$key"
-    end
-    isempty(prompt_keys) || _prompt_param_values!(params, prompt_keys, bname)
-
-    normalized = _normalize_params(params)
-    empty!(params)
-    merge!(params, normalized)
-
-    m = match(r"^(.+)_[0-9a-fA-F]{64}\.jld2$", bname)
-    stamp = m === nothing ? _timestamp() : m.captures[1]
-    new_path = joinpath(dirname(path), "$(stamp)_$(calculate_hash(params)).jld2")
-    same_file = abspath(new_path) == abspath(path)
-    if !same_file && isfile(new_path)
-        @warn "$(basename(new_path)) already exists and is replaced by the rehashed $bname."
-    end
-
-    try
-        _write_sim_file(new_path, raw, Dict{String, Any}(), path)
-    catch e
-        @error "Failed to write $(basename(new_path))" exception = e
-        return nothing
-    end
-
-    if same_file
-        @info "Rehashed in place (hash unchanged): $bname"
-    elseif delete_old
-        # A symlinked file: the rehashed data is a regular file now and only the link is removed. Its target may be
-        # shared (e.g. a fetched result linked into several save paths), so it is never deleted here.
-        islink(path) && @warn "$bname is a symlink: the rehashed data is written to $(basename(new_path)) and the link " *
-            "is removed; its target $(realpath(path)) is not deleted by this rehash of the link. Delete it yourself if " *
-            "nothing else uses it."
-        rm(path; force = true)
-        _invalidate_index!()
-        @info "Rehashed and renamed: $bname -> $(basename(new_path))"
-    else
-        @info "Rehashed copy (old file kept): $bname -> $(basename(new_path))"
-    end
-    return path => new_path
-end
 
 
 """
@@ -336,7 +325,7 @@ first: `file`, `created` (from the file name), `size_mb`, `kind` (`:eulerian` / 
 run doesn't have it; a parameter named like one of the columns before gets the column `param_<name>`, with more
 `param_` prefixes if that is a parameter, too). Only the
 lightweight entries of each file are read. Files of PDEStudioCore 0.4 show their file format (below 3) and no
-metadata: this version doesn't read them (PDEStudioCore 0.6's `upgrade_sim_data` brings them up to date).
+metadata: this version doesn't read them.
 """
 function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
     rows = Dict{Symbol, Any}[]
