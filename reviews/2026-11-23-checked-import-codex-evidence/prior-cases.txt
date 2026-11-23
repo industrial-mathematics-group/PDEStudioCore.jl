@@ -1,0 +1,12 @@
+PDEStudioCore 0.8.0, Julia 1.13.4
+
+--- Current parameters of a-incoming.jld2 ---
+  k => run
+----------------------------------------
+Enter value for 'k' (Julia expression, leave blank to skip):
+--- Current parameters of z-next.jld2 ---
+  k => other
+----------------------------------------
+Enter value for 'k' (Julia expression, leave blank to skip): earlier source changed during later prompt: imports=1 original bytes preserved=true exists=true loaded type=ESimData{1, 1, 1, Float64}
+excluded source: size_bytes=16018307 allocated_bytes=50752 imports=0
+ordinary save to linked destination: link preserved=true external bytes preserved=false field=9.0
