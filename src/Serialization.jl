@@ -493,6 +493,15 @@ end
 # anything else (e.g. `Val`s): its type and `val2str` text
 _encode(io::IO, v) = (print(io, "x"); _encode_text(io, string(typeof(v))); _encode_text(io, val2str(v)))
 
+# Whether two normalised values are the same parameter value: the same canonical encoding (`1`, `1.0` and `true`
+# differ, unlike for `isequal`)
+_same_value(a, b) = sprint(_encode, a) == sprint(_encode, b)
+
+# Whether normalised parameters contain all `pairs` (keys strings or symbols; values normalised here), compared as values
+# of the hash (`_same_value`)
+_has_pairs(clean::AbstractDict, pairs) =
+    all(((k, v),) -> haskey(clean, Symbol(k)) && _same_value(clean[Symbol(k)], _normalize_param(v)), pairs)
+
 # The hash format of `calculate_hash` (see there): 4 since PDEStudioCore 0.8 (3: 0.7, 2 was never released)
 const _HASH_FORMAT = 4
 

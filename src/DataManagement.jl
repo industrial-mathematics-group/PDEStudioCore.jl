@@ -65,17 +65,17 @@ function _file_params(path::AbstractString)
 end
 
 # `path => params` of every run in the store (most recently written first) whose stored parameters contain all pairs of
-# `match_params` (keys may be strings or symbols; values are normalised like stored parameters). Only files at their
-# name count (`<hash>.jld2` of the parameters they hold): the files lookups use (see `tidy_sim_data` for the others).
+# `match_params` (keys may be strings or symbols; values are normalised like stored parameters and compared like the
+# hash compares them: `1` is not `true` or `1.0`). Only files at their name count (`<hash>.jld2` of the parameters they
+# hold): the files lookups use (see `tidy_sim_data` for the others).
 function _files_with_params(match_params::AbstractDict)
-    wanted = Dict(Symbol(k) => _normalize_param(v) for (k, v) in match_params)
     matched = Pair{String, Any}[]
     for path in sort!(_data_files(), by = p -> (mtime(p), basename(p)), rev = true)
         h = _filename_hash(basename(path))
         h === nothing && continue
         file_params = _file_params(path)
         file_params isa AbstractDict && calculate_hash(file_params) == h || continue
-        all(((k, v),) -> haskey(file_params, k) && isequal(file_params[k], v), wanted) || continue
+        _has_pairs(_normalize_params(file_params), match_params) || continue
         push!(matched, path => file_params)
     end
     return matched
@@ -88,8 +88,8 @@ _param_summary(params, skip) = join(("$k = $(val2str(v))" for (k, v) in sort(col
     find_sim_data(match_params = Dict(); io = stdout, verbose = true)
 
 Lists the data files of the runs whose stored parameters contain all the given key-value pairs, i.e. any subset of a
-run's parameters (keys may be strings or symbols; an empty filter lists every run). Only the lightweight `params`
-metadata is read. Prints one line per file (most recently written first) with the parameters that were not part of
+run's parameters (keys may be strings or symbols; an empty filter lists every run). Values are compared as the hash
+tells them apart: `1` matches neither `true` nor `1.0`. Only the lightweight `params` metadata is read. Prints one line per file (most recently written first) with the parameters that were not part of
 the filter, and returns the file paths. Files that aren't part of the store (see [`tidy_sim_data`](@ref)) aren't listed.
 
 ```julia-repl
@@ -148,19 +148,26 @@ Copies runs into the data folder of the current save path: the `.jld2` file `sou
 directory `source` (e.g. the data folder of an earlier PDEStudioCore version or of another machine). The parameters
 of each run are normalised again (after removing `remove_keys` and asking for `prompt_keys`) and the run is stored
 under their hash, as `data/<hash>.jld2` ([`calculate_hash`](@ref)). The source is only read: nothing in it is moved,
-renamed, rewritten or deleted, and every copy is written atomically, so an interrupted import is simply run again.
+renamed, rewritten or deleted (also with `overwrite = true`, also when it is the data folder itself), and every copy
+is written atomically, so an interrupted import is simply run again.
 
-A run that is stored already is skipped (`overwrite = true` replaces the stored data of the same parameters); a file
-of other parameters at its name is never replaced. Of several source files of the same parameters the first (by
-path) is imported, the others are reported. Files that can't be read, have no dataset, or were written by
-PDEStudioCore 0.4 (file format below 3) are reported and skipped.
+Every source file is checked before anything is written: it must hold a dataset (`"raw"`) whose parameters, kind and
+shape are those stored in the file, in the file format of PDEStudioCore 0.5 and later. Files that fail (can't be read,
+no dataset, written by PDEStudioCore 0.4, …) are reported and skipped.
+
+A run that is stored already is skipped (`overwrite = true` replaces the stored data of the same parameters); a stored
+file of the same parameters that isn't a usable run (e.g. without its dataset) is replaced, with a message. A file
+at the destination is never replaced if it holds other parameters or its parameters can't be read, if it is a
+symbolic link (the store neither writes through links nor replaces them), or if it is one of the source files. Of
+several source files of the same parameters the first (by path) is imported, the others are reported.
 
 To change parameters of stored runs (e.g. drop one that no longer exists), import the data folder itself:
 `import_sim_data(joinpath(get_save_path(), "data"); remove_keys = [:obsolete])` stores every run under its new
 parameters; the files of the old parameters stay until you delete them ([`delete_sim_data`](@ref)).
 
 # Keywords
-- `filter_pairs`: only import runs whose stored parameters contain these exact pairs.
+- `filter_pairs`: only import runs whose stored parameters contain these exact pairs (compared as the hash tells
+  values apart: `1` matches neither `true` nor `1.0`).
 - `remove_keys`: parameter keys to drop.
 - `prompt_keys`: interactively ask (in the REPL) for new values of these keys for every run.
 - `overwrite`: replace the stored data of the same parameters.
@@ -179,43 +186,61 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
     remove, prompt = Symbol.(remove_keys), Symbol.(prompt_keys)
     dir = _data_dir()
     imported, skipped, failed = Pair{String, String}[], String[], String[]
-    sources = Dict{String, String}()   # destination => the source imported to it here
+    # the source files (and the files links among them point to): only read, never written
+    inputs = Set{String}(abspath.(paths))
+    for p in paths
+        r = try realpath(p) catch; nothing end
+        r === nothing || push!(inputs, r)
+    end
+    is_input(dest) = abspath(dest) in inputs || (ispath(dest) && realpath(dest) in inputs)
+
+    # 1. Plan: check every source file and choose its destination (nothing is written yet)
+    plan = NamedTuple[]
     for src in paths
-        stored = try
-            jldopen(src, "r") do f
-                _format_version(f) < _FORMAT_VERSION ? :old : haskey(f, "raw") && haskey(f, "params") ? f["params"] : nothing
-            end
-        catch e
-            e isa InterruptException && rethrow()
-            @warn "Not imported: $src can't be read" exception = e
+        problem = _run_problem(src)
+        if problem !== nothing
+            @warn "Not imported: $src: $problem"
             push!(failed, src); continue
         end
-        if !(stored isa AbstractDict)
-            @warn "Not imported: $src " * (stored === :old ? "was written by PDEStudioCore 0.4, which this version doesn't read" :
-                                                           "has no dataset or no parameters")
-            push!(failed, src); continue
-        end
+        stored = _file_params(src)
         old = _normalize_params(stored)
-        filter_pairs === nothing ||
-            all(((k, v),) -> haskey(old, Symbol(k)) && isequal(old[Symbol(k)], _normalize_param(v)), filter_pairs) || continue
+        filter_pairs === nothing || _has_pairs(old, filter_pairs) || continue
         params = copy(old)
         foreach(k -> delete!(params, k), remove)
         isempty(prompt) || _prompt_param_values!(params, prompt, basename(src))
         params = _normalize_params(params)
-        dest = _hash_path(calculate_hash(params), dir)
+        push!(plan, (src = src, stored = stored, params = params, dest = _hash_path(calculate_hash(params), dir)))
+    end
+
+    # 2. Copies
+    sources = Dict{String, String}()   # destination => the source imported to it here
+    for (; src, stored, params, dest) in plan
         if haskey(sources, dest)
             @warn "Not imported: $src holds the parameters of $(sources[dest]), imported before"
             push!(skipped, src); continue
         end
         ispath(dest) && samefile(src, dest) && continue   # (in the store under its name already)
+        if islink(dest)
+            @warn "Not imported: $src. Its destination $dest is a symbolic link, which the store neither writes " *
+                  "through nor replaces; remove the link (its target stays), then import again."
+            push!(failed, src); continue
+        end
         state = _file_state(dest, params)
         if state === :other || state === :unreadable
             @warn "Not imported: $src. " * sprint(showerror, _name_taken(dest, state))
             push!(failed, src); continue
-        elseif state === :same && !overwrite
+        end
+        problem = state === :same ? _run_problem(dest) : nothing
+        if state === :same && problem === nothing && !overwrite
             @info "Already stored: $src (as $(basename(dest)); `overwrite = true` replaces it)"
             push!(skipped, src); continue
         end
+        if is_input(dest)
+            @warn "Not imported: $src. Its destination $dest is one of the files this import reads, which it never " *
+                  "writes (also not with `overwrite = true`)."
+            push!(failed, src); continue
+        end
+        problem === nothing || @info "Replacing $dest, which isn't a usable run ($problem), with $src"
         try
             mkpath(dir)
             if _identity(ParamDict(Symbol(k) => v for (k, v) in stored)) == _identity(params)
@@ -238,6 +263,28 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
           (isempty(skipped) ? "" : "; $(length(skipped)) skipped (stored already)") *
           (isempty(failed) ? "" : "; $(length(failed)) file(s) not imported (see above)")
     return imported
+end
+
+# Why the file at `path` isn't a usable run (a text), or `nothing`: it must be in the current file format, with the
+# fast metadata, and hold a dataset as "raw" whose parameters, kind and shape are the ones stored next to it. Loads the
+# dataset.
+function _run_problem(path::AbstractString)
+    try
+        return jldopen(path, "r") do f
+            _format_version(f) >= _FORMAT_VERSION || return "it was written by PDEStudioCore 0.4, which this version doesn't read"
+            all(k -> haskey(f, k), ("raw", "native", "shape", "params")) || return "it has no dataset or no fast metadata"
+            raw, stored = f["raw"], f["params"]
+            raw isa AbstractSimData || return "its \"raw\" entry is no dataset (a $(typeof(raw)))"
+            stored isa AbstractDict && _identity(_normalize_params(raw.params)) == _identity(_normalize_params(stored)) ||
+                return "its dataset has other parameters than the file"
+            (f["native"] === _data_kind(raw) && Tuple(f["shape"]) == _data_shape(raw)) ||
+                return "the kind or shape stored in it isn't that of its dataset"
+            return nothing
+        end
+    catch e
+        e isa InterruptException && rethrow()
+        return "it can't be read ($(sprint(showerror, e)))"
+    end
 end
 
 # Copies a file (the file a link points to) to `dest` atomically: into a temporary file next to it, renamed into place

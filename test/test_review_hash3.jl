@@ -165,3 +165,98 @@ end
         end
     end
 end
+
+# Fixes of the A2 review of #34 (reviews/2026-11-23-one-file-store-codex.md), one case per finding
+@testset "Review fixes (one-file store)" begin
+    h3_corrupt!(path) = PDEStudioCore.JLD2.jldopen(f -> (delete!(f, "raw"); f["raw"] = "not a simulation dataset"), path, "a+")
+
+    @testset "1. a file without a dataset is never imported" begin
+        h3_fresh()
+        p = h3_params("run")
+        good = h3_save(p, 7)
+        original = read(good)
+        bad = joinpath(mktempdir(), "bad.jld2")
+        cp(good, bad)
+        h3_corrupt!(bad)
+        @test isempty(@test_logs (:warn, r"no dataset") match_mode = :any import_sim_data(bad; overwrite = true))
+        @test read(good) == original && load_sim_data(p) isa ESimData
+        # nor a dataset of other parameters than its file says
+        other = joinpath(mktempdir(), "other.jld2")
+        cp(good, other)
+        PDEStudioCore.JLD2.jldopen(f -> (delete!(f, "params"); f["params"] = h3_params("else")), other, "a+")
+        @test isempty(@test_logs (:warn, r"other parameters than the file") match_mode = :any import_sim_data(other))
+        @test !does_sim_data_exist(h3_params("else"))
+    end
+
+    if Sys.isunix()
+        @testset "2. a linked destination is neither written through nor replaced" begin
+            h3_fresh()
+            p = h3_params("run")
+            dest = h3_save(p, 7)
+            external = joinpath(mktempdir(), "external.jld2")
+            mv(dest, external)
+            symlink(external, dest)
+            src = h3_save(create_param_dict(:k => "run", :obsolete => true), 9)
+            before = read(external)
+            @test isempty(@test_logs (:warn, r"symbolic link") match_mode = :any import_sim_data(src; remove_keys = [:obsolete], overwrite = true))
+            @test islink(dest) && read(external) == before
+        end
+    end
+
+    @testset "3. an import never writes one of its own source files" begin
+        dir = h3_fresh()
+        p = h3_params("run")
+        dest = h3_save(p, 7)
+        candidate = joinpath(dir, "000-incoming.jld2")
+        mv(h3_save(create_param_dict(:k => "run", :obsolete => true), 9), candidate)
+        before = read(dest)
+        @test isempty(@test_logs (:warn, r"files this import reads") match_mode = :any import_sim_data(dir; remove_keys = [:obsolete], overwrite = true))
+        @test read(dest) == before && h3_stored(dest) == ("run", 7.0)
+        # from elsewhere, `overwrite` replaces it
+        outside = joinpath(mktempdir(), "incoming.jld2")
+        cp(candidate, outside)
+        @test only(import_sim_data(outside; remove_keys = [:obsolete], overwrite = true)) == (outside => dest)
+        @test h3_stored(dest) == ("run", 9.0)
+    end
+
+    @testset "4. a retry replaces an incomplete destination" begin
+        h3_fresh()
+        p = h3_params("retry")
+        dest = h3_save(p, 7)
+        good = joinpath(mktempdir(), "good.jld2")
+        cp(dest, good)
+        PDEStudioCore.JLD2.jldopen(f -> delete!(f, "raw"), dest, "a+")
+        @test !does_sim_data_exist(p)
+        @test (@test_logs (:info, r"isn't a usable run") match_mode = :any length(import_sim_data(good))) == 1
+        @test does_sim_data_exist(p) && h3_stored(dest) == ("retry", 7.0)
+    end
+
+    @testset "5 (and outside #34). filters tell 1 from true and 1.0" begin
+        h3_fresh()
+        a, b, c = h3_save(h3_params(1), 7), h3_save(h3_params(true), 9), h3_save(h3_params(1.0), 8)
+        @test find_sim_data(Dict(:k => 1); verbose = false) == [a]
+        @test delete_sim_data(Dict(:k => 1); dry_run = true) == [a]
+        @test find_sim_data(Dict(:k => true); verbose = false) == [b] && find_sim_data(Dict("k" => 1.0); verbose = false) == [c]
+        @test size(sim_data_table(Dict(:k => 1)), 1) == 1
+        src = mktempdir()
+        foreach(f -> cp(f, joinpath(src, basename(f))), (a, b, c))
+        h3_fresh()
+        @test last.(import_sim_data(src; filter_pairs = Dict(:k => 1))) == [h3_name(h3_params(1))]
+        @test delete_sim_data(Dict(:k => 1)) == [h3_name(h3_params(1))] && isempty(find_sim_data(; verbose = false))
+    end
+
+    if Sys.isunix()
+        @testset "6. a dangling link at a run's name is never replaced" begin
+            h3_fresh()
+            p = h3_params("run")
+            dest = h3_name(p)
+            mkpath(dirname(dest))
+            missing_target = joinpath(get_save_path(), "separate-mount.jld2")
+            symlink(missing_target, dest)
+            @test_throws r"symbolic link whose target is missing" h3_save(p, 7)
+            @test islink(dest) && !ispath(missing_target)
+            @test_throws r"symbolic link whose target is missing" h3_save(p, 7; overwrite = true)
+            @test islink(dest)
+        end
+    end
+end
