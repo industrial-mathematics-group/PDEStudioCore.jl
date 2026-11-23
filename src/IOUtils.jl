@@ -111,9 +111,9 @@ function _file_for(normalized::AbstractDict, hash_val::AbstractString = calculat
 end
 
 # What the file at `path` holds: :missing (no file), :same (the parameters `normalized`), :other (other parameters) or
-# :unreadable (its parameters can't be read). Reads the file again.
+# :unreadable (its parameters can't be read, also a link whose target is missing). Reads the file again.
 function _file_state(path::AbstractString, normalized::AbstractDict)
-    ispath(path) || return :missing
+    ispath(path) || islink(path) || return :missing
     ident = _stored_identity(path; fresh = true)
     return ident === nothing ? :unreadable : ident == _identity(normalized) ? :same : :other
 end
@@ -380,8 +380,8 @@ _without_metadata(d::LSimData{D, DS, M, T}) where {D, DS, M, T} =
 
 Saves the dataset under the hash of its (normalised) parameters, `<save path>/data/<hash>.jld2`, and returns the file
 path. The data stored for these parameters is only replaced when `overwrite = true` (which also drops stale
-conversion caches); a file at that name that holds other parameters, or whose parameters can't be read, is never
-replaced (an error).
+conversion caches); a file at that name that holds other parameters, or whose parameters can't be read (also a link
+whose target is missing), is never replaced (an error).
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 The dataset's `metadata` field is saved with it; `metadata` entries given here are added to it first.
 The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources` or
@@ -588,7 +588,8 @@ end
 # parameters can't be read (`:unreadable`): such a file is never replaced
 _name_taken(path::AbstractString, state::Symbol) = ErrorException(
     "Not saved: $path, the file of these parameters, " *
-    (state === :other ? "holds the data of other parameters" : "is there, but its parameters can't be read") *
+    (state === :other ? "holds the data of other parameters" :
+     islink(path) && !ispath(path) ? "is a symbolic link whose target is missing" : "is there, but its parameters can't be read") *
     " (it was put there from outside). Inspect it (`load_sim_data(\"" * first(basename(path), 12) * "\")`), move or " *
     "delete it, then save again.")
 
