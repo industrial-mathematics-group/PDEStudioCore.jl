@@ -24,4 +24,5 @@ include("solvers.jl")
     include("test_review_fixes.jl")
 
     include("test_examples.jl")
+    include("test_tabulated.jl")
 end
