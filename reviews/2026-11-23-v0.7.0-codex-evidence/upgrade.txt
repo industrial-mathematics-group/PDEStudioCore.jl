@@ -1,0 +1,9 @@
+PDEStudioCore 0.6.3 Julia 1.13.4
+seed overlap: files=2 fields=(10.0, 20.0)
+0.6 upgrade alone: user value in metadata=nothing
+PDEStudioCore 0.7.0 Julia 1.13.4
+default rehash: files=1 plain field=10.0 quoted exists=false
+keep old names: marker=true lookup hello returns quoted=true field=20.0
+conversion read: marker=false old file changed=true entries=["conv_L"]
+incomplete rehash after file restore: marker=true files=2 returned field=99.0 original field=10
+0.7 after documented upgrade: user value in metadata=nothing

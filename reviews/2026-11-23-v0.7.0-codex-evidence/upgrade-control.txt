@@ -1,0 +1,4 @@
+PDEStudioCore 0.6.2 Julia 1.13.4
+0.6 upgrade alone: user value in metadata="laboratory calibration"
+PDEStudioCore 0.7.0 Julia 1.13.4
+0.7 after documented upgrade: user value in metadata="laboratory calibration"
