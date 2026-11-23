@@ -32,40 +32,42 @@ Internal, multithreaded inverse-distance scatter of the particles (and particle 
 of the native time steps `steps` onto a structured grid. Output slice `k` receives step `steps[k]`.
 Cells that receive no particle within the smoothing radius are set to `NaN`. The weights are `1 / max(d²/r², 1e-12)`
 (`d` the distance, `r` the smoothing radius), accumulated in the element type of `w_out` (at least `Float32`, see
-`convert_to_eulerian`): a particle on a grid node dominates it without an infinite weight, also for `Float16` data.
+`convert_to_eulerian`), as are positions, spacings and distances: a particle on a grid node dominates it without an
+infinite weight, and squared distances don't overflow, also for `Float16` data.
 """
 function interpolate_to_grid!(::Val{:scatter}, u_out::AbstractArray, w_out::AbstractArray, field_outs::Tuple,
                               ldata::LSimData{D, DS, M, T}, field_vals::Tuple, steps::AbstractVector{Int},
                               s_mins::SVector{DS, T}, s_maxs::SVector{DS, T}, s_dx::SVector{DS, T},
                               grid_shape::NTuple{DS, Int}) where {D, DS, M, T}
-    A = eltype(w_out)   # (the accumulator type)
+    A = eltype(w_out)   # (the accumulator type: the geometry is computed in it, too; Float16 squares overflow)
     nan_vec = SVector{M, eltype(eltype(u_out))}(ntuple(_ -> NaN, Val(M)))
-    s_inv_dx = one(T) ./ s_dx
+    mins, dx = SVector{DS, A}(s_mins), SVector{DS, A}(s_dx)
+    inv_dx = one(A) ./ dx
 
     # Smoothing radius: 1.5x the larger of the grid spacing and the mean particle spacing.
     np0 = max(1, length(ldata.x[first(steps)]))
     pts_per_dim = max(1.0, np0^(1 / DS) - 1.0)
-    particle_spacing = (s_maxs .- s_mins) ./ T(pts_per_dim)
-    effective = max.(s_dx, particle_spacing)
-    radius2 = (norm(effective) * T(1.5))^2
-    rad_idx = sqrt(radius2) .* s_inv_dx
+    particle_spacing = (SVector{DS, A}(s_maxs) .- mins) ./ A(pts_per_dim)
+    effective = max.(dx, particle_spacing)
+    radius2 = (norm(effective) * A(1.5))^2
+    rad_idx = sqrt(radius2) .* inv_dx
 
     Threads.@threads for k in eachindex(steps)
         n = steps[k]
         x_step = ldata.x[n]
         u_step = ldata.u[n]
         @inbounds for p in eachindex(x_step)
-            pos = x_step[p]
+            pos = SVector{DS, A}(x_step[p])
             all(isfinite, pos) || continue
-            idx_float = (pos .- s_mins) .* s_inv_dx .+ one(T)
+            idx_float = (pos .- mins) .* inv_dx .+ one(A)
             # Clamp in floating point first, so particles far outside the grid cannot overflow `Int`.
-            lo = ntuple(d -> floor(Int, clamp(idx_float[d] - rad_idx[d], one(T), T(grid_shape[d] + 1))), Val(DS))
-            hi = ntuple(d -> ceil(Int, clamp(idx_float[d] + rad_idx[d], zero(T), T(grid_shape[d]))), Val(DS))
+            lo = ntuple(d -> floor(Int, clamp(idx_float[d] - rad_idx[d], one(A), A(grid_shape[d] + 1))), Val(DS))
+            hi = ntuple(d -> ceil(Int, clamp(idx_float[d] + rad_idx[d], zero(A), A(grid_shape[d]))), Val(DS))
             for cell in CartesianIndices(ntuple(d -> lo[d]:hi[d], Val(DS)))
-                cell_pos = s_mins .+ s_dx .* (SVector{DS, T}(Tuple(cell)) .- one(T))
+                cell_pos = mins .+ dx .* (SVector{DS, A}(Tuple(cell)) .- one(A))
                 dist2 = sum(abs2, cell_pos .- pos)
                 dist2 <= radius2 || continue
-                w = one(A) / max(A(dist2) / A(radius2), A(1e-12))
+                w = one(A) / max(dist2 / radius2, A(1e-12))
                 I = D > DS ? CartesianIndex(Tuple(cell)..., k) : cell
                 w_out[I] += w
                 u_out[I] += u_step[p] * w

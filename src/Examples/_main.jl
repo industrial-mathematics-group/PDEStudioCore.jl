@@ -26,8 +26,10 @@ using StaticArrays: SVector
 
 export test_advection_1d, test_burgers_1d, test_heat_1d, test_heat_2d, test_poisson_2d, test_particles_2d
 
-# Time steps of length ≤ `dt_max` that end exactly at `T`
+# Time steps of length ≤ `dt_max` that end exactly at `T` (`T = 0`: the initial snapshot alone, no step)
 function _time_grid(T, dt_max)
+    T >= 0 || throw(ArgumentError("the end time T = $T is negative"))
+    iszero(T) && return [0.0], 0.0
     nt = max(1, ceil(Int, T / dt_max - 1e-9))
     return collect(range(0.0, T, length = nt + 1)), T / nt
 end

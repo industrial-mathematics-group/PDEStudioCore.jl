@@ -6,10 +6,9 @@
 # `, `, keys are identifiers): `Dict(:a => "x, b => 1")` would otherwise hash like `Dict(:a => "x", :b => 1)`; and
 # `"<empty>"`, which would read as `""`. Such strings are written quoted (`str2val` reads them back). Any other
 # text stays unquoted, so the hashes of stored parameters (descriptive strings of structs with commas, …) don't change.
-# (The hash also quotes text that reads as a value that is no string, see `_hash_text`; `val2str` doesn't, since
-# frontends write their own literal text through it, e.g. PDEStudio's typed CSV values such as `1.5f0`.)
+# (The hash writes every top-level string quoted, see `_hash_text`; `val2str` doesn't, since frontends write their
+# own literal text through it, e.g. PDEStudio's typed CSV values such as `1.5f0`.)
 _ambiguous_text(s::AbstractString) = s == "<empty>" || occursin(r", [A-Za-z_]\w* => ", s)
-_reads_as_other(s::AbstractString) = !(str2val(s) isa AbstractString)
 
 """
     val2str(v; top_level::Bool = true)
@@ -436,29 +435,24 @@ _normalize_params(params) = ParamDict(Symbol(k) => _normalize_param(v) for (k, v
 """
     calculate_hash(params::AbstractDict)
 
-SHA-256 hash (hex string) of the parameters, computed from the sorted `key => val2str(value)` pairs; a string value
-whose text reads as a value that is no string (`"1"`, `"true"`, `"Float32"`) is written quoted, so it doesn't share the
-hash of that value.
+SHA-256 hash (hex string) of the normalised parameters ([`get_clean_params`](@ref)), computed from the sorted
+`key => value` pairs, the values written by
+[`val2str`](@ref), strings always quoted (hash format 2, PDEStudioCore 0.7: the text of every distinct value differs;
+format 1 wrote top-level strings unquoted, so `"1"` hashed like `1`). Data folders of format 1 are renamed by
+[`rehash_sim_data`](@ref).
 """
 function calculate_hash(params::AbstractDict)
-    sorted_keys = sort!(collect(keys(params)), by = string)
-    to_hash = join(["$k => $(_hash_text(params[k]))" for k in sorted_keys], ", ")
+    clean = _normalize_params(params)   # (as stored: a struct stored as its text hashes like that text)
+    sorted_keys = sort!(collect(keys(clean)), by = string)
+    to_hash = join(["$k => $(_hash_text(clean[k]))" for k in sorted_keys], ", ")
     return bytes2hex(sha256(to_hash))
 end
 
-# The text of a value in the hash: `val2str`, quoted for a string that reads as another value (`"1"` as `1`), which
-# would otherwise hash like that value. Other strings keep the text of 0.6.2 and earlier (and their hashes).
-_hash_text(v) = v isa AbstractString && !isempty(v) && !_ambiguous_text(v) && _reads_as_other(v) ? repr(String(v)) : val2str(v)
+# The text of a value in the hash: `val2str`, a top-level string quoted (no other value's text starts with a quote)
+_hash_text(v) = v isa AbstractString ? repr(String(v)) : val2str(v)
 
-# The hash of the parameters as versions up to 0.6.2 computed it, if it differs: top-level strings that read as
-# another value (`"1"`) were written unquoted then, so they shared the hash of that value. `nothing` if no parameter
-# is such a string.
-function _legacy_hash(params::AbstractDict)
-    any(v -> _hash_text(v) != val2str(v), values(params)) || return nothing
-    sorted_keys = sort!(collect(keys(params)), by = string)
-    to_hash = join(["$k => $(val2str(params[k]))" for k in sorted_keys], ", ")
-    return bytes2hex(sha256(to_hash))
-end
+# The hash format of `calculate_hash` (see there); data folders record it (`_HASH_FORMAT_FILE`)
+const _HASH_FORMAT = 2
 
 """
     get_clean_params(params::AbstractDict)

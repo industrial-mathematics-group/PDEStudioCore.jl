@@ -12,28 +12,37 @@ constant_solver(p::ParamDict) = review_data(p, 1.0)
 @testset "Review fixes (v0.6.2)" begin
     set_save_path!(mktempdir())
 
-    # 1. A string that reads as another value ("1", "Float32") doesn't share the hash of that value; a file stored
-    #    under the earlier hash is found by its stored parameters
-    @test calculate_hash(Dict(:k => 1)) != calculate_hash(Dict(:k => "1"))
+    # 1. Hash format 2 (0.7): every top-level string is hashed quoted, so no two values share a name ("1" and 1, "1" and
+    #    the three characters "\"1\""); a struct stored as its text hashes like that text
+    @test calculate_hash(Dict(:k => 1)) != calculate_hash(Dict(:k => "1")) != calculate_hash(Dict(:k => "\"1\""))
     @test calculate_hash(Dict(:k => true)) != calculate_hash(Dict(:k => "true")) && calculate_hash(Dict(:k => Float32)) != calculate_hash(Dict(:k => "Float32"))
-    @test PDEStudioCore._hash_text("1") == "\"1\"" && PDEStudioCore._hash_text("upwind") == "upwind" && PDEStudioCore._hash_text("SlipWall(1.0)") == "SlipWall(1.0)"
+    @test PDEStudioCore._hash_text("1") == "\"1\"" && PDEStudioCore._hash_text("\"1\"") == "\"\\\"1\\\"\"" && PDEStudioCore._hash_text(1) == "1"
     @test val2str("1.5f0") == "1.5f0"   # (`val2str` itself is unchanged: frontends write literal text through it)
     s = run_all_simulations(SimulationConfig(create_param_dict(:sim_func_name => :typed_solver, :k => 1);
-                                             varied = create_varied_dict(:k => Any[1, "1"])))
-    @test length(s.tasks) == 2 && length(s.ran) == 2
+                                             varied = create_varied_dict(:k => Any[1, "1", "\"1\""])))
+    @test length(s.tasks) == 3 && length(s.ran) == 3 && length(unique(s.files)) == 3
     @test load_sim_data(create_param_dict(:sim_func_name => :typed_solver, :k => "1")).u[1][1] == 2.0
     @test load_sim_data(create_param_dict(:sim_func_name => :typed_solver, :k => 1)).u[1][1] == 1.0
-    p = create_param_dict(:sim_func_name => :typed_solver, :k => "Float32")
-    clean = get_clean_params(p)
-    path = save_sim_data(typed_solver(p))
-    legacy_hash = PDEStudioCore._legacy_hash(clean)
-    @test legacy_hash !== nothing && isnothing(PDEStudioCore._legacy_hash(get_clean_params(create_param_dict(:k => "a"))))
-    legacy = joinpath(dirname(path), replace(basename(path), calculate_hash(clean) => legacy_hash))
-    mv(path, legacy)
-    @test PDEStudioCore._find_file(p) == legacy && load_sim_data(p).u[1][1] == 2.0
-    q = create_param_dict(:sim_func_name => :typed_solver, :k => "Int64")   # (same legacy text, other parameters)
-    mv(legacy, joinpath(dirname(legacy), replace(basename(legacy), legacy_hash => PDEStudioCore._legacy_hash(get_clean_params(q)))))
-    @test isnothing(PDEStudioCore._find_file(q))   # (its stored parameters are p's)
+    # a folder written by 0.6 (data files, no record of the hash format): read with the stored parameters compared,
+    # nothing written until rehash_sim_data() has renamed its files
+    dir = joinpath(get_save_path(), "data")
+    p1 = create_param_dict(:sim_func_name => :typed_solver, :k => 1)
+    old_name(p) = bytes2hex(PDEStudioCore.sha256(join(["$k => $(val2str(get_clean_params(p)[k]))" for k in sort!(collect(keys(p)), by = string)], ", ")))
+    pstr = create_param_dict(:sim_func_name => :typed_solver, :k => "1")
+    f_str = get_file_name(pstr)
+    for f in readdir(dir; join = true); f == f_str || rm(f); end   # (left: the run of the string "1")
+    f_old = replace(f_str, calculate_hash(pstr) => old_name(pstr))   # (0.6 named it like the integer 1)
+    mv(f_str, f_old)
+    @test old_name(pstr) == calculate_hash(p1) == old_name(p1)        # (the collision of format 1)
+    @test PDEStudioCore._data_index(fresh = true).hash_format == 1
+    @test isnothing(PDEStudioCore._find_file(p1)) && isnothing(PDEStudioCore._find_file(pstr))   # (stored parameters: "1")
+    @test_throws ErrorException run_all_simulations(SimulationConfig(p1))
+    @test_throws ErrorException save_sim_data(typed_solver(p1))
+    @test length(run_all_simulations(SimulationConfig(p1); dry_run = true).ran) == 1   # (dry runs read)
+    renamed = rehash_sim_data()
+    @test renamed == [f_old => f_str] && isfile(joinpath(dir, PDEStudioCore._HASH_FORMAT_FILE))
+    @test get_file_name(pstr) == f_str && load_sim_data(pstr).u[1][1] == 2.0 && !does_sim_data_exist(p1)
+    @test length(run_all_simulations(SimulationConfig(p1)).ran) == 1 && load_sim_data(pstr).u[1][1] == 2.0
 
     # 2. The solver gets a deep copy: what it changes inside arrays doesn't reach the caller
     p = create_param_dict(:weights => [1.0, 2.0])
@@ -123,4 +132,59 @@ constant_solver(p::ParamDict) = review_data(p, 1.0)
     @test h.C1_Mean == [1.5] && h.C1_Max == [2.0]
 
     set_save_path!(mktempdir())
+end
+
+# Fixes of the A2 review of v0.6.3 (reviews/2026-11-23-v0.6.3-codex.md); the hash and folder cases are above (1)
+review_ref_a(p) = x -> SVector(1.0)
+review_ref_b(p) = x -> SVector(3.0)
+my_error_doc(u, ana, w) = sum(map((v, a) -> abs.(v - a), u, ana) .* w)       # (docs/src/index.md)
+custom_energy_doc(u, w) = sum(map(v -> abs2.(v), u) .* w)                     # (docs/src/statistics.md)
+
+@testset "Review fixes (v0.6.3)" begin
+    set_save_path!(mktempdir())
+
+    # Float16 scatter: the geometry in a wider type (a squared radius of Float16 overflowed)
+    d16 = create_sim_data(SVector.(Float16[1, 255]), Float16[1, 3], ParamDict(); xmins = 0, xmaxs = 256)
+    @test [Float64(v[1]) for v in convert_to_eulerian(d16, (2,)).u] ≈ [1, 3] atol = 0.01
+
+    # The record of the reference survives a call that evaluates nothing; another reference makes the values due
+    p = create_param_dict(:sim_func_name => :constant_solver)
+    cfg = SimulationConfig(p; reference = :review_ref_a)
+    run_all_simulations(cfg; calculate_stats = true)
+    calculate_all_stats!(load_sim_data(p))   # (nothing to evaluate: the record stays)
+    cfg.reference = :review_ref_b
+    s = run_all_simulations(cfg; calculate_stats = true)
+    @test s.stats == Dict(:ran => 1) && load_sim_data(p).stats[:l1error][1] ≈ 4   # (|1 − 3| at two nodes of weight 1)
+    calculate_all_stats!(load_sim_data(p), x -> SVector(1.0); force_overwrite = true)   # (unknown reference: due again)
+    @test run_all_simulations(cfg; calculate_stats = true).stats == Dict(:ran => 1) && load_sim_data(p).stats[:l1error][1] ≈ 4   # (|1 − 3| at two nodes of weight 1)
+
+    # A dataset keeps its own copy of the parameters (a later change of the caller's array doesn't move it)
+    w = [1.0, 2.0]
+    q = create_param_dict(:weights => w)
+    dq = create_sim_data([0.0, 1.0], fill(3.0, 2), q)
+    w[1] = 9.0
+    save_sim_data(dq)
+    @test does_sim_data_exist(create_param_dict(:weights => [1.0, 2.0])) && !does_sim_data_exist(q)
+
+    # A save that is skipped (the native run is stored, no overwrite) leaves a derived dataset derived
+    pn = create_param_dict(:case => :native_kept)
+    save_sim_data(review_data(pn, 1.0))
+    conv = convert_to_lagrangian(load_sim_data(pn))
+    save_sim_data(conv)
+    @test conv.metadata[:derived] === :conversion
+    set_save_path!(mktempdir())
+    @test_logs (:warn, r"not saved") match_mode = :any calculate_all_stats!(conv)
+    @test !does_sim_data_exist(pn)
+
+    # Zero duration: the initial snapshot alone (Lax–Friedrichs divided by a zero step)
+    cb = test_burgers_1d()
+    pb = merge(cb.shared, cb.methods[:lax_friedrichs], create_param_dict(:T => 0.0))
+    db = PDEStudioCore.Examples.solve_burgers_1d(pb)
+    @test db.axes[end] == [0.0] && all(v -> all(isfinite, v), db.u)
+    @test_throws ArgumentError PDEStudioCore.Examples._time_grid(-1.0, 0.1)
+
+    # The documented custom statistics work on vector-valued fields
+    u2 = [SVector(1.0, -2.0), SVector(3.0, 4.0)]
+    @test my_error_doc(u2, fill(SVector(0.0, 0.0), 2), 0.5) == SVector(2.0, 3.0)
+    @test custom_energy_doc(u2, 0.5) == SVector(5.0, 10.0)
 end

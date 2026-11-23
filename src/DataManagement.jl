@@ -139,11 +139,16 @@ function delete_sim_data(match_params::AbstractDict; dry_run::Bool = false)
 end
 
 """
-    rehash_sim_data(target_path; delete_old = true, filter_pairs = nothing, remove_keys = Symbol[], prompt_keys = Symbol[])
+    rehash_sim_data(target_path = joinpath(get_save_path(), "data"); delete_old = true, filter_pairs = nothing,
+                    remove_keys = Symbol[], prompt_keys = Symbol[])
 
 Re-normalises the parameters of a `.jld2` file (or of every `.jld2` file below a directory),
 recomputes the hash and stores the data under its new name. Use it after renaming or removing
-parameters, or after changes to the hashing.
+parameters, or after changes to the hashing: **once for every data folder written by PDEStudioCore 0.6 or earlier**
+(their file names differ for runs with string parameters; until then the pipeline writes nothing into such a folder,
+see [`calculate_hash`](@ref)). A file whose parameters stay the same is only renamed. Rehashing the data folder
+records its hash format, which makes it writable. Files of PDEStudioCore 0.4 (file format below 3) aren't read by this
+version: upgrade them with PDEStudioCore 0.6 (`upgrade_sim_data`) first; they are listed and left as they are.
 
 # Keywords
 - `delete_old`: remove the old file once the new one has been written. For a symlink only the link is removed
@@ -154,7 +159,7 @@ parameters, or after changes to the hashing.
 
 Returns a vector of `old_path => new_path` pairs.
 """
-function rehash_sim_data(target_path::AbstractString; delete_old::Bool = true, filter_pairs = nothing,
+function rehash_sim_data(target_path::AbstractString = _data_dir(); delete_old::Bool = true, filter_pairs = nothing,
                          remove_keys::AbstractVector = Symbol[], prompt_keys::AbstractVector = Symbol[])
     paths = if isfile(target_path) && endswith(target_path, ".jld2")
         [String(target_path)]
@@ -165,10 +170,18 @@ function rehash_sim_data(target_path::AbstractString; delete_old::Bool = true, f
         String[]
     end
     renamed = Pair{String, String}[]
+    old_format = String[]
     for path in paths
         result = _rehash_single_file(path, delete_old, filter_pairs, Symbol.(remove_keys), Symbol.(prompt_keys))
-        result === nothing || push!(renamed, result)
+        result === :old_format ? push!(old_format, path) : result === nothing || push!(renamed, result)
     end
+    if !isempty(old_format)
+        @warn "$(length(old_format)) file(s) of PDEStudioCore 0.4 were left as they are (upgrade them with PDEStudioCore 0.6's " *
+              "`upgrade_sim_data`, then rehash): " * join(basename.(old_format), ", ")
+    elseif isdir(target_path) && abspath(target_path) == abspath(_data_dir()) && filter_pairs === nothing
+        _write_hash_format!(_data_dir())   # (every file has its name of this hash format now)
+    end
+    _invalidate_index!()
     return renamed
 end
 
@@ -198,6 +211,26 @@ end
 
 function _rehash_single_file(path::String, delete_old::Bool, filter_pairs, remove_keys::Vector{Symbol},
                              prompt_keys::Vector{Symbol})
+    version = try
+        jldopen(_format_version, path, "r")
+    catch e
+        @warn "Failed to open $(basename(path))" exception = e
+        return nothing
+    end
+    version < _FORMAT_VERSION && return :old_format
+    # (parameters that stay as they are: only the file name changes, the file is renamed, not written again)
+    stored = _file_params(path)
+    if stored isa AbstractDict && isempty(remove_keys) && isempty(prompt_keys) && isequal(_normalize_params(stored), stored) &&
+       (filter_pairs === nothing || all(((k, v),) -> haskey(stored, Symbol(k)) && isequal(stored[Symbol(k)], _normalize_param(v)), filter_pairs))
+        m = match(r"^(.+)_[0-9a-fA-F]{64}\.jld2$", basename(path))
+        new_path = joinpath(dirname(path), "$(m === nothing ? _timestamp() : m.captures[1])_$(calculate_hash(stored)).jld2")
+        abspath(new_path) == abspath(path) && return nothing
+        isfile(new_path) && @warn "$(basename(new_path)) already exists and is replaced by the renamed $(basename(path))."
+        delete_old ? mv(path, new_path; force = true) : cp(path, new_path; force = true)
+        _invalidate_index!()
+        @info "Renamed: $(basename(path)) -> $(basename(new_path))"
+        return path => new_path
+    end
     raw = try
         _open_data(f -> haskey(f, "raw") ? (r = f["raw"]; r isa AbstractSimData && (r.metadata = _file_metadata(f)); r) : nothing, path)
     catch e
@@ -257,41 +290,6 @@ function _rehash_single_file(path::String, delete_old::Bool, filter_pairs, remov
     return path => new_path
 end
 
-"""
-    upgrade_sim_data(target = joinpath(get_save_path(), "data"); dry_run = false) -> Dict{Symbol, Vector{String}}
-
-Brings data files written by earlier PDEStudioCore versions to the current file format (a `.jld2` file or every
-`.jld2` file in a directory, not recursively): the file is written again (atomically) in the current layout, with
-the same data, its statistics and the entries the current version keeps next to it (format version, kind, shape,
-axes, metadata; entries stored next to the data by 0.4 become metadata; cached conversions are dropped). Files of
-0.4 work as they are (their datasets are read as the current types); `upgrade_sim_data` adds what they lack (e.g.
-the axes [`get_sim_data_info`](@ref) reads without loading the data). The pipeline upgrades files without any such
-entries (data only) by itself when it finds them.
-Returns the paths by outcome: `:upgraded`, `:current`, `:unreadable` (their data doesn't load as a dataset of this
-version: the pipeline recomputes them). With `dry_run = true` nothing is written, and the files that would be
-upgraded are listed under `:upgraded`.
-"""
-function upgrade_sim_data(target::AbstractString = _data_dir(); dry_run::Bool = false)
-    paths = isdir(target) ? [joinpath(target, f) for f in readdir(target) if endswith(f, ".jld2")] :
-            isfile(target) && endswith(target, ".jld2") ? [String(target)] :
-            throw(ArgumentError("$target is neither a .jld2 file nor a directory"))
-    out = Dict{Symbol, Vector{String}}(:upgraded => String[], :current => String[], :unreadable => String[])
-    for path in paths
-        outcome = try
-            if dry_run
-                v = jldopen(_format_version, path, "r")
-                v >= _FORMAT_VERSION ? :current : _raw_loads(path) ? :upgraded : :unreadable
-            else
-                _upgrade_file!(path)
-            end
-        catch e
-            @warn "Could not upgrade $(basename(path))" exception = e
-            :unreadable
-        end
-        push!(out[outcome], path)
-    end
-    return out
-end
 
 """
     tidy_sim_data(; dry_run = false, min_tmp_age = 3600) -> (duplicates, temp_files)
@@ -337,8 +335,8 @@ first: `file`, `created` (from the file name), `size_mb`, `kind` (`:eulerian` / 
 `wall_time` (seconds the solver took, if recorded), `solver`, then one column per parameter (`missing` where a
 run doesn't have it; a parameter named like one of the columns before gets the column `param_<name>`, with more
 `param_` prefixes if that is a parameter, too). Only the
-lightweight entries of each file are read (for files of 0.4, the entries stored next to the data, their metadata). Files of format version 0 (without metadata) are not listed:
-[`upgrade_sim_data`](@ref) brings them up to date.
+lightweight entries of each file are read. Files of PDEStudioCore 0.4 show their file format (below 3) and no
+metadata: this version doesn't read them (PDEStudioCore 0.6's `upgrade_sim_data` brings them up to date).
 """
 function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
     rows = Dict{Symbol, Any}[]

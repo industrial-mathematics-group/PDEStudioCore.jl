@@ -395,9 +395,10 @@ end
 # of 0.6.2 and earlier, `calculate_all_stats!`)
 function _reference_changed(path::AbstractString, record::AbstractString)
     return jldopen(path, "r") do file
-        with_ref = haskey(file, "evaluated_with_reference") && file["evaluated_with_reference"] === true
-        stored = haskey(file, "evaluated_reference") ? file["evaluated_reference"] : ""
-        return with_ref && (isempty(stored) || stored != record)
+        # (a record: the reference of the values evaluated with one, "" if it isn't known; none: files of 0.6.2 and
+        # earlier, whose values evaluated with a reference count as evaluated with another one)
+        haskey(file, "evaluated_reference") && return (stored = file["evaluated_reference"]; isempty(stored) || stored != record)
+        return haskey(file, "evaluated_with_reference") && file["evaluated_with_reference"] === true
     end
 end
 
@@ -579,6 +580,7 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
         @info "No numerical simulations to run."
         return RunSummary(dry_run = dry_run, elapsed = time() - t_start)
     end
+    dry_run || _check_writable_folder()   # (a folder of PDEStudioCore 0.6: renamed by `rehash_sim_data()` first)
 
     # Every per-task call goes through `invokelatest`, so functions defined after this call started
     # (e.g. in `config.sources`, or a stat preset loaded inside a function) are visible.
