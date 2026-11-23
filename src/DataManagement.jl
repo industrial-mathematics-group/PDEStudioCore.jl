@@ -173,6 +173,17 @@ function rehash_sim_data(target_path::AbstractString = _data_dir(); delete_old::
         String[]
     end
     remove, prompt = Symbol.(remove_keys), Symbol.(prompt_keys)
+    # (files of an earlier run that was interrupted while staged are first put back)
+    foreach(_restore_staged!, unique(dirname.(paths)))
+    paths = filter(ispath, paths)
+
+    # Links to files of this batch would dangle once their target moves: they are not rehashed (removed at the end
+    # with `delete_old`, their target's data lives on under the new name); links to other files are read through.
+    in_batch = Set(abspath.(paths))
+    linked = String[p for p in paths if islink(p) && (t = try realpath(p) catch; "" end; !isempty(t) && t in in_batch)]
+    isempty(linked) || @warn "Not rehashed, links to files of this batch: " * join(basename.(linked), ", ") *
+                             (delete_old ? " (removed with their targets' old names)" : "")
+    paths = filter(p -> !(p in linked), paths)
 
     # 1. Plan: the new parameters of every file (nothing is moved yet)
     failed, plan = String[], NamedTuple[]
@@ -217,13 +228,27 @@ function rehash_sim_data(target_path::AbstractString = _data_dir(); delete_old::
         push!(jobs, merge(j, (dest = dest,)))
     end
 
-    # 3. Moves: the renamed files first step aside (so no new name is a file still in place), then go to their names
+    # 3. Moves: the renamed files first step aside (so no new name is a file still in place), then go to their names.
+    # They step aside into a staging folder next to them under their own names (no longer names: a long one would
+    # fail; an interrupted run is undone by the next, see `_restore_staged!`); a failing move puts everything back.
     staged = Dict{String, String}()
     if delete_old
-        for j in jobs
-            tmp = string(j.path, ".rehash.", getpid(), ".tmp")
-            mv(j.path, tmp; force = true)
-            staged[j.path] = tmp
+        try
+            for j in jobs
+                stage = joinpath(dirname(j.path), _STAGE_PREFIX * string(getpid()))
+                mkpath(stage)
+                tmp = joinpath(stage, basename(j.path))
+                mv(j.path, tmp; force = true)
+                staged[j.path] = tmp
+            end
+        catch e
+            e isa InterruptException && rethrow()
+            for (path, tmp) in staged   # (nothing has been rewritten yet)
+                ispath(path) || mv(tmp, path)
+            end
+            foreach(_remove_stage_dir!, unique(dirname.(values(staged))))
+            _invalidate_index!()
+            error("rehash_sim_data: could not set a file aside ($(sprint(showerror, e))); nothing was changed")
         end
     end
     renamed = Pair{String, String}[]
@@ -245,14 +270,47 @@ function rehash_sim_data(target_path::AbstractString = _data_dir(); delete_old::
         catch e
             e isa InterruptException && rethrow()
             @warn "Could not rehash $(basename(j.path)); it is left as it was" exception = e
-            delete_old && ispath(src) && !ispath(j.path) && mv(src, j.path)
+            delete_old && (islink(src) || ispath(src)) && !ispath(j.path) && mv(src, j.path)
             push!(failed, j.path)
+        end
+    end
+    if delete_old
+        foreach(_remove_stage_dir!, unique(dirname.(values(staged))))
+        for link in linked
+            rm(link; force = true)
         end
     end
     _invalidate_index!()
     isempty(failed) || @warn "$(length(failed)) file(s) were not rehashed (see above): " * join(basename.(failed), ", ")
     return renamed
 end
+
+const _STAGE_PREFIX = ".rehash-"
+
+# Puts the files of staging folders in `dir` back under their names (a run of `rehash_sim_data` interrupted while its
+# files were set aside): a file whose name is taken again is left in the folder and named
+function _restore_staged!(dir::AbstractString)
+    isdir(dir) || return nothing
+    for entry in readdir(dir)
+        startswith(entry, _STAGE_PREFIX) || continue
+        stage = joinpath(dir, entry)
+        isdir(stage) || continue
+        for name in readdir(stage)
+            back = joinpath(dir, name)
+            if ispath(back)
+                @warn "$(joinpath(entry, name)) was set aside by an interrupted rehash and $name exists again: it is left there"
+            else
+                mv(joinpath(stage, name), back)
+                @info "Restored $name, set aside by an interrupted rehash"
+            end
+        end
+        _remove_stage_dir!(stage)
+    end
+    _invalidate_index!()
+    return nothing
+end
+
+_remove_stage_dir!(stage::AbstractString) = (isdir(stage) && isempty(readdir(stage)) && rm(stage); nothing)
 
 function _prompt_param_values!(params::ParamDict, prompt_keys::Vector{Symbol}, name::AbstractString)
     println("\n--- Current parameters of $name ---")
@@ -284,8 +342,9 @@ end
     tidy_sim_data(; dry_run = false, min_tmp_age = 3600) -> (duplicates, temp_files)
 
 Removes files in the data directory that nothing uses:
-- older files of a run stored more than once (e.g. by parallel jobs computing the same parameters): lookups always
-  use the newest file of a hash, the older ones only take space;
+- older files of a run stored more than once (e.g. by parallel jobs computing the same parameters): files holding
+  the same parameters, whatever they are named; lookups always use the newest of them, the older ones only take
+  space. A file that can't be read is never removed here;
 - temporary files of writes that never finished (a process killed while writing), older than `min_tmp_age`
   seconds (a running write keeps its temporary file younger).
 Returns the paths it removed (with `dry_run = true`: would remove).
@@ -294,7 +353,14 @@ function tidy_sim_data(; dry_run::Bool = false, min_tmp_age::Real = 3600)
     dir = _data_dir()
     duplicates, temp_files = String[], String[]
     isdir(dir) || return (duplicates = duplicates, temp_files = temp_files)
-    for (_, files) in _data_index(fresh = true).by_hash
+    # (by what the files hold: two files of one name hash may be different runs, one of them misplaced)
+    groups = Dict{String, Vector{String}}()
+    for f in _data_index(fresh = true).files
+        s = _stored_params(f; fresh = true)
+        isnothing(s) && continue
+        push!(get!(groups, s.identity, String[]), f)
+    end
+    for (_, files) in groups
         length(files) > 1 || continue
         append!(duplicates, _sort_newest!(copy(files))[2:end])
     end
