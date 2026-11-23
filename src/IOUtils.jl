@@ -121,6 +121,7 @@ function _data_index(; fresh::Bool = false)
                 h === nothing || push!(get!(by_hash, h, String[]), p)
             end
             idx = _INDEX[] = _DataIndex(dir, stamp, listed, files, by_hash)
+            _prune_stored_params!(files)   # (the lock is held)
         end
         return idx
     end
@@ -147,21 +148,41 @@ function _find_file(params::AbstractDict)
 end
 
 # The files holding these normalised parameters, newest first: those named by their hash whose stored parameters are
-# these (a file is never taken for other parameters, whatever its name)
-function _files_for(normalized::AbstractDict, hash_val::AbstractString = calculate_hash(normalized))
-    return filter(p -> isequal(_stored_params(p), normalized), _files_with_hash(hash_val))
+# these (a file is never taken for other parameters, whatever its name). Compared by their identity text (`true`
+# is not `1`); `fresh = true` reads the files again (before a write replaces one of them).
+function _files_for(normalized::AbstractDict, hash_val::AbstractString = calculate_hash(normalized); fresh::Bool = false)
+    ident = _identity_text(normalized)
+    return filter(_files_with_hash(hash_val)) do p
+        s = _stored_params(p; fresh)
+        !isnothing(s) && s.identity == ident
+    end
 end
 
-# The normalised parameters stored in a file (`nothing` if they can't be read), read once per file and version
-const _STORED_PARAMS = Dict{String, Tuple{Float64, Any}}()
-function _stored_params(path::AbstractString)
-    stamp = mtime(path)
-    hit = lock(() -> get(_STORED_PARAMS, path, nothing), _INDEX_LOCK)
-    !isnothing(hit) && hit[1] == stamp && return hit[2]
+# The normalised parameters stored in a file and their identity text (`nothing` if they can't be read), read once
+# per file version: a version is the file's inode, size and modification time, so a file replaced by another (also
+# one with the same modification time) is read again; entries of files that are gone are pruned with the index
+const _STORED_PARAMS = Dict{String, Tuple{Tuple{UInt, Int, Float64}, Union{Nothing, NamedTuple}}}()
+_file_version(path::AbstractString) = (st = stat(path); (UInt(st.inode), Int(st.size), Float64(st.mtime)))
+function _stored_params(path::AbstractString; fresh::Bool = false)
+    version = try
+        _file_version(path)
+    catch
+        return nothing
+    end
+    if !fresh
+        hit = lock(() -> get(_STORED_PARAMS, path, nothing), _INDEX_LOCK)
+        !isnothing(hit) && hit[1] == version && return hit[2]
+    end
     p = _file_params(path)
-    p = p isa AbstractDict ? _normalize_params(p) : nothing
-    lock(() -> (_STORED_PARAMS[path] = (stamp, p)), _INDEX_LOCK)
-    return p
+    s = p isa AbstractDict ? (clean = _normalize_params(p); (params = clean, identity = _identity_text(clean))) : nothing
+    lock(() -> (_STORED_PARAMS[path] = (version, s)), _INDEX_LOCK)
+    return s
+end
+# Drops the cached parameters of files that are not in `files` (deleted, replaced, another data folder)
+function _prune_stored_params!(files)
+    keep = Set(files)
+    filter!(kv -> first(kv) in keep, _STORED_PARAMS)
+    return nothing
 end
 
 # A new file name for data of hash `hash_val` (another file of the same time and hash, e.g. of other parameters,
@@ -595,7 +616,8 @@ function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Boo
     merge!(sim_data.params, normalized)
 
     hash_val = calculate_hash(sim_data.params)
-    existing = _files_for(sim_data.params, hash_val)   # (only files holding these parameters are replaced)
+    # (only files holding these parameters are replaced: read again, a cached identity may be stale)
+    existing = _files_for(sim_data.params, hash_val; fresh = true)
     if isempty(existing)
         mkpath(_data_dir())
         path = _new_file_name(hash_val)

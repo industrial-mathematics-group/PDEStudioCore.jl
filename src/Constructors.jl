@@ -214,7 +214,8 @@ function _build_lsimdata(x::Vector{Vector{SVector{DS, T}}}, u::Vector{Vector{SVe
     smaxs = ntuple(d -> xmaxs === nothing ? hi[d] : T(_bound(xmaxs, d)), Val(DS))
     # Equivalent particle spacing: (volume / particles)^(1/DS).
     np = max(1, maximum(length, x; init = 0))
-    vol = prod(smaxs .- smins)
+    # (in at least Float64: the extent and volume of Float16 bounds can overflow where the spacing is representable)
+    vol = prod(_wide.(smaxs) .- _wide.(smins))
     dx = vol > 0 ? T((vol / np)^(1 / DS)) : one(T)
     s_spacing = ntuple(_ -> dx, Val(DS))
     registry = get_stat_registry()

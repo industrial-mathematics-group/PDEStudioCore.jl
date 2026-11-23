@@ -12,6 +12,7 @@ end
 _linspace(a::T, b::T, n::Int) where {T} = n == 1 ? T[a] :
     T <: AbstractFloat ? T.(range(_wide(a), _wide(b), length = n)) : collect(range(a, b, length = n))
 _wide(x::AbstractFloat) = convert(promote_type(typeof(x), Float64), x)
+_wide(x::Real) = float(x)   # (integer or rational coordinates of directly constructed domains)
 
 function _copy_domain(domain::DomainInfo{D, T}; spacing = domain.spacing) where {D, T}
     return DomainInfo{D, T}(domain.dim_keys, domain.mins, domain.maxs, spacing, domain.time_dim, domain.stat_registry)

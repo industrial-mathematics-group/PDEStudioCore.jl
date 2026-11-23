@@ -443,12 +443,17 @@ names, see [`rehash_sim_data`](@ref)).
 """
 function calculate_hash(params::AbstractDict)
     clean = _normalize_params(params)   # (as stored: a struct stored as its text hashes like that text)
+    return bytes2hex(sha256("PDEStudioCore hash format $(_HASH_FORMAT)\n" * _identity_text(clean)))
+end
+
+# The text that identifies normalised parameters (what the hash digests): it tells `true` from `1` and `nothing`
+# from `Nothing`, which `isequal` does not, so stored parameters are compared by it, not by `isequal`.
+function _identity_text(clean::AbstractDict)
     io = IOBuffer()
-    print(io, "PDEStudioCore hash format ", _HASH_FORMAT, "\n")
     for k in sort!(collect(keys(clean)), by = string)
         print(io, repr(k), " => ", _hash_text(clean[k]), "\n")
     end
-    return bytes2hex(sha256(take!(io)))
+    return String(take!(io))
 end
 
 # The text of a value in the hash: `val2str`, a top-level string quoted (no other value's text starts with a quote),
