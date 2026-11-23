@@ -33,6 +33,7 @@ export convert_to_eulerian, convert_to_lagrangian, resample_eulerian
 
 # --- Utilities ---
 export get_ignore_keys, assemble_params, is_reference_method, resolve_dynamic_function
+export tabulated_method, tabulated_data
 
 # --- Examples (PDEStudioCore.Examples) ---
 export test_advection_1d, test_burgers_1d, test_heat_1d, test_heat_2d, test_poisson_2d, test_particles_2d
@@ -46,6 +47,7 @@ include("DataManagement.jl")
 include("Constructors.jl")
 include("ConversionUtils.jl")
 include("StatCalculation.jl")
+include("Tabulated.jl")
 include("Simulations.jl")
 include("Display.jl")
 include("Examples/_main.jl")

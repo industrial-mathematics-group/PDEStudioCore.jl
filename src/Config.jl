@@ -84,7 +84,8 @@ Base.setproperty!(config::SimulationConfig, name::Symbol, value) = setfield!(con
 
 Looks up the function called `name` (a `Symbol` or `String`) in the target module
 (see [`set_target_module!`](@ref)), then among the solvers and references of the built-in examples
-([`PDEStudioCore.Examples`](@ref)). A function passed as `provided` (or as `name`) is returned directly.
+([`PDEStudioCore.Examples`](@ref)) and the built-in solvers ([`tabulated_data`](@ref)). A function passed as
+`provided` (or as `name`) is returned directly.
 Returns `nothing` (with a warning) if the name cannot be resolved.
 
 Only names the target module (or one of its submodules) defines itself are accepted: names it merely imports
@@ -102,6 +103,7 @@ function resolve_dynamic_function(name, provided::Union{Function, Nothing} = not
     # (e.g. by including source files) are found.
     f = Base.invokelatest(_lookup_global, mod, sym)
     f === nothing && (f = _lookup_global(Examples, sym))
+    f === nothing && (f = get(_BUILTIN_SOLVERS, sym, nothing))   # (`tabulated_data`, see Tabulated.jl)
     f === nothing && @warn "Could not resolve function `$sym` in module $mod: it must be defined in that module " *
                            "(or a submodule), imported names are not accepted (did you call `set_target_module!`?)."
     return f
