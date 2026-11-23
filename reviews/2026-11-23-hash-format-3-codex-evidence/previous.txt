@@ -1,0 +1,13 @@
+hash format 2, Julia 1.13.4
+cached identity: alternate payload before save=("B", 20.0)
+cached identity: overwrite refused=true
+cached identity: original path after save=("B", 20.0)
+typed identity: bool/int hashes differ=true
+typed identity: overwrite refused=true
+typed identity: original path after save=(true, 20.0)
+staging: short run visible=1 long run visible=1 residual temporary files=0
+source link plus target: completed=2 readable rehashed runs=2 hidden links=0
+tidy: before, lookup A returns ("B", 20.0)
+tidy: deleted only A=true remaining fields=[20.0]
+integer grid: [2, 2]
+parameter cache: absent

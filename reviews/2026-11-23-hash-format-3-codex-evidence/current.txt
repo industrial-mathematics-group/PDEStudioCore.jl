@@ -1,0 +1,12 @@
+hash format 3, Julia 1.13.4
+cached identity: alternate payload before save=("B", 20.0)
+cached identity: original path after save=("A", 30.0)
+typed identity: bool/int hashes differ=true
+typed identity: original path after save=(1, 30.0)
+staging: aborted=true
+staging: short run visible=0 long run visible=1 residual temporary files=1
+source link plus target: completed=1 readable rehashed runs=1 hidden links=1
+tidy: before, lookup A returns ("A", 10.0)
+tidy: deleted only A=true remaining fields=[20.0]
+integer grid: MethodError in _wide=true
+parameter cache: deleted paths retained=16 additional bytes=1057879

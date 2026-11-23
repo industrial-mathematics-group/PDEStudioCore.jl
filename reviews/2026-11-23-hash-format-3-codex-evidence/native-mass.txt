@@ -1,0 +1,4 @@
+format=3 type=Float16 spacing=Inf native mass=Inf expected=20000
+format=3 type=Float32 spacing=40000.0 native mass=20000.0 expected=20000
+format=2 type=Float16 spacing=Inf native mass=Inf expected=20000
+format=2 type=Float32 spacing=40000.0 native mass=20000.0 expected=20000
