@@ -260,3 +260,70 @@ end
         end
     end
 end
+
+# Fixes of the A2 review of 0.8.0 (reviews/2026-11-23-v0.8.0-codex.md), one case per finding
+const H3_SWAP = Ref{Tuple{String, String}}()
+h3_swap_during_prompt() = (mv(H3_SWAP[][2], H3_SWAP[][1]; force = true); "other")   # (called from the prompt below)
+
+@testset "Review fixes (v0.8.0)" begin
+    @testset "1. a source changed after its check is reported, not installed" begin
+        h3_fresh()
+        p = h3_params("run")
+        dest = h3_save(p, 7)
+        original = read(dest)
+        folder = mktempdir()
+        src = joinpath(folder, "a-incoming.jld2")
+        cp(h3_save(h3_params("other"), 11), joinpath(folder, "z-next.jld2"))
+        replacement = joinpath(mktempdir(), "replacement.jld2")
+        cp(dest, src); cp(dest, replacement)
+        PDEStudioCore.JLD2.jldopen(f -> (delete!(f, "raw"); f["raw"] = "unusable replacement"), replacement, "a+")
+        H3_SWAP[] = (src, replacement)
+        imported = mktemp() do path, io   # (the first prompt keeps `k`, the second replaces the first source)
+            write(io, "\nh3_swap_during_prompt()\n"); flush(io); seekstart(io)
+            redirect_stdout(devnull) do
+                redirect_stdin(io) do
+                    @test_logs (:warn, r"changed since it was checked") match_mode = :any import_sim_data(folder; prompt_keys = [:k], overwrite = true)
+                end
+            end
+        end
+        @test length(imported) == 1 && read(dest) == original && load_sim_data(p) isa ESimData
+        @test !any(f -> endswith(f, ".tmp"), readdir(dirname(dest)))
+        # a changed source with a parameter change isn't rewritten either
+        h3_fresh()
+        src2 = joinpath(mktempdir(), "run.jld2")
+        mv(h3_save(create_param_dict(:k => "run", :obsolete => 1), 5), src2)
+        H3_SWAP[] = (src2, replacement)
+        cp(dest, replacement; force = true)
+        PDEStudioCore.JLD2.jldopen(f -> (delete!(f, "raw"); f["raw"] = "unusable replacement"), replacement, "a+")
+        mktemp() do path, io
+            write(io, "h3_swap_during_prompt()\n"); flush(io); seekstart(io)
+            redirect_stdout(devnull) do
+                redirect_stdin(io) do
+                    @test isempty(import_sim_data(src2; prompt_keys = [:obsolete], remove_keys = [:obsolete]))
+                end
+            end
+        end
+        @test isempty(find_sim_data(; verbose = false))
+    end
+
+    @testset "2. a filter excludes a run before its dataset is read" begin
+        h3_fresh()
+        broken = joinpath(mktempdir(), "broken.jld2")
+        cp(h3_save(h3_params("run"), 1), broken)
+        PDEStudioCore.JLD2.jldopen(f -> (delete!(f, "raw"); f["raw"] = "no dataset"), broken, "a+")
+        @test isempty(@test_logs min_level = Base.CoreLogging.Warn import_sim_data(broken; filter_pairs = Dict(:k => "unmatched")))
+        @test isempty(@test_logs (:warn, r"no dataset") match_mode = :any import_sim_data(broken; filter_pairs = Dict(:k => "run")))
+    end
+
+    if Sys.isunix()
+        @testset "3. a save follows a link at the run's name (as documented)" begin
+            h3_fresh()
+            p = h3_params("run")
+            dest = h3_save(p, 7)
+            external = joinpath(mktempdir(), "shared.jld2")
+            mv(dest, external); symlink(external, dest)
+            h3_save(p, 9; overwrite = true)
+            @test islink(dest) && h3_stored(external) == ("run", 9.0)
+        end
+    end
+end
