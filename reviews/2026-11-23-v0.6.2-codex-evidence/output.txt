@@ -1,0 +1,14 @@
+reduced heat example: 3 ran, 0 solver failures, 0 statistics failures
+typed parameters: tasks=1, same hash=true, requested string result=1.0 (solver gives 2.0)
+solver parameter copy: caller=[9.0, 2.0], original task stored=false
+derived marker: first=conversion, cached=nothing, became native in empty store=true
+Float16 scatter at two occupied nodes: [NaN, NaN] (expected [2, 2])
+mixed finite/undefined relative mass: present=false (second component is 1.0)
+absolute mass error of exact second component: 1.0e-9
+scalar accepted as spatial statistic: stored type=SVector{2, Float64}, kept=[:x], stored=[1.0, 1.0]
+changed reference: stats cached=1, cached L1=0.0, fresh L1=2.0
+negative-speed upwind: u(x=0.25,t=0.25)=2.0 (exact shift gives approximately 0)
+table column param_solver combines values from distinct keys: Any["alpha", "beta"]
+unreadable file: no RunSummary; threw EOFError
+failed recomputation: failed=1, postprocess ran=1, prior file modified=true
+BigFloat health summary failed with MethodError in _health_frame

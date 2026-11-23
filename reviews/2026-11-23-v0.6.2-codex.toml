@@ -1,0 +1,44 @@
+# An independent AI review, recorded by 'aisignoff attest'. The review folder keeps it as it is:
+# a later review goes into a new file.
+
+[[attestations]]
+path = "src/ConversionUtils.jl"
+blob = "ce043eab8c23db68d0f2aa349a23cca15c5775cf"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.6.2-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+path = "src/Examples/advection_1d.jl"
+blob = "3bc68a6a52023bc3b78a15b5eebb8dfd9363c38c"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.6.2-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+path = "src/IOUtils.jl"
+blob = "bcc4fc7bbda61d7626d9dcb8cc080685991d7607"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.6.2-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+path = "src/Serialization.jl"
+blob = "9cb7ce82a1be28bfc3b5fd950d76d6cf8ad02f50"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.6.2-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+path = "src/Simulations.jl"
+blob = "140992e84d67feb52e3c1c97d88b5f2344a3d39d"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.6.2-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+path = "src/StatCalculation.jl"
+blob = "810d61cf1b25489013f0fa8a41a37f00cd387d37"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Astra (OpenAI), new session without the generating conversation, reviews/2026-11-23-v0.6.2-codex.md"]
+AI-Review-Findings = "major"
