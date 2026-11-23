@@ -91,7 +91,8 @@ Register a statistic with the dimensions it *keeps* and implement [`calc_stat`](
 register_stat!(:my_error, :time)   # one value per time step
 
 function PDEStudioCore.calc_stat(::Val{:my_error}, fixed_coords, u, ana, domain::DomainInfo)
-    return sum(abs.(u .- ana)) * get_integration_measure(:my_error, domain)
+    # (u and ana hold one SVector per point: componentwise, then summed with the integration weights)
+    return sum(map((v, a) -> abs.(v - a), u, ana) .* get_integration_measure(:my_error, domain))
 end
 ```
 

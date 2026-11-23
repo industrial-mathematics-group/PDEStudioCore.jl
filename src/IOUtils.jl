@@ -22,13 +22,10 @@ const _ENABLE_CONV_CACHE = Ref{Bool}(false)
 # Entries tied to the content of "raw": never carried over when the raw data is rewritten.
 const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shape", "dim_keys", "time_dim",
                        "evaluated_stats", "format_version", "metadata")
-# Internal bookkeeping next to the data (not metadata of the dataset)
-const _BOOKKEEPING_KEYS = ("evaluated_with_reference", "evaluated_reference")
 
-# The layout of the data files: 1 = PDEStudioCore 0.4 (no version entry), 2 = with "format_version" and the axes
-# ("dim_keys", "time_dim"; never released), 3 = datasets with the `metadata` field, stored as "metadata". Files
-# without the fast metadata of version 1 are version 0. Datasets of versions before 3 lack the field (see
-# `_open_data`).
+# The layout of the data files: 3 = datasets with the `metadata` field, stored as "metadata" (PDEStudioCore 0.5 and
+# later). Files of earlier layouts (0.4: 0 without the fast metadata, 1, 2) aren't read since 0.7: PDEStudioCore 0.6's
+# `upgrade_sim_data` brings them to version 3.
 const _FORMAT_VERSION = 3
 
 """
@@ -103,6 +100,7 @@ mutable struct _DataIndex
     listed::Float64    # when it was listed
     files::Vector{String}
     by_hash::Dict{String, Vector{String}}
+    hash_format::Int   # (of the folder's file names, `_folder_hash_format`)
 end
 const _INDEX = Ref{Union{Nothing, _DataIndex}}(nothing)
 const _INDEX_RACY = 1.0
@@ -124,7 +122,7 @@ function _data_index(; fresh::Bool = false)
                 h = _filename_hash(basename(p))
                 h === nothing || push!(get!(by_hash, h, String[]), p)
             end
-            idx = _INDEX[] = _DataIndex(dir, stamp, listed, files, by_hash)
+            idx = _INDEX[] = _DataIndex(dir, stamp, listed, files, by_hash, _folder_hash_format(dir, files))
         end
         return idx
     end
@@ -150,15 +148,47 @@ function _find_file(params::AbstractDict)
     return isempty(files) ? nothing : first(files)
 end
 
-# The files of normalised parameters, newest first: those of their hash, else those stored under the hash of earlier
-# versions (`_legacy_hash`) whose stored parameters are these (that hash may also be the one of other values: `1`
-# for `"1"`)
+# The files of normalised parameters, newest first. In a folder of an earlier hash format (`_folder_hash_format`)
+# a file of the same name may hold other parameters (format 1 named `"1"` like `1`): there only files whose stored
+# parameters are these count.
 function _files_for(normalized::AbstractDict, hash_val::AbstractString = calculate_hash(normalized))
     files = _files_with_hash(hash_val)
-    isempty(files) || return files
-    legacy = _legacy_hash(normalized)
-    legacy === nothing && return files
-    return filter(p -> isequal(_file_params(p), normalized), _files_with_hash(legacy))
+    _data_index().hash_format >= _HASH_FORMAT && return files
+    return filter(p -> _holds_hash(p, hash_val), files)
+end
+
+# Whether the parameters stored in a file have the hash `hash_val` (the same values: the hash text is unique per value)
+_holds_hash(path::AbstractString, hash_val::AbstractString) = (p = _file_params(path); p isa AbstractDict && _param_hash(p) == hash_val)
+
+# --- The hash format of a data folder ---------------------------------------------------------------------------
+# A folder records the hash format of its file names (`calculate_hash`) in this file. A folder with data files but
+# without it was written by PDEStudioCore 0.6 or earlier (format 1): it is read (lookups compare the stored
+# parameters), but nothing is written into it until `rehash_sim_data()` has renamed its files, so its data isn't
+# computed again under the new names. A new (empty) folder gets the file with its first data file.
+const _HASH_FORMAT_FILE = "PDEStudioCore.toml"
+
+function _folder_hash_format(dir::AbstractString, files = nothing)
+    marker = joinpath(dir, _HASH_FORMAT_FILE)
+    if isfile(marker)
+        m = match(r"hash_format\s*=\s*(\d+)", read(marker, String))
+        return m === nothing ? 1 : parse(Int, m.captures[1])
+    end
+    files = something(files, isdir(dir) ? [f for f in readdir(dir) if endswith(f, ".jld2")] : String[])
+    return isempty(files) ? _HASH_FORMAT : 1
+end
+
+_write_hash_format!(dir::AbstractString) = (write(joinpath(dir, _HASH_FORMAT_FILE), "hash_format = $_HASH_FORMAT\n"); _invalidate_index!())
+
+# Throws for a data folder of an earlier hash format (see above); records the format in a new folder
+function _check_writable_folder()
+    dir = _data_dir()
+    if _data_index().hash_format < _HASH_FORMAT
+        throw(ErrorException("the data folder $dir was written by PDEStudioCore 0.6 or earlier, whose file names differ " *
+            "for string parameters: run `rehash_sim_data()` once to rename its files (or choose another save path); " *
+            "until then nothing is written into it"))
+    end
+    isdir(dir) && !isfile(joinpath(dir, _HASH_FORMAT_FILE)) && _write_hash_format!(dir)
+    return nothing
 end
 
 """
@@ -199,10 +229,8 @@ end
 # was when it was made: `calculate_all_stats!` must not store it as the native run of its parameters)
 _entry_metadata(md::AbstractDict, key::AbstractString) = startswith(key, "conv_") ? _derived_metadata(md, :conversion) : md
 
-# Opens a data file for reading datasets. Datasets are read field by field (`_dataset_typemap`), so those stored
-# without the `metadata` field (files of earlier versions, also when a 0.4 writer rewrote a newer file) are read
-# as the current types, without rewriting the file.
-_open_data(f, path::AbstractString) = jldopen(f, path, "r"; typemap = _dataset_typemap)
+# Opens a data file for reading datasets
+_open_data(f, path::AbstractString) = jldopen(f, path, "r")
 
 # Every entry of an open file (or group), entries of groups as "group/entry" (like `JLD2.load`); datasets get `md`
 function _all_entries!(out::Dict{String, Any}, g, prefix::AbstractString, md::Dict{Symbol, Any})
@@ -219,15 +247,6 @@ function _all_entries!(out::Dict{String, Any}, g, prefix::AbstractString, md::Di
     return out
 end
 
-function _dataset_typemap(f, typepath::String, params)
-    typepath == "PDEStudioCore.ESimData" && length(params) == 4 && return JLD2.Upgrade(ESimData{params...})
-    typepath == "PDEStudioCore.LSimData" && length(params) == 4 && return JLD2.Upgrade(LSimData{params...})
-    return JLD2.default_typemap(f, typepath, params)
-end
-JLD2.rconvert(::Type{ESimData{D, DS, M, T}}, nt::NamedTuple) where {D, DS, M, T} =
-    ESimData{D, DS, M, T}(nt.params, nt.domain, nt.axes, nt.u, nt.stats, get(nt, :metadata, Dict{Symbol, Any}()))
-JLD2.rconvert(::Type{LSimData{D, DS, M, T}}, nt::NamedTuple) where {D, DS, M, T} =
-    LSimData{D, DS, M, T}(nt.params, nt.domain, nt.t, nt.x, nt.u, nt.stats, get(nt, :metadata, Dict{Symbol, Any}()))
 
 # A temporary file next to `path`, unique per writer (process, task and time; without touching the global RNG),
 # so concurrent writers never share one.
@@ -248,8 +267,7 @@ function _update_entries!(path::AbstractString, entries::AbstractDict{String}; o
     tmp = _tmp_path(path)
     try
         cp(path, tmp)
-        # (JLD2 reads the types stored in a file it opens to append, and warns about every dataset type of a file of an
-        # earlier version, which lacks the metadata field: harmless here, no dataset is read)
+        # (JLD2 reads the types stored in a file it opens to append and may warn about them: harmless, no dataset is read)
         Base.CoreLogging.with_logger(Base.CoreLogging.NullLogger()) do
             jldopen(tmp, "a+") do file
                 for (k, v) in pending
@@ -373,20 +391,9 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::A
             end
             if previous !== nothing && isfile(previous)
                 jldopen(previous, "r") do old
-                    legacy = _format_version(old) < 3   # (its entries next to the data were metadata: not carried)
                     for k in keys(old)
                         (k in _MANAGED_KEYS || startswith(k, "conv_") ||
                          haskey(file, k)) && continue
-                        if legacy && !(k in _BOOKKEEPING_KEYS)
-                            group = try
-                                old[k] isa JLD2.Group
-                            catch e   # (not read into the metadata either)
-                                e isa InterruptException && rethrow()
-                                @warn "Entry '$k' of $(basename(previous)) can't be read; it is not carried over" exception = e
-                                false
-                            end
-                            group || continue
-                        end
                         try
                             _copy_entry!(file, old, k)
                         catch e
@@ -431,10 +438,18 @@ The metadata saved is the dataset's: new data gets a new provenance (`:provenanc
 function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbose::Bool = true,
                        metadata::AbstractDict = Dict{Symbol, Any}())
     isempty(metadata) || merge!(sim_data.metadata, _metadata_dict(metadata))
-    delete!(sim_data.metadata, :derived)   # saved deliberately: it becomes the data of these parameters
     path = _find_file(sim_data.params)
+    writes = path === nothing || overwrite || !_has_key(path, "raw")
     (path === nothing || overwrite) && _new_or_same_data!(sim_data, path)
-    return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}())
+    # saved deliberately, it becomes the data of these parameters: a derived dataset is one no more, but only if it is
+    # written (a stored native run is kept without `overwrite`: the dataset stays derived)
+    derived = writes ? pop!(sim_data.metadata, :derived, nothing) : nothing
+    try
+        return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}())
+    catch
+        isnothing(derived) || (sim_data.metadata[:derived] = derived)
+        rethrow()
+    end
 end
 
 # The metadata of data about to replace the file at `path` (or `nothing`: a new file): the same data keeps the
@@ -474,56 +489,30 @@ function _carry_metadata!(data::AbstractSimData, path::AbstractString)
     return data
 end
 
-# The metadata of the data in an open file: its "metadata" entry, or, in files written before the metadata field,
-# the entries stored next to the data (0.4: "sources" and the `metadata` of `save_sim_data`)
+# The metadata of the data in an open file: its "metadata" entry. Files of PDEStudioCore 0.4 (before the metadata
+# field) aren't read: `strict` throws for them, otherwise their data comes without metadata.
 function _file_metadata(file; strict::Bool = false)
     version = _format_version(file)
-    if version >= 3
-        v = try
-            file["metadata"]
-        catch e   # (e.g. a type whose stored form changed: the data is still readable; writers don't replace it)
-            (strict || e isa InterruptException) && rethrow()
-            @warn "The metadata of $(basename(file.path)) can't be read; the data is loaded without it" exception = e
-            return Dict{Symbol, Any}()
-        end
-        return v isa AbstractDict ? _metadata_dict(v) : Dict{Symbol, Any}(:metadata => v)
+    if version < _FORMAT_VERSION
+        msg = "$(basename(file.path)) was written by PDEStudioCore 0.4 (file format $version), which this version doesn't " *
+              "read: upgrade it with PDEStudioCore 0.6 (`upgrade_sim_data`)"
+        strict && throw(ErrorException(msg))
+        @warn msg
+        return Dict{Symbol, Any}()
     end
-    md = Dict{Symbol, Any}()   # (also an entry "metadata" of 0.4: one of the user's entries)
-    for k in keys(file)
-        ((k in _MANAGED_KEYS && k != "metadata") || k in _BOOKKEEPING_KEYS || startswith(k, "conv_")) && continue
-        try
-            v = file[k]
-            v isa JLD2.Group || (md[Symbol(k)] = v)
-        catch e
-            @debug "Entry '$k' is not read into the metadata" exception = e
-        end
+    v = try
+        file["metadata"]
+    catch e   # (e.g. a type whose stored form changed: the data is still readable; writers don't replace it)
+        (strict || e isa InterruptException) && rethrow()
+        @warn "The metadata of $(basename(file.path)) can't be read; the data is loaded without it" exception = e
+        return Dict{Symbol, Any}()
     end
-    return version == 2 ? _legacy_records!(md) : md   # (in files of 0.4, entries of these names are the user's)
-end
-
-# The pipeline's entries as files of the unreleased format version 2 stored them (String keys, a record with its
-# name), as this version keeps them
-function _legacy_records!(md::Dict{Symbol, Any})
-    prov = get(md, :provenance, nothing)
-    prov isa AbstractDict && (md[:provenance] = _metadata_dict(prov))
-    post = get(md, :postprocessed, nothing)
-    if post isa AbstractDict
-        haskey(post, "name") && (post = Dict(post["name"] => post))   # (one record)
-        md[:postprocessed] = Dict{Symbol, Any}(Symbol(n) => _metadata_dict(filter(p -> string(first(p)) != "name", r))
-                                               for (n, r) in post if r isa AbstractDict)
-    end
-    return md
+    return v isa AbstractDict ? _metadata_dict(v) : Dict{Symbol, Any}(:metadata => v)
 end
 
 # Changes the stored metadata of a file without rewriting its data (`nothing` removes an entry)
 function _update_metadata!(path::AbstractString, changes::Pair...)
-    # (a file of an earlier version is written in the current layout, with the changes: its entries next to the data
-    # are metadata, and a "metadata" entry counts only in that layout)
-    if jldopen(_format_version, path, "r") < 3
-        _upgrade_file!(path, changes...) === :upgraded || error("$(basename(path)) can't be upgraded: its data doesn't load")
-        return jldopen(_file_metadata, path, "r")
-    end
-    md = jldopen(f -> _file_metadata(f; strict = true), path, "r")
+    md = jldopen(f -> _file_metadata(f; strict = true), path, "r")   # (throws for a file of 0.4)
     for (k, v) in changes
         v === nothing ? delete!(md, k) : (md[k] = v)
     end
@@ -620,8 +609,14 @@ function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Boo
     empty!(sim_data.params)
     merge!(sim_data.params, normalized)
 
+    _check_writable_folder()
     hash_val = calculate_hash(sim_data.params)
     existing = _files_for(sim_data.params, hash_val)
+    # (a file of this name holds these parameters: the hash text is unique per value; checked before replacing it)
+    if !isempty(existing) && !_holds_hash(first(existing), hash_val)
+        throw(ErrorException("$(basename(first(existing))) holds other parameters than the data saved under its name; " *
+                             "it is not replaced (run `rehash_sim_data()`)"))
+    end
     if isempty(existing)
         mkpath(_data_dir())
         path = joinpath(_data_dir(), "$(_timestamp())_$(hash_val).jld2")
@@ -787,21 +782,16 @@ loaded without recomputation, exists on disk.
 does_sim_data_exist(params::AbstractDict) = does_sim_data_exist(params, Val(:raw))
 does_sim_data_exist(params::AbstractDict, kind::Symbol, args...) = does_sim_data_exist(params, Val(kind), args...)
 
-# A file the pipeline can use: native data plus the metadata loading relies on (format version 1 or later). A file
-# of version 0 (data without that metadata) is upgraded in place if its data loads; otherwise it counts as
-# missing, so the pipeline recomputes (and replaces) it instead of failing on it. (Lookups never write to files of
-# version 1: `upgrade_sim_data` brings them to the current version.)
+# A file the pipeline can use: data in the current file format (version 3). A file of PDEStudioCore 0.4 counts as
+# missing, so the pipeline recomputes (and replaces) it instead of failing on it; PDEStudioCore 0.6's
+# `upgrade_sim_data` would keep its data. (`upgrade` is accepted for the callers: nothing is upgraded any more.)
 function _is_current_file(path::AbstractString; upgrade::Bool = true)
-    ok, has_raw = jldopen(f -> (haskey(f, "raw") && haskey(f, "native") && haskey(f, "shape"), haskey(f, "raw")), path, "r")
-    (ok || !has_raw) && return ok
-    upgrade || return _raw_loads(path)   # (what an upgrade would find, without writing)
-    _upgrade_file!(path) === :upgraded && return true
-    @info "$(basename(path)) was written by an older PDEStudioCore version and can't be read; it is recomputed."
+    version = jldopen(_format_version, path, "r")
+    version >= _FORMAT_VERSION && return true
+    @info "$(basename(path)) was written by PDEStudioCore 0.4 (file format $version), which this version doesn't read; " *
+          "it counts as missing (upgrade it with PDEStudioCore 0.6's `upgrade_sim_data` to keep it)."
     return false
 end
-
-# Whether the "raw" entry of a file loads as a dataset of this version
-_raw_loads(path::AbstractString) = _open_data(f -> haskey(f, "raw") && (try f["raw"] isa AbstractSimData catch; false end), path)
 
 # The format version of an open data file (see `_FORMAT_VERSION`; a user entry of that name in a file of 0.4, where
 # it wasn't reserved, doesn't count)
@@ -811,16 +801,7 @@ function _format_version(file)
     return v >= 3 && !haskey(file, "metadata") ? 2 : Int(v)   # (written by these versions)
 end
 
-# Brings a file to the current format version: the data is written again in the current layout (with its metadata).
-# Returns :current, :upgraded, or :unreadable (its data doesn't load as a dataset of this version).
-function _upgrade_file!(path::AbstractString, changes::Pair...)
-    jldopen(_format_version, path, "r") >= _FORMAT_VERSION && return :current
-    outcome = _rewrite_file!(path, changes...)
-    outcome === :upgraded && @info "Upgraded $(basename(path)) to file format version $_FORMAT_VERSION."
-    return outcome
-end
-
-# Writes a file again in the current layout, with the same data (and metadata `changes`): :upgraded, or :unreadable
+# Writes a file again, with the same data (and metadata `changes`): :upgraded, or :unreadable
 function _rewrite_file!(path::AbstractString, changes::Pair...)
     raw = try
         _load_key(path, "raw")   # (read with the metadata the file holds)

@@ -87,7 +87,9 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         @test flag() == true
         # Nothing to compute, only the flag changes: the file is replaced (new inode), not modified in place
         inode, size0 = stat(file).inode, filesize(file)
-        calculate_all_stats!(sim)
+        calculate_all_stats!(sim)   # (nothing to compute: the record of the reference stays, the file isn't touched)
+        @test flag() == true && stat(file).inode == inode
+        PDEStudioCore._set_key!(file, "evaluated_with_reference", false)   # (a changed entry: the file is replaced)
         @test flag() == false && stat(file).inode != inode
         @test load_sim_data(p).u == sim.u && haskey(load_sim_data(p).stats, :l1error)
         # Flag updates don't rewrite the data (the file grows by little), and leave no temporary files behind
@@ -441,97 +443,32 @@ end
         save_sim_data(advection_solver_1d(p); verbose = false)
         path = get_file_name(p)
         @test JLD2.jldopen(f -> f["format_version"], path, "r") == PDEStudioCore._FORMAT_VERSION
-        @test upgrade_sim_data(path) == Dict(:upgraded => String[], :current => [path], :unreadable => String[])
-        # a file of 0.4 (no version, no axes): still read; upgrade_sim_data adds what it lacks
+        # a file of 0.4 (no version, no axes) isn't read since 0.7: it counts as missing and is recomputed
         JLD2.jldopen(path, "a+") do f
             delete!(f, "format_version"); delete!(f, "dim_keys"); delete!(f, "time_dim")
         end
-        @test does_sim_data_exist(p) && JLD2.jldopen(PDEStudioCore._format_version, path, "r") == 1
-        @test upgrade_sim_data(path; dry_run = true)[:upgraded] == [path]
-        @test !JLD2.jldopen(f -> haskey(f, "format_version"), path, "r")
-        @test upgrade_sim_data()[:upgraded] == [path]
-        @test JLD2.jldopen(f -> (f["format_version"], f["dim_keys"], f["time_dim"]), path, "r") ==
-              (PDEStudioCore._FORMAT_VERSION, [:x, :t], :t)
-        @test upgrade_sim_data()[:current] == [path]
-        # (an entry "format_version" a user stored in a file of 0.4, where the name wasn't reserved, doesn't count)
-        JLD2.jldopen(f -> (delete!(f, "format_version"); f["format_version"] = "mine"), path, "a+")
         @test JLD2.jldopen(PDEStudioCore._format_version, path, "r") == 1 && sim_data_table().format_version == [1]
-        upgrade_sim_data(path)
-        # a file of an earlier version (only the data): upgraded by the pipeline instead of recomputed
-        sim = load_sim_data(p)
-        rm(path)
-        JLD2.jldopen(f -> (f["raw"] = sim), path, "w")
-        SOLVER_CALLS[] = 0
-        s = run_all_simulations(SimulationConfig(p); dry_run = true)   # (says what the run does, writes nothing)
-        @test length(s.cached) == 1 && isempty(s.ran) && !JLD2.jldopen(f -> haskey(f, "native"), path, "r")
-        @test upgrade_sim_data(path; dry_run = true)[:upgraded] == [path]
-        s = @test_logs (:info, r"Upgraded") match_mode = :any run_all_simulations(SimulationConfig(p))
-        @test length(s.cached) == 1 && SOLVER_CALLS[] == 0
-        @test JLD2.jldopen(PDEStudioCore._format_version, path, "r") == PDEStudioCore._FORMAT_VERSION
-        @test load_sim_data(p).u == sim.u
-        # ... unless its data doesn't load as a dataset: recomputed
-        rm(path)
-        JLD2.jldopen(f -> (f["raw"] = "not a dataset"), path, "w")
-        @test upgrade_sim_data(path; dry_run = true)[:unreadable] == [path]
+        @test !(@test_logs (:info, r"PDEStudioCore 0.4") match_mode = :any does_sim_data_exist(p))
         @test length(run_all_simulations(SimulationConfig(p); dry_run = true).ran) == 1
-        @test upgrade_sim_data(path)[:unreadable] == [path]
+        SOLVER_CALLS[] = 0
         @test length(run_all_simulations(SimulationConfig(p)).ran) == 1 && SOLVER_CALLS[] == 1
-        @test_throws ArgumentError upgrade_sim_data(joinpath(get_save_path(), "no such file.jld2"))
+        @test JLD2.jldopen(PDEStudioCore._format_version, path, "r") == PDEStudioCore._FORMAT_VERSION
+        @test !isdefined(PDEStudioCore, :upgrade_sim_data)   # (PDEStudioCore 0.6 upgrades such files)
     end
 end
 
-@testset "Data management: files of 0.4 (before the metadata field)" begin
-    JLD2 = PDEStudioCore.JLD2
+@testset "Data management: files of 0.4 aren't read; rehash leaves them" begin
     with_fresh_save_path() do
         dir = joinpath(get_save_path(), "data")
         mkpath(dir)
         fixtures = joinpath(@__DIR__, "fixtures", "v0.4", "data")   # (written by write_fixtures.jl with 0.4.4)
         foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f)), readdir(fixtures))
-        p, q = create_param_dict(:n => 5, :kind => "eul"), create_param_dict(:n => 4, :kind => "lag")
-        @test does_sim_data_exist(p) && does_sim_data_exist(q)
-        d, l = load_sim_data(p), load_sim_data(q)
-        @test d isa ESimData{2, 1, 2, Float64} && size(d.u) == (5, 3) && d.u[1] == SVector(1.0, 2.0)
-        @test d.metadata == Dict(:note => "hello", :iterations => 3)   # (its entries of `save_sim_data(...; metadata)`)
-        @test l isa LSimData{2, 1, 1, Float64} && isempty(l.metadata) && length(l.t) == 2
-        @test load_sim_data(p, :lagrangian).metadata[:note] == "hello"   # (a conversion 0.4 cached in the file)
-        @test sort(sim_data_table().format_version) == [1, 1]
-        # the pipeline uses them as they are (no recomputation, nothing written)
-        stamps = mtime.(joinpath.(dir, readdir(dir)))
-        @test length(run_all_simulations(SimulationConfig(p)).cached) == 1 && mtime.(joinpath.(dir, readdir(dir))) == stamps
-        # upgrade_sim_data writes them in the current layout, with the same data
-        @test length(upgrade_sim_data()[:upgraded]) == 2
-        d3 = load_sim_data(p)
-        @test d3.u == d.u && d3.metadata == d.metadata && load_sim_data(q).t == l.t
-        # an entry "metadata" of 0.4 (which didn't reserve the name) is one of the user's entries
-        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
-        JLD2.jldopen(f -> (f["metadata"] = "mine"; f["postprocessed"] = Dict("smoothing" => "done")), get_file_name(q), "a+")
-        @test load_sim_data(q).metadata == Dict(:metadata => "mine", :postprocessed => Dict("smoothing" => "done"))
-        @test size(sim_data_table(), 1) == 2
-        @test length(run_all_simulations(SimulationConfig(q)).cached) == 1
-        # recording a post-processing writes such a file in the current layout first (no copies of its entries)
-        POST_CALLS[] = 0
-        size_p = filesize(get_file_name(p))
-        @test run_all_simulations(SimulationConfig(p; postprocess = :count_post)).postprocessing == Dict(:ran => 1)
-        @test JLD2.jldopen(PDEStudioCore._format_version, get_file_name(p), "r") == PDEStudioCore._FORMAT_VERSION
-        md_p = load_sim_data(p).metadata
-        @test md_p[:note] == "hello" && haskey(md_p[:postprocessed], :count_post) && POST_CALLS[] == 1
-        @test filesize(get_file_name(p)) < 2 * size_p
-        # an entry that can't be read is left behind (with a warning), the rest of the file is written
-        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
-        JLD2.jldopen(f -> (f["fragile"] = FragileEntry("x")), get_file_name(p), "a+")
-        FRAGILE_FAILS[] = true
-        s_fr = @test_logs (:warn, r"Entry 'fragile' .* can't be read") match_mode = :any run_all_simulations(SimulationConfig(p; postprocess = :count_post))
-        FRAGILE_FAILS[] = false
-        @test s_fr.postprocessing == Dict(:ran => 1) && load_sim_data(p).metadata[:note] == "hello"
-        # large metadata: a changed record doesn't leave copies of it in the file
-        foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f); force = true), readdir(fixtures))
-        JLD2.jldopen(f -> (f["big"] = rand(200_000)), get_file_name(p), "a+")   # (1.6 MB)
-        run_all_simulations(SimulationConfig(p; postprocess = :count_post))
-        size1 = filesize(get_file_name(p))
-        run_all_simulations(SimulationConfig(p; postprocess = :count_post); force_postprocess = true)
-        @test size1 < 1.5 * 1.6e6 && filesize(get_file_name(p)) < 1.2 * size1 && length(load_sim_data(p).metadata[:big]) == 200_000
-        @test JLD2.jldopen(f -> (PDEStudioCore._format_version(f), haskey(f, "note"), isempty(f["raw"].metadata)),
-                           get_file_name(p), "r") == (PDEStudioCore._FORMAT_VERSION, false, true)
+        p = create_param_dict(:n => 5, :kind => "eul")
+        @test !does_sim_data_exist(p) && sort(sim_data_table().format_version) == [1, 1]
+        @test PDEStudioCore._data_index(fresh = true).hash_format == 1   # (data files, no record: a folder of 0.6)
+        r = @test_logs (:warn, r"2 file\(s\) of PDEStudioCore 0.4") match_mode = :any rehash_sim_data()
+        @test isempty(r) && !isfile(joinpath(dir, PDEStudioCore._HASH_FORMAT_FILE))   # (still not writable)
+        @test_throws ErrorException run_all_simulations(SimulationConfig(create_param_dict(:N => 8, :sim_func_name => :counting_solver)))
     end
 end
 
@@ -618,10 +555,6 @@ end
         @test_throws ErrorException PDEStudioCore._update_metadata!(get_file_name(m), :note => 1)
         FRAGILE_FAILS[] = false
         @test load_sim_data(m).metadata[:fragile] == FragileEntry("x")
-        # the pipeline's entries of the unreleased format 2 (String keys, records with their name)
-        v2 = PDEStudioCore._legacy_records!(Dict{Symbol, Any}(:provenance => Dict("solver" => "s"),
-                                                              :postprocessed => Dict("name" => "post", "sources" => String[])))
-        @test v2[:provenance] == Dict(:solver => "s") && v2[:postprocessed] == Dict(:post => Dict(:sources => String[]))
         # new data from a solver: its own metadata, the pipeline's entries replace those of the same name
         run_smart_simulation(advection_solver_1d, m; force_overwrite = true, metadata = Dict(:provenance => 1, :tag => "x"))
         md = load_sim_data(m).metadata

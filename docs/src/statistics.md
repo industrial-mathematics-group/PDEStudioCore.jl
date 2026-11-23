@@ -38,7 +38,7 @@ Valid kept dimensions are the aliases `:all` (pointwise field), `:space` (integr
 ```julia
 function PDEStudioCore.calc_stat(::Val{:custom_energy}, fixed_coords, u, ana, domain::DomainInfo)
     measure = get_integration_measure(:custom_energy, domain)   # e.g. dx * dy
-    return sum(abs2.(u)) * measure
+    return sum(map(v -> abs2.(v), u) .* measure)   # (per component: u holds one SVector per point)
 end
 ```
 

@@ -38,6 +38,10 @@ function _check_layout(D::Int, DS::Int, domain::DomainInfo)
     return nothing
 end
 
+# The parameters a dataset keeps: its own copy, also of nested values (a caller's later change to an array it passed
+# doesn't change the parameters the data is stored under)
+_own_params(params) = deepcopy(_to_paramdict(params))
+
 # Metadata is stored with Symbol keys (a copy: datasets never share it)
 _metadata_dict(metadata::AbstractDict) = Dict{Symbol, Any}(Symbol(k) => v for (k, v) in metadata)
 
@@ -95,7 +99,7 @@ mutable struct ESimData{D, DS, M, T} <: AbstractSimData{D, DS, M, T}
         sol = convert(Array{SVector{M, T}, D}, u)
         size(sol) == map(length, ax) || throw(DimensionMismatch(
             "the solution has size $(size(sol)) but the axes $(domain.dim_keys) have lengths $(map(length, ax))"))
-        return new{D, DS, M, T}(_to_paramdict(params), domain, ax, sol, _derived_stats(StatDict{M, T}, stats),
+        return new{D, DS, M, T}(_own_params(params), domain, ax, sol, _derived_stats(StatDict{M, T}, stats),
                                 _metadata_dict(metadata))
     end
 end
@@ -148,7 +152,7 @@ mutable struct LSimData{D, DS, M, T} <: AbstractSimData{D, DS, M, T}
             length(xx[i]) == length(uu[i]) || throw(DimensionMismatch(
                 "time step $i has $(length(xx[i])) particle positions but $(length(uu[i])) particle states"))
         end
-        return new{D, DS, M, T}(_to_paramdict(params), domain, tt, xx, uu, _derived_stats(StatDict{M, T}, stats),
+        return new{D, DS, M, T}(_own_params(params), domain, tt, xx, uu, _derived_stats(StatDict{M, T}, stats),
                                 _metadata_dict(metadata))
     end
 end

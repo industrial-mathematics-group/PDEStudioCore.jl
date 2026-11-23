@@ -97,12 +97,15 @@ end
     @test get_clean_params(create_param_dict(:m => [1 2; 3 4]))[:m] == [1 2; 3 4]
     @test calculate_hash(create_param_dict(:m => [1 2; 3 4])) != calculate_hash(create_param_dict(:m => [1, 3, 2, 4]))
 
-    # The hash format is stable (regression values), so stored data is found again across sessions
+    # The hash format is stable (regression values of hash format 2, PDEStudioCore 0.7), so stored data is found again
+    # across sessions
     @test calculate_hash(create_param_dict(:N => 50, :cfl => 0.5, :scheme => "upwind")) ==
-          "504a0a25d87114ea4c1c3fa7fe16e28a5329892b6da664b1fbd5804d2bf6d720"
+          "c5d820daf3b62aa007a9a41f292014acc3faf6a401899ac8e11ade390395a7ac"
     @test calculate_hash(create_param_dict(:Ns => (20, 15), :sim_func_name => :advection_solver_1d,
                                            :tag => "", :values => [0.1, 0.2])) ==
-          "c9f0432adf92ccfec508e15b196b623d2593d3e860ee967cf394686235934985"
+          "3b2aed2e7eb1f6891404e376491cf5f60b20866a6844661ce471c1391c581666"
+    # (parameters without strings keep their names of format 1)
+    @test calculate_hash(create_param_dict(:N => 50, :cfl => 0.5)) == "170bb9fde69b2b89e9f56fb9e5aed41ef9d74e592da9ffa67da679505038b472"
 end
 
 @testset "Hash text: ambiguous top-level strings are quoted" begin

@@ -89,7 +89,16 @@ On disk, the solution is stored once (in `u`).
 
 ## 3. Storage Layout
 
-Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed from the normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone. A string parameter whose text reads as another value (`"1"`, `"true"`, `"Float32"`) is hashed quoted, so it doesn't share the hash of that value; files stored by 0.6.2 and earlier for such strings are still found (their stored parameters are compared), and [`rehash_sim_data`](@ref) gives them their new names. Each file contains:
+Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed from the normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone. String values are hashed quoted, so no two values share a name (hash format 2, PDEStudioCore 0.7; format 1 named the string `"1"` like the number `1`). The data folder records its hash format in `PDEStudioCore.toml`.
+
+**Data folders of PDEStudioCore 0.6 and earlier** (data files, no `PDEStudioCore.toml`) name runs with string parameters differently. Such a folder is read (a file counts only if its stored parameters are the ones looked up), but nothing is written into it: `run_all_simulations` (except dry runs) and `save_sim_data` throw until `rehash_sim_data()` has renamed its files (a file is only renamed; runs without string parameters keep their names) and recorded the format. So stored results are never computed again under the new names by accident:
+
+```julia
+set_save_path!("results")
+rehash_sim_data()   # once per data folder written by PDEStudioCore 0.6 or earlier
+```
+
+Each file contains:
 
 | Entry | Content |
 | :--- | :--- |
@@ -98,15 +107,14 @@ Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed
 | `"format_version"` | the layout of the file (see below) |
 | `"metadata"` | the dataset's `metadata` (stored once, here: `"raw"` holds the dataset without it), read and updated without loading the data |
 | `"evaluated_stats"` | statistics already evaluated for this data |
-| `"evaluated_with_reference"` | whether a reference function was available when they were evaluated |
-| `"evaluated_reference"` | which reference that was (its name, package version and the digest of the file defining it): statistics evaluated with another one are evaluated again |
+| `"evaluated_with_reference"` | whether a reference function was available when they were last evaluated |
+| `"evaluated_reference"` | which reference the values evaluated with one were evaluated with (its name, package version and the digest of the file defining it; `""` if unknown, e.g. from `calculate_all_stats!`): with another or an unknown one the pipeline evaluates them again. An evaluation without a reference, or with nothing to evaluate, keeps it |
 | `"conv_L"`, `"conv_E_<n1>x<n2>…"` | cached conversions |
 
 Other entries (e.g. written with JLD2 directly) are kept when the data is rewritten.
 
-The **format version** is 3 for files written by this version. Files of PDEStudioCore 0.4 (version 1: no version entry, no axes, datasets without the `metadata` field) are read as they are, nothing is recomputed: their datasets are read as the current types, with the entries stored next to the data (`"sources"` and those of `save_sim_data(...; metadata)` in 0.4) as metadata. [`upgrade_sim_data`](@ref) writes them in the current layout. The pipeline does the same with a file whose metadata changes (e.g. a post-processing record); cached conversions are dropped then. Files of earlier versions are upgraded by the pipeline when it finds them, or recomputed if their data doesn't load.
+The **format version** is 3 for files written by PDEStudioCore 0.5 and later. Files of PDEStudioCore 0.4 (no version entry, no axes, datasets without the `metadata` field) aren't read since 0.7: they count as missing (the pipeline would recompute them), and `rehash_sim_data` leaves them as they are. Upgrade them with PDEStudioCore 0.6 (`upgrade_sim_data()`) before switching.
 
-**Data folders shared with PDEStudioCore 0.4:** an older version that rewrites a file (e.g. `force_overwrite`) keeps the `"metadata"` entry of the data it replaced (its provenance and post-processing record), so this version would take its new data as post-processed already. After such runs, use `run_all_simulations(config; force_postprocess = true)` once.
 
 Writes are atomic: a file is written to a temporary path and renamed into place, so an interrupted run never corrupts existing data, and rewriting the data does not grow the file. This includes the bookkeeping entries of the statistics pass and cached conversions: they are written into a copy of the file that then replaces it (a changed bookkeeping entry grows the file by about its own size, a few hundred bytes to a few kB). When the data itself is rewritten, the other entries are loaded and stored again: load the packages that define the types of entries you stored yourself first, otherwise they are kept as JLD2's reconstructions (with a warning). Writers in several processes are not coordinated: if two of them rewrite the same file at once, the last rename wins. Rewriting the raw data drops stale conversion caches but keeps any other entries (including groups) you stored yourself.
 
@@ -139,7 +147,7 @@ load_sim_data("a1b2c3"; key = "raw")                # by hash prefix (REPL inspe
 check_data(data)                                    # min/max/mean/NaN summary as a DataFrame
 sim_data_table(Dict(:scheme => "upwind"))           # one row per run: file, size, shape, stats, solver, wall time, parameters
 tidy_sim_data(dry_run = true)                       # older duplicates of a run and leftovers of killed writes
-upgrade_sim_data()                                  # bring files of earlier versions to the current format
+rehash_sim_data()                                   # rename the files of a folder of PDEStudioCore 0.6 (once)
 ```
 
 `find_sim_data` prints one line per matching file (newest first) with the remaining parameters and returns the paths; `delete_sim_data` deletes exactly the files it would list and refuses an empty filter. `rehash_sim_data` writes the renamed file before removing the old one. `sim_data_table` reads only the metadata of each file, so it is quick for large data folders. A run stored more than once (e.g. by parallel jobs computing the same parameters) is always looked up as its newest file; `tidy_sim_data` removes the older ones and temporary files of writes that never finished.
