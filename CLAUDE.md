@@ -27,7 +27,7 @@ runs, and each solver shows what its docstring claims (stability limits, order, 
 | `src/Structs.jl`, `src/SimData.jl` | Types: `ParamDict`, `SimulationConfig`, `ESimData`/`LSimData`/`NoSimData`, `DomainInfo`, `StatsView` |
 | `src/Config.jl`, `src/Constructors.jl` | `SimulationConfig` behaviour, `create_*` constructors |
 | `src/Serialization.jl` | `val2str`/`str2val`, parameter normalisation, `calculate_hash` |
-| `src/IOUtils.jl`, `src/DataManagement.jl` | Save/load, atomic writes, cache lookup, rehash/delete |
+| `src/IOUtils.jl`, `src/DataManagement.jl` | The store (one file per run), save/load, atomic writes, listing, import/delete |
 | `src/ConversionUtils.jl` | Eulerian ↔ Lagrangian conversion, resampling |
 | `src/StatCalculation.jl` | Stat registry, `calc_stat` evaluation, references |
 | `src/Simulations.jl` | Task generation, `run_all_simulations`, `run_smart_simulation` |
@@ -36,15 +36,19 @@ runs, and each solver shows what its docstring claims (stability limits, order, 
 
 ## Invariants (treat changes as breaking)
 
-- **Hash stability.** Cache file names are `calculate_hash` of the normalised parameters,
-  which depends on `val2str` and `_normalize_params`. Any change there renames every
-  user's cached result. Don't change it unless asked; if you must, say so prominently in
-  the PR and mention `rehash_sim_data`. `test/test_serialization.jl` pins the formats:
+- **Hash stability.** Cache file names are `calculate_hash` of the normalised parameters
+  (`data/<hash>.jld2`), which depends on the encoding in `_identity` and on `val2str`/
+  `_normalize_params`. Any change there renames every user's cached result. Don't change it
+  unless asked; if you must, say so prominently in the PR and mention `import_sim_data`. `test/test_serialization.jl` pins the formats:
   never "fix" a failing hash test by updating the expected value without asking.
 - **`str2val` never evaluates code.** It's a literal parser (CSV/config values come from
   files). Don't add `eval`, `Meta.parse` + `eval`, or `include` to it.
 - **Atomic writes.** Data is written to a temporary file and renamed into place; keep it
   that way for every new writer.
+- **The store never moves or deletes data on its own.** A run is only ever written to its
+  own name, after checking that the file there holds its parameters. No renaming, staging,
+  duplicate cleanup or other in-place maintenance; tools that change parameters copy
+  (`import_sim_data`), and only `delete_sim_data` deletes.
 - **Name resolution.** Solvers, references and post-processing functions are referenced
   by name and resolved in the module set with `set_target_module!` (default `Main`;
   HyperCloud sets itself). Only names that module (or a submodule) defines itself resolve;

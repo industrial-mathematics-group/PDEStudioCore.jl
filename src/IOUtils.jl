@@ -2,7 +2,7 @@
 # --- Disk layout, saving & loading ---
 # ==============================================================================
 #
-# data/<timestamp>_<sha256>.jld2
+# data/<sha256>.jld2   (one file per run, named by `calculate_hash` of its parameters)
 #   "raw"        the native dataset (ESimData or LSimData)
 #   "native"     :eulerian | :lagrangian            (fast metadata)
 #   "params"     normalised parameters              (fast metadata)
@@ -75,133 +75,82 @@ Returns the root directory used for saving (defaults to the working directory at
 get_save_path() = _SAVE_ROOT_PATH[]
 
 _data_dir() = joinpath(get_save_path(), "data")
-_timestamp() = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS_sss")
 
-const _HASH_REGEX = r"(?:^|_)([0-9a-f]{64})(?:_|\.jld2$)"
+# --- The store ---------------------------------------------------------------------------------------------------
+# One file per run: `data/<hash>.jld2`, the hash of its normalised parameters (`calculate_hash`). There are no
+# duplicates by construction, so a lookup is a single path, checked against the parameters stored in the file: a file
+# is only ever taken for (and replaced by) the run its name stands for. Files are only ever written to their own name
+# (atomically: a temporary file renamed into place); nothing here moves, renames or deletes data on its own (only
+# `delete_sim_data` deletes, on request). Files under other names (data of earlier versions, copies) aren't part of
+# the store: `import_sim_data` copies them in, `tidy_sim_data` lists them.
+const _HASH_NAME = r"^([0-9a-f]{64})\.jld2$"
 
+# The hash a store file name stands for (`nothing` for any other name)
 function _filename_hash(name::AbstractString)
-    m = match(_HASH_REGEX, name)
+    m = match(_HASH_NAME, name)
     return m === nothing ? nothing : String(m.captures[1])
 end
 
-# --- The index of the data directory -----------------------------------------------------------------------------
-# A lookup used to list the whole data directory (about 4 ms with 4500 files, several lookups per task). The index
-# lists it once per change: it is rebuilt when the directory's modification time changes, and dropped by every writer
-# here. File times come from a coarse clock (a few ms; a second on some file systems), so a change right after a
-# listing may leave the time as it was: like git's index, a listing made within `_INDEX_RACY` seconds of the
-# directory's last change is not trusted, the next lookup lists again. A file found in it is checked to exist; a
-# hash that isn't in it is looked up with a fresh listing, as before, so a missed change (e.g. a file system that
-# caches directory times) costs time; the one result it can miss is a newer duplicate of a stored run that another
-# process added meanwhile (the older file of the same parameters is found until the directory changes again).
-mutable struct _DataIndex
-    dir::String
-    stamp::Float64     # the directory's modification time
-    listed::Float64    # when it was listed
-    files::Vector{String}
-    by_hash::Dict{String, Vector{String}}
-end
-const _INDEX = Ref{Union{Nothing, _DataIndex}}(nothing)
-const _INDEX_RACY = 1.0
-const _INDEX_LOCK = ReentrantLock()   # (the pipeline looks files up from several threads)
+_hash_path(hash_val::AbstractString, dir::AbstractString = _data_dir()) = joinpath(dir, hash_val * ".jld2")
 
-_invalidate_index!() = (lock(() -> (_INDEX[] = nothing), _INDEX_LOCK); nothing)
+# Every `.jld2` file in the data directory (also those under other names), sorted by name
+_data_files(dir::AbstractString = _data_dir()) =
+    isdir(dir) ? String[joinpath(dir, f) for f in readdir(dir) if endswith(f, ".jld2")] : String[]
 
-function _data_index(; fresh::Bool = false)
-    dir = _data_dir()
-    lock(_INDEX_LOCK) do
-        idx = _INDEX[]
-        stamp = isdir(dir) ? mtime(dir) : -1.0
-        if fresh || idx === nothing || idx.dir != dir || idx.stamp != stamp ||
-           idx.listed - idx.stamp < _INDEX_RACY
-            listed = time()
-            files = isdir(dir) ? [joinpath(dir, f) for f in readdir(dir) if endswith(f, ".jld2")] : String[]
-            by_hash = Dict{String, Vector{String}}()
-            for p in files
-                h = _filename_hash(basename(p))
-                h === nothing || push!(get!(by_hash, h, String[]), p)
-            end
-            idx = _INDEX[] = _DataIndex(dir, stamp, listed, files, by_hash)
-            _prune_stored_params!(files)   # (the lock is held)
-        end
-        return idx
-    end
-end
-
-_data_files() = copy(_data_index().files)
-
-# (ties of the coarse file clock: the newer name, which starts with the time the file was made)
-_sort_newest!(paths::Vector{String}) = sort!(paths, by = p -> (mtime(p), basename(p)), rev = true)
-
-# The files of a hash, newest first
-function _files_with_hash(hash_val::AbstractString)
-    hit = get(_data_index().by_hash, hash_val, nothing)
-    if hit === nothing || !all(isfile, hit)
-        hit = get(_data_index(fresh = true).by_hash, hash_val, String[])
-    end
-    return length(hit) > 1 ? _sort_newest!(copy(hit)) : copy(hit)
-end
 _param_hash(params::AbstractDict) = calculate_hash(_normalize_params(params))
 
-function _find_file(params::AbstractDict)
-    files = _files_for(_normalize_params(params))
-    return isempty(files) ? nothing : first(files)
+# The file of these parameters, or `nothing`: the file named by their hash, if it holds them
+_find_file(params::AbstractDict) = (clean = _normalize_params(params); _file_for(clean, calculate_hash(clean)))
+
+# The file named by `hash_val` if it holds the normalised parameters `normalized` (compared by their canonical
+# encoding, which tells `true` from `1`), else `nothing`. `fresh = true` reads the file again (before a write).
+function _file_for(normalized::AbstractDict, hash_val::AbstractString = calculate_hash(normalized); fresh::Bool = false)
+    path = _hash_path(hash_val)
+    _stored_identity(path; fresh) == _identity(normalized) || return nothing
+    return path
 end
 
-# The files holding these normalised parameters, newest first: those named by their hash whose stored parameters are
-# these (a file is never taken for other parameters, whatever its name). Compared by their identity text (`true`
-# is not `1`); `fresh = true` reads the files again (before a write replaces one of them).
-function _files_for(normalized::AbstractDict, hash_val::AbstractString = calculate_hash(normalized); fresh::Bool = false)
-    ident = _identity_text(normalized)
-    return filter(_files_with_hash(hash_val)) do p
-        s = _stored_params(p; fresh)
-        !isnothing(s) && s.identity == ident
-    end
+# What the file at `path` holds: :missing (no file), :same (the parameters `normalized`), :other (other parameters) or
+# :unreadable (its parameters can't be read). Reads the file again.
+function _file_state(path::AbstractString, normalized::AbstractDict)
+    ispath(path) || return :missing
+    ident = _stored_identity(path; fresh = true)
+    return ident === nothing ? :unreadable : ident == _identity(normalized) ? :same : :other
 end
 
-# The normalised parameters stored in a file and their identity text (`nothing` if they can't be read), read once
-# per file version: a version is the file's inode, size and modification time, so a file replaced by another (also
-# one with the same modification time) is read again; entries of files that are gone are pruned with the index
-const _STORED_PARAMS = Dict{String, Tuple{Tuple{UInt, Int, Float64}, Union{Nothing, NamedTuple}}}()
+# The canonical encoding of the parameters stored in a file (`nothing` if there is none or they can't be read), read
+# once per file version: a version is the file's inode, size and modification time, so a file replaced by another
+# (also one with the same modification time) is read again. The cache is bounded: it is emptied when it grows beyond
+# `_STORED_MAX` files.
+const _STORED_IDENTITY = Dict{String, Tuple{Tuple{UInt, Int, Float64}, Union{Nothing, String}}}()
+const _STORED_LOCK = ReentrantLock()   # (the pipeline looks files up from several threads)
+const _STORED_MAX = 10_000
 _file_version(path::AbstractString) = (st = stat(path); (UInt(st.inode), Int(st.size), Float64(st.mtime)))
-function _stored_params(path::AbstractString; fresh::Bool = false)
+function _stored_identity(path::AbstractString; fresh::Bool = false)
+    isfile(path) || return nothing
     version = try
         _file_version(path)
     catch
         return nothing
     end
     if !fresh
-        hit = lock(() -> get(_STORED_PARAMS, path, nothing), _INDEX_LOCK)
+        hit = lock(() -> get(_STORED_IDENTITY, path, nothing), _STORED_LOCK)
         !isnothing(hit) && hit[1] == version && return hit[2]
     end
     p = _file_params(path)
-    s = p isa AbstractDict ? (clean = _normalize_params(p); (params = clean, identity = _identity_text(clean))) : nothing
-    lock(() -> (_STORED_PARAMS[path] = (version, s)), _INDEX_LOCK)
-    return s
-end
-# Drops the cached parameters of files that are not in `files` (deleted, replaced, another data folder)
-function _prune_stored_params!(files)
-    keep = Set(files)
-    filter!(kv -> first(kv) in keep, _STORED_PARAMS)
-    return nothing
-end
-
-# A new file name for data of hash `hash_val` (another file of the same time and hash, e.g. of other parameters,
-# isn't replaced: a counter is appended)
-function _new_file_name(hash_val::AbstractString, dir::AbstractString = _data_dir(), stamp::AbstractString = _timestamp())
-    path = joinpath(dir, "$(stamp)_$(hash_val).jld2")
-    k = 1
-    while ispath(path)
-        k += 1
-        path = joinpath(dir, "$(stamp)_$(hash_val)_$(k).jld2")
+    ident = p isa AbstractDict ? _identity(_normalize_params(p)) : nothing
+    lock(_STORED_LOCK) do
+        length(_STORED_IDENTITY) >= _STORED_MAX && empty!(_STORED_IDENTITY)
+        _STORED_IDENTITY[path] = (version, ident)
     end
-    return path
+    return ident
 end
 
 """
     get_file_name(params::AbstractDict)
 
-Returns the path of the newest `.jld2` file whose hash matches the (normalised) parameters.
-Throws a [`SimFileNotFoundError`](@ref) if there is none.
+Returns the path of the data file of the (normalised) parameters, `<save path>/data/<hash>.jld2`
+(see [`calculate_hash`](@ref)). Throws a [`SimFileNotFoundError`](@ref) if nothing is stored for them.
 """
 function get_file_name(params::AbstractDict)
     isdir(_data_dir()) || throw(SimFileNotFoundError("Data directory $(_data_dir()) does not exist."))
@@ -210,14 +159,14 @@ function get_file_name(params::AbstractDict)
     return path
 end
 
+# The store files whose hash starts with `prefix` (or the file of that name), sorted by name
 function _files_matching(prefix::AbstractString)
     clean = lowercase(replace(basename(String(prefix)), r"\.jld2$" => ""))
     isempty(clean) && return String[]
-    matches = filter(_data_files()) do path
+    return filter(_data_files()) do path
         h = _filename_hash(basename(path))
         return lowercase(replace(basename(path), r"\.jld2$" => "")) == clean || (h !== nothing && startswith(h, clean))
     end
-    return _sort_newest!(matches)
 end
 
 _has_key(path::AbstractString, key::AbstractString) = jldopen(file -> haskey(file, key), path, "r")
@@ -413,8 +362,6 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::A
     catch
         rm(tmp; force = true)
         rethrow()
-    finally
-        _invalidate_index!()
     end
     return path
 end
@@ -431,8 +378,10 @@ _without_metadata(d::LSimData{D, DS, M, T}) where {D, DS, M, T} =
 """
     save_sim_data(sim_data::AbstractSimData; overwrite = false, verbose = true, metadata = Dict())
 
-Saves the dataset under the hash of its (normalised) parameters and returns the file path.
-An existing file is only replaced when `overwrite = true` (which also drops stale conversion caches).
+Saves the dataset under the hash of its (normalised) parameters, `<save path>/data/<hash>.jld2`, and returns the file
+path. The data stored for these parameters is only replaced when `overwrite = true` (which also drops stale
+conversion caches); a file at that name that holds other parameters, or whose parameters can't be read, is never
+replaced (an error).
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 The dataset's `metadata` field is saved with it; `metadata` entries given here are added to it first.
 The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources` or
@@ -615,24 +564,41 @@ function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Boo
     empty!(sim_data.params)
     merge!(sim_data.params, normalized)
 
-    hash_val = calculate_hash(sim_data.params)
-    # (only files holding these parameters are replaced: read again, a cached identity may be stale)
-    existing = _files_for(sim_data.params, hash_val; fresh = true)
-    if isempty(existing)
+    path = _hash_path(calculate_hash(normalized))
+    # (read again, a cached identity may be stale: only a file holding these parameters is ever replaced)
+    state = _file_state(path, normalized)
+    if state === :missing
         mkpath(_data_dir())
-        path = _new_file_name(hash_val)
         _write_sim_file(path, sim_data, metadata, nothing)
         verbose && @info "Saved simulation data to $(basename(path))"
-        return path
-    end
-    path = first(existing)
-    if overwrite || !_has_key(path, "raw")
-        _write_sim_file(path, sim_data, metadata, path)
-        verbose && @info "Saved simulation data to $(basename(path)) (replaced; conversion caches cleared)"
-    else
-        @debug "'raw' already exists in $(basename(path)); skipping save."
+    elseif state === :same
+        if overwrite || !_has_key(path, "raw")
+            _write_sim_file(path, sim_data, metadata, path)
+            verbose && @info "Saved simulation data to $(basename(path)) (replaced; conversion caches cleared)"
+        else
+            @debug "'raw' already exists in $(basename(path)); skipping save."
+        end
+    else   # (never replaced: it isn't the data of these parameters, or it can't be checked)
+        throw(_name_taken(path, state))
     end
     return path
+end
+
+# The error for a file name of parameters that is taken by a file of other parameters (`state = :other`) or one whose
+# parameters can't be read (`:unreadable`): such a file is never replaced
+_name_taken(path::AbstractString, state::Symbol) = ErrorException(
+    "Not saved: $path, the file of these parameters, " *
+    (state === :other ? "holds the data of other parameters" : "is there, but its parameters can't be read") *
+    " (it was put there from outside). Inspect it (`load_sim_data(\"" * first(basename(path), 12) * "\")`), move or " *
+    "delete it, then save again.")
+
+# Throws `_name_taken` if the file name of these parameters is taken (checked before a run, whose result couldn't be saved)
+function _check_name_free(params::AbstractDict)
+    clean = _normalize_params(params)
+    path = _hash_path(calculate_hash(clean))
+    state = _file_state(path, clean)
+    state in (:other, :unreadable) && throw(_name_taken(path, state))
+    return nothing
 end
 save_sim_data(::NoSimData; kwargs...) = nothing
 
@@ -683,8 +649,9 @@ where `kind` is `:eulerian` or `:lagrangian` (the native representation), `shape
 `(time steps, particles)` (Lagrangian), `dim_keys`/`time_dim` the axes (`time_dim` is `nothing` for static data)
 and `n_steps` the number of stored time steps (0 for static data). Files written by PDEStudioCore before
 November 2026 lack the axes in their metadata: for them the data is loaded on every call to read them (rewriting the
-data, e.g. with `rehash_sim_data`, adds them). Throws a [`SimFileNotFoundError`](@ref) if nothing is stored for
-`params`, and an `ArgumentError` for files of much older versions (without `"native"`/`"shape"`).
+data, e.g. `save_sim_data(load_sim_data(params); overwrite = true)`, adds them). Throws a
+[`SimFileNotFoundError`](@ref) if nothing is stored for `params`, and an `ArgumentError` for files of much older
+versions (without `"native"`/`"shape"`).
 """
 function get_sim_data_info(params::AbstractDict)
     path = get_file_name(params)
@@ -745,7 +712,7 @@ end
 """
     load_sim_data(hash_prefix::AbstractString; index = 1, key = nothing)
 
-Loads a file by (a prefix of) its parameter hash or by its file name, newest first. Returns the
+Loads a file by (a prefix of) its parameter hash or by its file name (the matching files sorted by name). Returns the
 `Dict` of all stored entries, or only the entry `key` (e.g. `"raw"`) when given.
 """
 function load_sim_data(hash_prefix::AbstractString; index::Int = 1, key::Union{Nothing, AbstractString} = nothing)

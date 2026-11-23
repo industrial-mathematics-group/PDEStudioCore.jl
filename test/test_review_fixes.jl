@@ -12,63 +12,58 @@ constant_solver(p::ParamDict) = review_data(p, 1.0)
 @testset "Review fixes (v0.6.2)" begin
     set_save_path!(mktempdir())
 
-    # 1. Hash format 3 (0.7): every top-level string is hashed quoted, so no two values share a name ("1" and 1, "1" and
-    #    the three characters "\"1\""); a struct stored as its text hashes like that text
+    # 1. Since hash format 3 (0.7) no two values share a name ("1" and 1, "1" and the three characters "\"1\""); hash
+    #    format 4 (0.8) encodes every value with its kind; a struct stored as its text hashes like that text
     @test calculate_hash(Dict(:k => 1)) != calculate_hash(Dict(:k => "1")) != calculate_hash(Dict(:k => "\"1\""))
     @test calculate_hash(Dict(:k => true)) != calculate_hash(Dict(:k => "true")) && calculate_hash(Dict(:k => Float32)) != calculate_hash(Dict(:k => "Float32"))
-    @test PDEStudioCore._hash_text("1") == "\"1\"" && PDEStudioCore._hash_text("\"1\"") == "\"\\\"1\\\"\"" && PDEStudioCore._hash_text(1) == "1"
+    ident(v) = PDEStudioCore._identity(PDEStudioCore._normalize_params(Dict(:k => v)))
+    @test endswith(ident("1"), "y1:ks1:1") && endswith(ident("\"1\""), "y1:ks3:\"1\"") && endswith(ident(1), "y1:k#5:Int641:1")
     @test val2str("1.5f0") == "1.5f0"   # (`val2str` itself is unchanged: frontends write literal text through it)
     s = run_all_simulations(SimulationConfig(create_param_dict(:sim_func_name => :typed_solver, :k => 1);
                                              varied = create_varied_dict(:k => Any[1, "1", "\"1\""])))
     @test length(s.tasks) == 3 && length(s.ran) == 3 && length(unique(s.files)) == 3
     @test load_sim_data(create_param_dict(:sim_func_name => :typed_solver, :k => "1")).u[1][1] == 2.0
     @test load_sim_data(create_param_dict(:sim_func_name => :typed_solver, :k => 1)).u[1][1] == 1.0
-    # Hash format 3: keys as `repr`, so a key can't forge other pairs; `nothing` apart from the type `Nothing`
+    # keys are encoded like values, so a key can't forge other pairs; `nothing` apart from the type `Nothing`
     @test calculate_hash(Dict(:a => "label", :b => 2)) != calculate_hash(Dict(Symbol("a => \"label\", b") => 2))
     @test calculate_hash(Dict(:k => nothing)) != calculate_hash(Dict(:k => Nothing))
     @test calculate_hash(Dict(:k => missing)) != calculate_hash(Dict(:k => Missing))
-    # a lookup checks the stored parameters: a file of another run under this name is never returned or replaced
+    # a lookup checks the stored parameters: a file of another run under this name is never returned or replaced (a
+    # save says so, and the pipeline doesn't run what it couldn't save)
     dir = joinpath(get_save_path(), "data")
     p1, pstr = create_param_dict(:sim_func_name => :typed_solver, :k => 1), create_param_dict(:sim_func_name => :typed_solver, :k => "1")
     f_str = get_file_name(pstr)
-    forged = replace(f_str, calculate_hash(pstr) => calculate_hash(p1))   # (another run's file under p1's name)
-    rm(get_file_name(p1)); cp(f_str, forged)
-    PDEStudioCore._invalidate_index!()
-    @test isnothing(PDEStudioCore._find_file(p1)) && get_file_name(pstr) == f_str
-    path1 = save_sim_data(typed_solver(p1); overwrite = true, verbose = false)
-    @test path1 != forged && load_sim_data(p1).u[1][1] == 1.0 && load_sim_data(forged; key = "raw").params[:k] == "1"
-    @test PDEStudioCore._new_file_name("ab"^32, dir, "T") == joinpath(dir, "T_$("ab"^32).jld2")
-    touch(joinpath(dir, "T_$("ab"^32).jld2"))
-    @test PDEStudioCore._new_file_name("ab"^32, dir, "T") == joinpath(dir, "T_$("ab"^32)_2.jld2")
-    rm(joinpath(dir, "T_$("ab"^32).jld2")); rm(forged)
+    forged = get_file_name(p1)   # (another run's file under p1's name)
+    cp(f_str, forged; force = true)
+    @test isnothing(PDEStudioCore._find_file(p1)) && get_file_name(pstr) == f_str && !does_sim_data_exist(p1)
+    @test_throws r"holds the data of other parameters" save_sim_data(typed_solver(p1); overwrite = true, verbose = false)
+    @test load_sim_data(forged; key = "raw").params[:k] == "1"
+    s = run_all_simulations(SimulationConfig(p1))
+    @test length(s.failed) == 1 && isempty(s.ran) && occursin("other parameters", last(only(s.failed)))
+    rm(forged)
+    @test save_sim_data(typed_solver(p1); verbose = false) == forged && load_sim_data(p1).u[1][1] == 1.0
+    # ... nor is a file whose parameters can't be read
+    write(forged, "not a data file")
+    @test_throws r"can't be read" save_sim_data(typed_solver(p1); overwrite = true, verbose = false)
+    @test read(forged, String) == "not a data file"
+    rm(forged)
 
-    # rehash_sim_data plans before it moves: two files of the same time whose new names are each other's old names both
-    # survive; copies keep the old names; a file it can't read is reported and the rest is renamed
+    # import_sim_data copies runs under their names and only reads the source: two files sitting at each other's
+    # names both arrive; a file it can't read is reported and the rest is imported
     set_save_path!(mktempdir())
     dir = joinpath(get_save_path(), "data")
     ph, pq = create_param_dict(:k => "hello"), create_param_dict(:k => "\"hello\"")
     fh = save_sim_data(review_data(ph, 10.0); verbose = false)
     fq = save_sim_data(review_data(pq, 20.0); verbose = false)
-    stamp = "2026-01-01_00-00-00_000"
-    a, b = joinpath(dir, "$(stamp)_$(calculate_hash(pq)).jld2"), joinpath(dir, "$(stamp)_$(calculate_hash(ph)).jld2")
-    mv(fh, a); mv(fq, b)   # (each sits where the other belongs)
-    PDEStudioCore._invalidate_index!()
-    @test isnothing(PDEStudioCore._find_file(ph)) && isnothing(PDEStudioCore._find_file(pq))
-    renamed = rehash_sim_data()
-    @test sort(last.(renamed)) == sort([a, b]) && length(readdir(dir)) == 2
+    old = mktempdir()
+    mv(fh, joinpath(old, basename(fq))); mv(fq, joinpath(old, basename(fh)))   # (each sits where the other belongs)
+    write(joinpath(old, "broken.jld2"), "not a data file")
+    before = Dict(f => read(joinpath(old, f)) for f in readdir(old))
+    imported = @test_logs (:warn, r"can't be read") match_mode = :any import_sim_data(old)
+    @test sort(last.(imported)) == sort([fh, fq]) && sort(readdir(dir)) == sort(basename.([fh, fq]))
     @test load_sim_data(ph).u[1][1] == 10.0 && load_sim_data(pq).u[1][1] == 20.0
-    mv(get_file_name(ph), joinpath(dir, "$(stamp)_$("0"^64).jld2"))   # (a wrong name, like a file of 0.7)
-    PDEStudioCore._invalidate_index!()
-    @test length(rehash_sim_data(; delete_old = false)) == 1 && length(readdir(dir)) == 3
-    @test load_sim_data(ph).u[1][1] == 10.0 && isnothing(PDEStudioCore._find_file(create_param_dict(:k => "other")))
-    rm(joinpath(dir, "$(stamp)_$("0"^64).jld2"))   # (the old copy)
-    broken = joinpath(dir, "$(stamp)_$("1"^64).jld2")
-    write(broken, "not a data file")
-    mv(get_file_name(pq), joinpath(dir, "$(stamp)_$("2"^64).jld2"))
-    PDEStudioCore._invalidate_index!()
-    @test (@test_logs (:warn, r"not rehashed") match_mode = :any length(rehash_sim_data())) == 1
-    @test isfile(broken) && load_sim_data(pq).u[1][1] == 20.0
-    rm(broken)
+    @test Dict(f => read(joinpath(old, f)) for f in readdir(old)) == before   # (the source as it was)
+    @test isempty(import_sim_data(old)) && isempty(import_sim_data(dir))      # (stored already)
 
     # a current file without its dataset is missing (the pipeline computes it again)
     pr = create_param_dict(:sim_func_name => :constant_solver, :case => :no_raw)
@@ -149,8 +144,9 @@ constant_solver(p::ParamDict) = review_data(p, 1.0)
     p = create_param_dict(:sim_func_name => :constant_solver)
     file = save_sim_data(constant_solver(p))
     open(io -> truncate(io, 0), file, "w")
-    s = run_all_simulations(SimulationConfig(p))   # (an unreadable file isn't found: computed again, next to it)
-    @test isempty(s.failed) && length(s.ran) == 1 && s.files[1] != file && isfile(file) && filesize(file) == 0
+    s = run_all_simulations(SimulationConfig(p))   # (an unreadable file at the run's name: reported, never replaced)
+    @test length(s.failed) == 1 && occursin("can't be read", last(only(s.failed))) && isempty(s.ran)
+    @test isfile(file) && filesize(file) == 0
 
     # 9. Upwind takes the upstream neighbour for negative speeds (at CFL 1 an exact shift)
     cfg = test_advection_1d()

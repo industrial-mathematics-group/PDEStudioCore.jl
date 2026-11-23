@@ -240,7 +240,7 @@ end
     @test !does_sim_data_exist(delete_params) && does_sim_data_exist(keep_params)
 end
 
-@testset "Data management: rehash" begin
+@testset "Data management: import" begin
     params_target = create_param_dict(:N => 10, :scheme => "upwind", :cfl => 0.5, :target => true, :obsolete => "delete_me")
     params_ignore = create_param_dict(:N => 11, :scheme => "upwind", :cfl => 0.5, :target => false, :obsolete => "keep_me")
     save_sim_data(advection_solver_1d(params_target); overwrite = true)
@@ -248,28 +248,35 @@ end
     file_target_old = get_file_name(params_target)
     file_ignore_old = get_file_name(params_ignore)
 
-    renamed = rehash_sim_data(joinpath(get_save_path(), "data"); delete_old = true,
-                              filter_pairs = Dict(:target => true), remove_keys = [:obsolete])
-    @test length(renamed) == 1 && first(renamed[1]) == file_target_old
-    @test isfile(file_ignore_old) && !isfile(file_target_old)
+    # changed parameters within the store: a copy under the new parameters, the old files stay
+    imported = import_sim_data(joinpath(get_save_path(), "data"); filter_pairs = Dict(:target => true),
+                               remove_keys = [:obsolete])
+    @test length(imported) == 1 && first(imported[1]) == file_target_old
+    @test isfile(file_ignore_old) && isfile(file_target_old)
 
     params_new = create_param_dict(:N => 10, :scheme => "upwind", :cfl => 0.5, :target => true)
-    @test does_sim_data_exist(params_new)
-    sim_rehashed = load_sim_data(params_new)
-    @test !haskey(sim_rehashed.params, :obsolete) && sim_rehashed.params[:target] == true
+    @test does_sim_data_exist(params_new) && last(imported[1]) == get_file_name(params_new)
+    sim_imported = load_sim_data(params_new)
+    @test !haskey(sim_imported.params, :obsolete) && sim_imported.params[:target] == true
+    @test isempty(import_sim_data(joinpath(get_save_path(), "data"); filter_pairs = Dict(:target => true),
+                                  remove_keys = [:obsolete]))   # (stored already)
 
-    # A symlinked file whose hash changes: the rehashed data is a regular file, the link is removed with a warning,
-    # and its target (which may be shared) is kept
+    # A symlink is read through: the copy is a regular file, the link and its target stay as they are
     p_link = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :obsolete => "x", :test_mode => "link")
     save_sim_data(advection_solver_1d(p_link); overwrite = true)
-    linked = get_file_name(p_link)
-    target = joinpath(mktempdir(), basename(linked))
-    mv(linked, target)
+    outside = mktempdir()
+    target = joinpath(outside, "target.jld2")
+    mv(get_file_name(p_link), target)
+    linked = joinpath(outside, "link.jld2")
     symlink(target, linked)
-    @test_logs (:warn, r"is a symlink.*is not deleted"s) match_mode = :any rehash_sim_data(linked; remove_keys = [:obsolete])
-    @test isfile(target) && !ispath(linked)
+    @test length(import_sim_data(linked; remove_keys = [:obsolete])) == 1
+    @test isfile(target) && islink(linked)
     p_new = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :test_mode => "link")
     @test does_sim_data_exist(p_new) && !islink(get_file_name(p_new))
+    @test !does_sim_data_exist(p_link)
+    @test only(import_sim_data(linked)) == (linked => PDEStudioCore._hash_path(calculate_hash(p_link)))   # (a byte copy)
+    @test does_sim_data_exist(p_link) && !islink(get_file_name(p_link))
+    @test_throws ArgumentError import_sim_data(joinpath(outside, "missing"))
 end
 
 @testset "Stored data info without loading" begin
@@ -397,41 +404,30 @@ function with_fresh_save_path(f)
     end
 end
 
-@testset "Data management: directory index" begin
+@testset "Data management: file names" begin
     with_fresh_save_path() do
         p = create_param_dict(:N => 8, :test_mode => "index")
         save_sim_data(advection_solver_1d(p); verbose = false)
         file = get_file_name(p)
-        h = PDEStudioCore._filename_hash(basename(file))
-        @test PDEStudioCore._files_with_hash(h) == [file] && does_sim_data_exist(p)
-        # files added and removed by others (another process, the shell) are seen, also right after a listing
-        older = joinpath(dirname(file), "2020-01-01_00-00-00_000_" * h * ".jld2")
-        cp(file, older); touch(file)
-        @test PDEStudioCore._files_with_hash(h) == [file, older]   # newest first
+        h = calculate_hash(p)
+        @test basename(file) == h * ".jld2" && PDEStudioCore._filename_hash(basename(file)) == h
+        @test PDEStudioCore._filename_hash("2020-01-01_00-00-00_000_" * h * ".jld2") === nothing   # (names of 0.7)
+        # files added and removed by others (another process, the shell) are seen at once: a lookup is one path
         rm(file)
-        @test PDEStudioCore._files_with_hash(h) == [older] && get_file_name(p) == older
-        # ... and if the directory's time didn't change long after a listing (a file system caching it): a missing
-        # hash is looked up again, and a listed file is checked to exist
-        idx = PDEStudioCore._data_index()
-        fake = "f" ^ 64
-        added = joinpath(dirname(older), "2020-01-01_00-00-00_000_" * fake * ".jld2")
-        cp(older, added)
-        idx.stamp = mtime(dirname(older))
-        idx.listed = idx.stamp + 2 * PDEStudioCore._INDEX_RACY   # (as if listed long after)
-        @test PDEStudioCore._files_with_hash(fake) == [added]
-        idx = PDEStudioCore._data_index()
-        rm(older)
-        idx.stamp = mtime(dirname(added))
-        idx.listed = idx.stamp + 2 * PDEStudioCore._INDEX_RACY   # (as if listed long after)
-        @test isempty(PDEStudioCore._files_with_hash(h)) && !does_sim_data_exist(p)
-        # writers update it
+        @test !does_sim_data_exist(p) && isempty(PDEStudioCore._data_files())
         save_sim_data(advection_solver_1d(p); verbose = false)
-        @test does_sim_data_exist(p) && length(PDEStudioCore._data_files()) == 2
+        @test does_sim_data_exist(p) && length(PDEStudioCore._data_files()) == 1
+        # a copy under another name isn't part of the store: lookups and listings don't use it
+        cp(file, joinpath(dirname(file), "copy.jld2"))
+        @test get_file_name(p) == file && find_sim_data(; verbose = false) == [file] && size(sim_data_table(), 1) == 1
         delete_sim_data(Dict(:test_mode => "index"))
-        @test !does_sim_data_exist(p) && isempty(PDEStudioCore._data_files())   # (the copy has the same parameters)
-        # another save path has another index
-        set_save_path!(mktempdir())
-        @test isempty(PDEStudioCore._data_files())
+        @test !does_sim_data_exist(p) && PDEStudioCore._data_files() == [joinpath(dirname(file), "copy.jld2")]
+        @test isempty(find_sim_data(; verbose = false))
+        # the stored identity is read once per file version, and the cache is bounded
+        cache = PDEStudioCore._STORED_IDENTITY
+        foreach(i -> (cache["/nonexistent/$i"] = ((UInt(0), 0, 0.0), nothing)), 1:PDEStudioCore._STORED_MAX)
+        save_sim_data(advection_solver_1d(p); verbose = false)
+        @test does_sim_data_exist(p) && length(cache) < 10
     end
 end
 
@@ -457,16 +453,17 @@ end
     end
 end
 
-@testset "Data management: files of 0.4 aren't read; rehash leaves them" begin
+@testset "Data management: files of 0.4 aren't read; import reports them" begin
     with_fresh_save_path() do
         dir = joinpath(get_save_path(), "data")
         mkpath(dir)
         fixtures = joinpath(@__DIR__, "fixtures", "v0.4", "data")   # (written by write_fixtures.jl with 0.4.4)
         foreach(f -> cp(joinpath(fixtures, f), joinpath(dir, f)), readdir(fixtures))
         p = create_param_dict(:n => 5, :kind => "eul")
-        @test !does_sim_data_exist(p) && sort(sim_data_table().format_version) == [1, 1]
-        r = @test_logs (:warn, r"2 file\(s\) were not rehashed") match_mode = :any rehash_sim_data()
-        @test isempty(r) && length(readdir(dir)) == 2   # (left as they are)
+        @test !does_sim_data_exist(p) && size(sim_data_table(), 1) == 0
+        @test sort(tidy_sim_data().foreign) == sort(joinpath.(dir, readdir(fixtures)))   # (listed, not deleted)
+        r = @test_logs (:warn, r"PDEStudioCore 0.4") match_mode = :any import_sim_data(fixtures)
+        @test isempty(r) && length(readdir(dir)) == 2   # (nothing imported, nothing changed)
     end
 end
 
@@ -581,7 +578,7 @@ end
 
 @testset "Data management: tidy and table" begin
     with_fresh_save_path() do
-        @test tidy_sim_data() == (duplicates = String[], temp_files = String[])
+        @test tidy_sim_data() == (temp_files = String[], foreign = String[])
         t = sim_data_table()
         @test size(t, 1) == 0 && names(t)[1:3] == ["file", "created", "size_mb"]
         p = create_param_dict(:N => 8, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :advection_solver_1d,
@@ -589,23 +586,22 @@ end
         run_all_simulations(SimulationConfig(p; varied = Dict(:N => [8, 9]), postprocess = :count_post); calculate_stats = true)
         file = get_file_name(p)
         dir = dirname(file)
-        h = PDEStudioCore._filename_hash(basename(file))
-        older = joinpath(dir, "2020-01-01_00-00-00_000_" * h * ".jld2")
+        older = joinpath(dir, "2020-01-01_00-00-00_000_" * calculate_hash(p) * ".jld2")   # (a copy under an old name)
         cp(file, older); touch(file)
         tmp = PDEStudioCore._tmp_path(file)
         write(tmp, "an unfinished write")
         write(joinpath(dir, "notes.tmp"), "not ours")
-        # unfinished writes are removed once they are old enough
-        @test tidy_sim_data(dry_run = true) == (duplicates = [older], temp_files = String[])
-        @test tidy_sim_data(dry_run = true, min_tmp_age = 0) == (duplicates = [older], temp_files = [tmp])
+        # unfinished writes are removed once they are old enough; files under other names are listed only
+        @test tidy_sim_data(dry_run = true) == (temp_files = String[], foreign = [older])
+        @test tidy_sim_data(dry_run = true, min_tmp_age = 0) == (temp_files = [tmp], foreign = [older])
         @test isfile(older) && isfile(tmp)
 
-        # the table: one row per file, newest first
+        # the table: one row per run, most recently written first
         t = sim_data_table()
-        row(name) = only(findall(==(name), t.file))
-        @test size(t, 1) == 3 && issorted(mtime.(joinpath.(dir, t.file)); rev = true)
-        @test t.created[row(basename(older))] == PDEStudioCore.DateTime(2020) && all(==(:eulerian), t.kind)
-        @test t.shape[row(basename(file))] == size(load_sim_data(p).u) && all(==(PDEStudioCore._FORMAT_VERSION), t.format_version)
+        @test size(t, 1) == 2 && issorted(mtime.(joinpath.(dir, t.file)); rev = true) && all(==(:eulerian), t.kind)
+        @test all(c -> c isa PDEStudioCore.DateTime && abs(c - PDEStudioCore.now()) < PDEStudioCore.Minute(10), t.created)
+        @test t.shape[only(findall(==(basename(file)), t.file))] == size(load_sim_data(p).u)
+        @test all(==(PDEStudioCore._FORMAT_VERSION), t.format_version)
         @test all(s -> :mass in s, t.stats) && all(==("count_post"), t.postprocessed) && all(==("advection_solver_1d"), t.solver)
         @test all(x -> x isa Float64, t.wall_time) && sort(unique(t.N)) == [8, 9] && all(==("tidy"), t.test_mode)
         @test size(sim_data_table(Dict(:N => 9)), 1) == 1
@@ -615,12 +611,12 @@ end
         t = sim_data_table()
         @test t.param_param_file[1] == "mesh.msh" && t.param_file[1] == "other.cfg" && endswith(t.file[1], ".jld2")
         @test all(ismissing, t.param_file[2:end])
-        @test size(t, 1) == 4 && ismissing(t.wall_time[1]) && ismissing(t.postprocessed[1]) && ismissing(t.solver[1])
+        @test size(t, 1) == 3 && ismissing(t.wall_time[1]) && ismissing(t.postprocessed[1]) && ismissing(t.solver[1])
         @test t.M[1] == 3 && all(ismissing, t.M[2:end]) && ismissing(t.scheme[1])
 
         removed = tidy_sim_data(min_tmp_age = 0)
-        @test removed == (duplicates = [older], temp_files = [tmp])
-        @test !isfile(older) && !isfile(tmp) && isfile(joinpath(dir, "notes.tmp")) && does_sim_data_exist(p)
+        @test removed == (temp_files = [tmp], foreign = [older])
+        @test isfile(older) && !isfile(tmp) && isfile(joinpath(dir, "notes.tmp")) && does_sim_data_exist(p)
         @test size(sim_data_table(), 1) == 3
     end
 end

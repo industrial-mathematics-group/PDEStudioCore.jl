@@ -310,6 +310,7 @@ function _run_task(params::ParamDict, force_overwrite::Bool, metadata::AbstractD
             changed = on_changed !== :ignore && _code_changed(path, params, metadata)
             (!changed || on_changed === :warn) && return (changed ? :changed : :cached, nothing, changed)
         end
+        _check_name_free(params)   # (a result that couldn't be saved isn't computed)
         dry_run && return (:ran, nothing, changed)
         result = run_smart_simulation(_resolve_solver(params), params; force_overwrite = true, metadata = metadata)
         return (result isa NoSimData ? :empty : :ran, nothing, changed)

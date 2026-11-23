@@ -70,7 +70,7 @@ The pipeline writes three entries itself (any value of the same name is replaced
 | `:sources` | SHA-256 digests of the source files of the run (pipeline runs with `sources`) |
 | `:postprocessed` | the post-processors that ran on this data (name => the digests of the source files and the package's version), so the pipeline doesn't run them again |
 
-The metadata saved is the dataset's own: new data replaces the stored metadata (with a new provenance, without `:sources` and `:postprocessed`), and an entry you remove from `data.metadata` stays removed when you save. Writing the same data again (statistics, post-processing, [`rehash_sim_data`](@ref), `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref), or a recomputed dataset) takes the pipeline's entries of the stored metadata it doesn't have; `:postprocessed` only if the data still has the stored statistics (a recomputed dataset lacks what a post-processor added). Conversions carry the metadata of their source. Metadata is read with every dataset, so keep it small (large results belong into statistics or files of their own).
+The metadata saved is the dataset's own: new data replaces the stored metadata (with a new provenance, without `:sources` and `:postprocessed`), and an entry you remove from `data.metadata` stays removed when you save. Writing the same data again (statistics, post-processing, `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref), or a recomputed dataset) takes the pipeline's entries of the stored metadata it doesn't have; `:postprocessed` only if the data still has the stored statistics (a recomputed dataset lacks what a post-processor added). Conversions carry the metadata of their source. Metadata is read with every dataset, so keep it small (large results belong into statistics or files of their own).
 
 ## 2. The Statistics View
 
@@ -89,9 +89,11 @@ On disk, the solution is stored once (in `u`).
 
 ## 3. Storage Layout
 
-Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed from the normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone; a lookup also checks the parameters stored in the file, so a file is never taken for other parameters (and a save never replaces one). Every pair of distinct parameter sets has its own hash text (hash format 3, PDEStudioCore 0.7).
+Every run is one file, `<save path>/data/<sha256>.jld2`, named by the hash of its normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone. The hash digests a canonical encoding of the parameters in which every value carries its kind and every text its length, so distinct parameters never share an encoding (`true` and `1`, `"1"` and `1`, a matrix and a vector of the same numbers differ; hash format 4, PDEStudioCore 0.8). A lookup also checks the parameters stored in the file: a file is only ever taken for, and replaced by, the run its name stands for. A file at the name of a run that holds other parameters, or whose parameters can't be read (e.g. copied there by hand), is never replaced: saving that run is an error, and the pipeline reports it as failed without running it.
 
-**Data of earlier versions** isn't found under its old names: PDEStudioCore is in an early stage and keeps no compatibility with them. Recompute it, or rename files of PDEStudioCore 0.5 and 0.6 (file format 3) with [`rehash_sim_data`](@ref) (on a copy first, if the data is valuable). Files of PDEStudioCore 0.4 aren't read at all.
+The store has a single rule: data is only ever written to its own name, atomically (see below). Nothing moves, renames or deletes data on its own: only [`delete_sim_data`](@ref) deletes, and only what you ask for ([`tidy_sim_data`](@ref) removes leftover temporary files). There are no duplicates of a run, so nothing has to choose between copies or clean them up.
+
+**Data of earlier versions** (other names) isn't found: PDEStudioCore is in an early stage and keeps no compatibility with them. Recompute it, or copy runs of PDEStudioCore 0.5 to 0.7 (file format 3) into the store with [`import_sim_data`](@ref); the old files are only read. Files of PDEStudioCore 0.4 aren't read at all.
 
 Each file contains:
 
@@ -137,16 +139,20 @@ does_sim_data_exist(params)                         # without loading the data
 get_sim_data_info(params)                           # kind, shape, axes and stored time steps, without loading the data
 find_sim_data(Dict(:N => 100))                      # list the files of every run with N = 100 (any subset of the parameters)
 delete_sim_data(Dict(:scheme => "upwind"); dry_run = true)   # preview, then delete
-rehash_sim_data(joinpath(get_save_path(), "data"); remove_keys = [:obsolete])
+import_sim_data("old_results/data")                 # copy runs from another folder (other versions, machines) into the store
 load_sim_data("a1b2c3"; key = "raw")                # by hash prefix (REPL inspection)
 check_data(data)                                    # min/max/mean/NaN summary as a DataFrame
 sim_data_table(Dict(:scheme => "upwind"))           # one row per run: file, size, shape, stats, solver, wall time, parameters
-tidy_sim_data(dry_run = true)                       # older duplicates of a run and leftovers of killed writes
+tidy_sim_data(dry_run = true)                       # leftovers of killed writes, and files that aren't part of the store
 ```
 
-`find_sim_data` prints one line per matching file (newest first) with the remaining parameters and returns the paths; `delete_sim_data` deletes exactly the files it would list and refuses an empty filter. `rehash_sim_data` writes the renamed file before removing the old one. `sim_data_table` reads only the metadata of each file, so it is quick for large data folders. A run stored more than once (e.g. by parallel jobs computing the same parameters) is always looked up as its newest file; `tidy_sim_data` removes the older ones and temporary files of writes that never finished.
+`find_sim_data` prints one line per matching run (most recently written first) with the remaining parameters and returns the paths; `delete_sim_data` deletes exactly the files it would list and refuses an empty filter. `sim_data_table` reads only the metadata of each file, so it is quick for large data folders. These three only see the store: files at their own name.
 
-Lookups list the data directory once per change rather than on every call (an index that is rebuilt when the directory changes), so they stay fast with thousands of files. Files added or removed by other processes are seen. (On file systems with coarse or cached directory times, such as FAT or NFS, a newer duplicate of a stored run that another process wrote can be found only after the directory changes again; until then the older file of the same parameters is used.)
+[`import_sim_data`](@ref) reads runs from a file or folder (recursively), normalises their parameters again and writes each to its name in the store; it never changes its source, and a run that is stored already is skipped, so an interrupted import is simply run again. It also changes parameters of stored runs: `import_sim_data(joinpath(get_save_path(), "data"); remove_keys = [:obsolete])` stores every run under its parameters without `:obsolete`, and the files of the old parameters stay until you delete them.
+
+[`tidy_sim_data`](@ref) removes temporary files of writes that never finished (older than an hour by default) and lists the files in the data folder that lookups don't use: other names (e.g. of earlier versions), parameters with another hash than the name, or parameters that can't be read. It never deletes them: import what you need, then delete them yourself.
+
+A lookup is a single path, so files added or removed by other processes are seen at once. Parallel jobs computing the same parameters write the same file; the last rename wins.
 
 ## 6. Parameter Normalisation
 
