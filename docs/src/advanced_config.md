@@ -97,21 +97,7 @@ config = SimulationConfig(shared, methods, [:upwind];
 )
 ```
 
-## 5. Tabulated Data
-
-Numbers from outside a simulation (the errors a paper reports, a measurement, a reference curve) can be a method of the configuration, built with [`tabulated_method`](@ref): its parameters hold the table, its solver is the built-in [`tabulated_data`](@ref), and its datasets are cached, plotted, compared and exported like those of any other method, and written to configuration files with the configuration.
-
-```julia
-paper = tabulated_method(Dict(:N => [40, 80, 160], :l1error => [2.1e-3, 5.4e-4, 1.4e-4]);
-                         key = :N, ignore = collect(keys(shared)))      # one dataset per N, l1error as its statistic
-curve = tabulated_method(Dict(:x => xs, :u => us); ignore = collect(keys(shared)))   # a profile u(x)
-config = SimulationConfig(shared, Dict(:upwind => upwind, :paper => paper, :measured => curve);
-                          varied = Dict(:N => [40, 80, 160]))
-```
-
-With a parameter as `key`, the sweep over it selects the row; a value without a row is a gap. The other columns become scalar statistics of the row, shaped like the registered statistic of that name (so a frontend shows `:l1error` of the paper next to the computed one). `ignore` lists the shared parameters the table does not depend on, usually all of them.
-
-## 6. Execution Options
+## 5. Execution Options
 
 ```julia
 run_all_simulations(config;

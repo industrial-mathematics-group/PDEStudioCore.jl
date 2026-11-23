@@ -25,5 +25,4 @@ include("solvers.jl")
     include("test_review_hash3.jl")
 
     include("test_examples.jl")
-    include("test_tabulated.jl")
 end
