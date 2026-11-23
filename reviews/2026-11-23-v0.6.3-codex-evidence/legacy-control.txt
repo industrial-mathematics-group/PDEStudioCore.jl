@@ -1,0 +1,5 @@
+PDEStudioCore 0.6.2
+legacy writer stored string parameter with field=20.0
+PDEStudioCore 0.6.2
+integer lookup in old store: matched "1" field=20.0
+after overwriting integer: original string still findable=false

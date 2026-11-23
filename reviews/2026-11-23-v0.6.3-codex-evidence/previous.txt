@@ -1,0 +1,10 @@
+PDEStudioCore 0.6.2
+string sweep: tasks=2 stored files=2 quoted result=20.0 expected 20
+Float16 scatter: [1.0, 3.0] expected approximately [1, 3]
+reference after no-op stats call: cached=1 stored L1=0.0 fresh L1=2.0
+mutated caller after construction: original found=false mutated input's sum=11.0 stored solution=3.0
+after skipped save: derived marker=nothing second store has native=true
+zero-duration Burgers: times=[0.0, 0.0] last snapshot finite=false
+my_error example raised MethodError for abs
+custom_energy example raised MethodError for abs2
+0.4 user metadata: loaded="laboratory calibration" after upgrade/stats="laboratory calibration" top-level entry=nothing
