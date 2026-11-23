@@ -12,6 +12,7 @@
 [![AI generation](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aisignoff-generation.json)](https://industrial-mathematics-group.github.io/PDEStudioCore.jl/dev/aisignoff/)
 [![Human review](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aisignoff-human-review.json)](https://industrial-mathematics-group.github.io/PDEStudioCore.jl/dev/aisignoff/)
 [![AI review](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aisignoff-ai-review.json)](https://industrial-mathematics-group.github.io/PDEStudioCore.jl/dev/aisignoff/)
+[![AI review findings](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/industrial-mathematics-group/PDEStudioCore.jl/badges/aisignoff-findings.json)](https://industrial-mathematics-group.github.io/PDEStudioCore.jl/dev/aisignoff/)
 </div>
 
 **PDEStudioCore.jl** is a headless Julia backend for running, storing and analysing PDE simulations. You write the solver; PDEStudioCore runs it over parameter sweeps, caches every result on disk under a hash of its parameters, and computes statistics (norms, errors against a reference, conservation) for you.
