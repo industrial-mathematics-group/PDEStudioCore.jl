@@ -17,7 +17,7 @@ function _aggregate_component(iterator)
         end
     end
     valid_count == 0 && return (NaN, NaN, NaN, Float64(nan_count))
-    return (Float64(min_v), Float64(max_v), sum_v / valid_count, Float64(nan_count))
+    return (Float64(min_v), Float64(max_v), Float64(sum_v / valid_count), Float64(nan_count))   # (Float64 columns, also for BigFloat data)
 end
 
 _component_summary(values, M::Int) =
@@ -343,7 +343,19 @@ lightweight entries of each file are read (for files of 0.4, the entries stored 
 function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
     rows = Dict{Symbol, Any}[]
     fixed = [:file, :created, :size_mb, :kind, :shape, :format_version, :stats, :postprocessed, :wall_time, :solver]
-    for (path, params) in _files_with_params(match_params)
+    files = collect(_files_with_params(match_params))
+    # (a parameter `solver`: column `param_solver`, or `param_param_solver` if a file has a parameter `param_solver`; the
+    # names are chosen once for all files, so a column means the same parameter in every row)
+    names = Set{Symbol}(Symbol(k) for (_, params) in files for k in keys(params))
+    column = Dict{Symbol, Symbol}()
+    for key in sort!(collect(names), by = string)
+        col = key
+        while col in fixed || (col != key && col in names)
+            col = Symbol("param_", col)
+        end
+        column[key] = col
+    end
+    for (path, params) in files
         row = Dict{Symbol, Any}(:file => basename(path), :size_mb => round(filesize(path) / 2^20, digits = 3))
         stamp = match(r"^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d{3})_", basename(path))
         row[:created] = stamp === nothing ? missing : DateTime(stamp.captures[1], dateformat"yyyy-mm-dd_HH-MM-SS_sss")
@@ -365,17 +377,8 @@ function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
             e isa InterruptException && rethrow()
             @warn "Could not read the metadata of $(basename(path))" exception = e
         end
-        names = Set(Symbol(k) for k in keys(params))
         for (k, v) in params
-            key = Symbol(k)
-            # (a parameter `solver`: column `param_solver`, or `param_param_solver` if there is a parameter `param_solver`)
-            if key in fixed
-                key = Symbol("param_", key)
-                while key in names || key in fixed
-                    key = Symbol("param_", key)
-                end
-            end
-            row[key] = v
+            row[column[Symbol(k)]] = v
         end
         push!(rows, row)
     end

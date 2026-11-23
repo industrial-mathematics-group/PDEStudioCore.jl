@@ -3,7 +3,8 @@
 
 Linear advection ``u_t + c\\,u_x = 0`` on the periodic interval ``[0, 1)`` with ``u(x, 0) = \\sin(2\\pi x)``, `N`
 cells, end time `T`, time step from the CFL number `cfl` and the scheme `:scheme`:
-- `"upwind"`: first order, ``u_i - \\nu (u_i - u_{i-1})`` (for ``c > 0``), smears the wave;
+- `"upwind"`: first order, ``u_i - \\nu (u_i - u_{i-1})`` for ``c > 0`` and ``u_i - \\nu (u_{i+1} - u_i)`` for
+  ``c < 0`` (the upstream neighbour), smears the wave;
 - `"lax_friedrichs"`: first order, central, even more diffusive;
 - `"lax_wendroff"`: second order, dispersive (the wave lags behind).
 """
@@ -23,7 +24,7 @@ function solve_advection_1d(params::ParamDict)
         for i in 1:N
             l, r = v[mod1(i - 1, N)], v[mod1(i + 1, N)]
             w[i] = if scheme == "upwind"
-                v[i] - ν * (v[i] - l)
+                ν >= 0 ? v[i] - ν * (v[i] - l) : v[i] - ν * (r - v[i])
             elseif scheme == "lax_friedrichs"
                 (l + r) / 2 - ν / 2 * (r - l)
             elseif scheme == "lax_wendroff"

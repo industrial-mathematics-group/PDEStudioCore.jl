@@ -15,6 +15,7 @@
 #   "metadata"   the dataset's `metadata` field ("raw" is stored without it): provenance, sources, post-processing
 #                record, the user's entries
 #   "evaluated_with_reference"  whether a reference was available for "evaluated_stats"
+#   "evaluated_reference"       which reference that was (`_reference_record`; "" for none or an unknown one)
 #   "conv_*"     cached conversions ("conv_L", "conv_E_<n1>x<n2>...")
 
 const _ENABLE_CONV_CACHE = Ref{Bool}(false)
@@ -22,7 +23,7 @@ const _ENABLE_CONV_CACHE = Ref{Bool}(false)
 const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shape", "dim_keys", "time_dim",
                        "evaluated_stats", "format_version", "metadata")
 # Internal bookkeeping next to the data (not metadata of the dataset)
-const _BOOKKEEPING_KEYS = ("evaluated_with_reference",)
+const _BOOKKEEPING_KEYS = ("evaluated_with_reference", "evaluated_reference")
 
 # The layout of the data files: 1 = PDEStudioCore 0.4 (no version entry), 2 = with "format_version" and the axes
 # ("dim_keys", "time_dim"; never released), 3 = datasets with the `metadata` field, stored as "metadata". Files
@@ -145,8 +146,19 @@ end
 _param_hash(params::AbstractDict) = calculate_hash(_normalize_params(params))
 
 function _find_file(params::AbstractDict)
-    files = _files_with_hash(_param_hash(params))
+    files = _files_for(_normalize_params(params))
     return isempty(files) ? nothing : first(files)
+end
+
+# The files of normalised parameters, newest first: those of their hash, else those stored under the hash of earlier
+# versions (`_legacy_hash`) whose stored parameters are these (that hash may also be the one of other values: `1`
+# for `"1"`)
+function _files_for(normalized::AbstractDict, hash_val::AbstractString = calculate_hash(normalized))
+    files = _files_with_hash(hash_val)
+    isempty(files) || return files
+    legacy = _legacy_hash(normalized)
+    legacy === nothing && return files
+    return filter(p -> isequal(_file_params(p), normalized), _files_with_hash(legacy))
 end
 
 """
@@ -178,10 +190,14 @@ function _load_key(path::AbstractString, key::AbstractString)
     return _open_data(path) do file
         haskey(file, key) || throw(SimFileNotFoundError("Key '$key' not found in $(basename(path))."))
         value = file[key]
-        value isa AbstractSimData && (value.metadata = _file_metadata(file))   # (stored once, next to the data)
+        value isa AbstractSimData && (value.metadata = _entry_metadata(_file_metadata(file), key))   # (stored once, next to the data)
         return value
     end
 end
+
+# The metadata of the dataset stored under `key`: the file's, marked as a conversion for a cached conversion (as it
+# was when it was made: `calculate_all_stats!` must not store it as the native run of its parameters)
+_entry_metadata(md::AbstractDict, key::AbstractString) = startswith(key, "conv_") ? _derived_metadata(md, :conversion) : md
 
 # Opens a data file for reading datasets. Datasets are read field by field (`_dataset_typemap`), so those stored
 # without the `metadata` field (files of earlier versions, also when a 0.4 writer rewrote a newer file) are read
@@ -196,7 +212,7 @@ function _all_entries!(out::Dict{String, Any}, g, prefix::AbstractString, md::Di
         if v isa JLD2.Group
             _all_entries!(out, v, name, md)
         else
-            v isa AbstractSimData && (v.metadata = md)   # (`metadata =` copies)
+            v isa AbstractSimData && (v.metadata = _entry_metadata(md, k))   # (`metadata =` copies)
             out[name] = v
         end
     end
@@ -605,7 +621,7 @@ function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Boo
     merge!(sim_data.params, normalized)
 
     hash_val = calculate_hash(sim_data.params)
-    existing = _files_with_hash(hash_val)
+    existing = _files_for(sim_data.params, hash_val)
     if isempty(existing)
         mkpath(_data_dir())
         path = joinpath(_data_dir(), "$(_timestamp())_$(hash_val).jld2")

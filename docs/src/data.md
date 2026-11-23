@@ -89,7 +89,7 @@ On disk, the solution is stored once (in `u`).
 
 ## 3. Storage Layout
 
-Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed from the normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone. Each file contains:
+Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed from the normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone. A string parameter whose text reads as another value (`"1"`, `"true"`, `"Float32"`) is hashed quoted, so it doesn't share the hash of that value; files stored by 0.6.2 and earlier for such strings are still found (their stored parameters are compared), and [`rehash_sim_data`](@ref) gives them their new names. Each file contains:
 
 | Entry | Content |
 | :--- | :--- |
@@ -99,6 +99,7 @@ Data lives in `<save path>/data/<timestamp>_<sha256>.jld2`. The hash is computed
 | `"metadata"` | the dataset's `metadata` (stored once, here: `"raw"` holds the dataset without it), read and updated without loading the data |
 | `"evaluated_stats"` | statistics already evaluated for this data |
 | `"evaluated_with_reference"` | whether a reference function was available when they were evaluated |
+| `"evaluated_reference"` | which reference that was (its name, package version and the digest of the file defining it): statistics evaluated with another one are evaluated again |
 | `"conv_L"`, `"conv_E_<n1>x<n2>…"` | cached conversions |
 
 Other entries (e.g. written with JLD2 directly) are kept when the data is rewritten.

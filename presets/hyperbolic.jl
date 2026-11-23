@@ -82,12 +82,11 @@ function calc_stat(::Val{:mass_error}, fixed_coords, u, ana, domain::DomainInfo)
     measure = get_integration_measure(:mass_error, domain)
     sum_u = sum(u .* measure)
     sum_ana = sum(ana .* measure)
+    # (the measured error, also below 1e-9: exact conservation shows as round-off or 0, not as a floor value)
     m_err = abs.(sum_u - sum_ana)
     M = length(eltype(u))
     T = eltype(eltype(u)) # Dynamically get T
-    return SVector{M, T}(ntuple(M) do c
-        m_err[c] < 1e-9 ? T(1e-9) : T(m_err[c])
-    end)
+    return SVector{M, T}(ntuple(c -> T(m_err[c]), M))
 end
 function calc_stat(::Val{:mass_signed_error}, fixed_coords, u, ana, domain::DomainInfo)
     measure = get_integration_measure(:mass_signed_error, domain)

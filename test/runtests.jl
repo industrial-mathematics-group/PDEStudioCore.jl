@@ -21,6 +21,7 @@ include("solvers.jl")
     include("test_statistics.jl")
     include("test_pipeline.jl")
     include("test_data.jl")
+    include("test_review_fixes.jl")
 
     include("test_examples.jl")
 end

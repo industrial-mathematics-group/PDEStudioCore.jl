@@ -30,13 +30,16 @@ end
 
 Internal, multithreaded inverse-distance scatter of the particles (and particle field statistics)
 of the native time steps `steps` onto a structured grid. Output slice `k` receives step `steps[k]`.
-Cells that receive no particle within the smoothing radius are set to `NaN`.
+Cells that receive no particle within the smoothing radius are set to `NaN`. The weights are `1 / max(d²/r², 1e-12)`
+(`d` the distance, `r` the smoothing radius), accumulated in the element type of `w_out` (at least `Float32`, see
+`convert_to_eulerian`): a particle on a grid node dominates it without an infinite weight, also for `Float16` data.
 """
 function interpolate_to_grid!(::Val{:scatter}, u_out::AbstractArray, w_out::AbstractArray, field_outs::Tuple,
                               ldata::LSimData{D, DS, M, T}, field_vals::Tuple, steps::AbstractVector{Int},
                               s_mins::SVector{DS, T}, s_maxs::SVector{DS, T}, s_dx::SVector{DS, T},
                               grid_shape::NTuple{DS, Int}) where {D, DS, M, T}
-    nan_vec = SVector{M, T}(ntuple(_ -> T(NaN), Val(M)))
+    A = eltype(w_out)   # (the accumulator type)
+    nan_vec = SVector{M, eltype(eltype(u_out))}(ntuple(_ -> NaN, Val(M)))
     s_inv_dx = one(T) ./ s_dx
 
     # Smoothing radius: 1.5x the larger of the grid spacing and the mean particle spacing.
@@ -62,7 +65,7 @@ function interpolate_to_grid!(::Val{:scatter}, u_out::AbstractArray, w_out::Abst
                 cell_pos = s_mins .+ s_dx .* (SVector{DS, T}(Tuple(cell)) .- one(T))
                 dist2 = sum(abs2, cell_pos .- pos)
                 dist2 <= radius2 || continue
-                w = one(T) / max(dist2, T(1e-12))
+                w = one(A) / max(A(dist2) / A(radius2), A(1e-12))
                 I = D > DS ? CartesianIndex(Tuple(cell)..., k) : cell
                 w_out[I] += w
                 u_out[I] += u_step[p] * w
@@ -129,20 +132,21 @@ function convert_to_eulerian(ldata::LSimData{D, DS, M, T}, res::Tuple; spatial_i
     end
     e_shape = D > DS ? (s_res..., length(steps)) : s_res
 
-    zero_vec = zero(SVector{M, T})
-    u_out = fill(zero_vec, e_shape)
-    w_out = zeros(T, e_shape)
+    A = promote_type(T, Float32)   # (the scatter accumulates in it: Float16 sums of weights overflow or round to zero)
+    zero_acc = zero(SVector{M, A})
+    u_acc = fill(zero_acc, e_shape)
+    w_out = zeros(A, e_shape)
 
     e_stats = StatDict{M, T}()
     field_keys = Symbol[]
-    field_outs = Array{SVector{M, T}, D}[]
+    field_outs = Array{SVector{M, A}, D}[]
     field_vals = Vector{Vector{SVector{M, T}}}[]
     for (key, value) in _raw_stats(ldata)
         key === :Solution && continue
         kept = get_kept_dims(key, domain)
         if length(kept) == D && value isa Vector{Vector{SVector{M, T}}} && _is_particle_field(value, ldata)
             push!(field_keys, key)
-            push!(field_outs, fill(zero_vec, e_shape))
+            push!(field_outs, fill(zero_acc, e_shape))
             push!(field_vals, value)
         elseif D > DS && kept == [domain.time_dim] && value isa AbstractVector && length(value) == length(ldata.t)
             e_stats[key] = value[steps]
@@ -151,10 +155,11 @@ function convert_to_eulerian(ldata::LSimData{D, DS, M, T}, res::Tuple; spatial_i
         end
     end
 
-    interpolate_to_grid!(Val(spatial_interp), u_out, w_out, Tuple(field_outs), ldata, Tuple(field_vals), steps,
+    interpolate_to_grid!(Val(spatial_interp), u_acc, w_out, Tuple(field_outs), ldata, Tuple(field_vals), steps,
                          s_mins, s_maxs, s_dx, s_res)
+    u_out = A === T ? u_acc : SVector{M, T}.(u_acc)
     for (i, key) in enumerate(field_keys)
-        e_stats[key] = field_outs[i]
+        e_stats[key] = A === T ? field_outs[i] : SVector{M, T}.(field_outs[i])
     end
 
     if D > DS
