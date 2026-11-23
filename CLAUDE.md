@@ -13,7 +13,7 @@ julia --project -e 'using Pkg; Pkg.test()'                 # full suite
 julia --project=test -e 'using Pkg; Pkg.instantiate()'      # once
 julia -t 8 --project=test test/runtests.jl                  # same suite, faster to iterate
 julia --project=docs docs/make.jl                           # docs (instantiate docs env first)
-pipx run --spec aisignoff==1.0.0rc8 aisignoff report --html docs/src/assets/aisignoff.html --with-source  # optional, before make.jl: the AI Signoff Report page (CI does it)
+pipx run --spec aisignoff==0.20.1 aisignoff report --html docs/src/assets/aisignoff.html --with-source  # optional, before make.jl: the AI Signoff Report page (CI does it)
 ```
 
 The built-in examples (`src/Examples/`, exported as `test_*`) are tested in `test/test_examples.jl`: each config
@@ -68,3 +68,11 @@ runs, and each solver shows what its docstring claims (stability limits, order, 
 - Every export needs a docstring that appears in the docs (`checkdocs = :exports`).
 - Commit subjects: short and imperative, describing the behaviour change
   (e.g. `Hash enum parameters by value`).
+
+<!-- aisignoff:begin -->
+## AI signoff
+
+This repository declares AI use with [aisignoff](https://industrial-mathematics-group.github.io/aisignoff/).
+Before you commit or open a pull request, run `aisignoff guide --role dev` and follow it.
+If you are reviewing a change instead, run `aisignoff guide --role review`: a reviewer only reviews and changes nothing.
+<!-- aisignoff:end -->
