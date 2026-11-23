@@ -1,0 +1,9 @@
+Julia 1.13.4, hash format 4
+invalid raw: imports=1 original bytes preserved=false exists=true loaded type=String
+linked destination: imports=1 direct source unchanged=true external bytes preserved=false destination is link=true external field=9.0
+in-store import: imports=1 one original input overwritten=true result=9.0
+typed import: hashes distinct=true selected=["bool.jld2", "int.jld2"]
+typed delete: would delete both=true
+dangling destination: link preserved=false target created=false now field=7.0
+retry partial destination: imports=0 loadable=false
+no output solver: called=0 empty=0 failed=1
