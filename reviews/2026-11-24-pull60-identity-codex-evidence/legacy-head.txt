@@ -1,0 +1,8 @@
+Direct lookup of control: true
+Unfiltered listing: 1
+Filtered listing of unrelated control: 1
+Table for unrelated control: 1
+Tidy dry run: (temp_files = 0, foreign = 1)
+Delete dry run for unrelated control: 1
+Import of directory filtered for control: 1
+Imported control is present: true

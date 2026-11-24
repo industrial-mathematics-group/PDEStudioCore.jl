@@ -1,0 +1,2 @@
+Custom Integer value: variant=left declared=(code = 2, variant = :left) stored=2 hash=90cf2302347176a89501a2d93e3d9b54ffed6c7801ab43a578ba5df3bdbbffc6 ran=1 cached=0 field=10.0
+Custom Integer value: variant=right declared=(code = 2, variant = :right) stored=2 hash=90cf2302347176a89501a2d93e3d9b54ffed6c7801ab43a578ba5df3bdbbffc6 ran=0 cached=1 field=10.0
