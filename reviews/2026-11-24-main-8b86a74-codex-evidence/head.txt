@@ -1,0 +1,7 @@
+A initial stats=ran L1=2.0 L2=missing record=name=reference_cache_factory; file=fecf91f21884a51a36dddd7537aeb3bd4f6525fab7f85309b8ea42e850c8afa8
+B plus L2 stats=outdated L1=2.0 L2=4.242640687119285 record=name=reference_cache_factory; file=fecf91f21884a51a36dddd7537aeb3bd4f6525fab7f85309b8ea42e850c8afa8
+A restored stats=cached L1=2.0 L2=4.242640687119285 record=name=reference_cache_factory; file=fecf91f21884a51a36dddd7537aeb3bd4f6525fab7f85309b8ea42e850c8afa8
+Expected after restoring A: L1=2.0 L2=1.4142135623730951
+Before importing UnicodeTag: text=Main.ΔReview.UnicodeTag hash=5ed01350bf55b271ec093620b3d0d24ae4527f8b5b0ce882e7471b8a76963ebd
+After importing UnicodeTag: text=UnicodeTag hash=eabd5b04a83e3a33e9240b13047d5f244f7c75427e7e25b37384ff5d3700929d
+Float32 one-particle scatter: input=1.0e30 output=Inf

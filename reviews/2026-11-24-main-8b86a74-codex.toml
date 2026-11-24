@@ -1,0 +1,1394 @@
+# An independent AI review, recorded by 'aisignoff attest'. The review folder keeps it as it is:
+# a later review goes into a new file.
+
+[[attestations]]
+path = "docs/src/advanced_config.md"
+blob = "2b632657daa4b1da017789b284b0a776e1f4ef26"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "minor"
+
+[[attestations]]
+path = "src/ConversionUtils.jl"
+blob = "b8c4b232eb3cab192c873f311f0661d8b0b18567"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "minor"
+
+[[attestations]]
+path = "src/Serialization.jl"
+blob = "ee89944861904e73508374bdace54b2ded3f80b1"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "minor"
+
+[[attestations]]
+path = ".github/dependabot.yml"
+blob = "d85b6d08ba1de7ecaf8e05351dc146300b19cf9a"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/CI.yml"
+blob = "45084783180c6f50b6c43ebe4a1f5c39425b4209"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/TagBot.yml"
+blob = "e33ea99eb9a8aedcc19cc41898d240920db9a322"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/pr-signoff.yml"
+blob = "1a5c32f6a2b371cf95559968674cb07ce29425de"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/reuse.yml"
+blob = "6b262280dc83ab0cacf73b546d0e15e53882a8df"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".gitignore"
+blob = "efbb13f92781117e37b2137af1caed0d3c18f258"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "CITATION.cff"
+blob = "f768f70de119d3bdea56210dc8746bc97625441d"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "CLAUDE.md"
+blob = "65b37d358464fb1c0f460268730acb73a160319f"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "Project.toml"
+blob = "250127ab82d89e2ff3d24f3fc1038b693a437bd3"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "README.md"
+blob = "b7a539b46a8a5ceb4d3479dbb7dea91332fc83d1"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "REUSE.toml"
+blob = "a18c1092482408854190f9003e4c05be7a3fe7ff"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/Project.toml"
+blob = "72243dc4d63a03a7f6d45f15130fe4469e545f31"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/make.jl"
+blob = "0d29c006639e8e4891fdaae27b8c8ba40b6aff7a"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/api.md"
+blob = "a564f82438f088fe2a8db07b0f753e1d2be1cd5e"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/data.md"
+blob = "ba3483ad2fd5dec234531b02e4d7716cf71659da"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/examples.md"
+blob = "710af0207641ea87f65bb1b2ae0ef51f37f58ef4"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/index.md"
+blob = "38f473055015ed0fcd05d72091b0bf1d5148a5c8"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/simulation_config.md"
+blob = "a65dc17db8fd77747da4597e8fb65814384bf9ed"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/statistics.md"
+blob = "160a5093f9b71b36bd474fa2411ad9b6bd333812"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "presets/hyperbolic.jl"
+blob = "862bf4561c45985552e365cb134538c70b24afc1"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Config.jl"
+blob = "807f91976de11de7dd43af3ea7626f2ada5c7d54"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Constructors.jl"
+blob = "8f0e227760443a7efb0948d6951b7340b0431809"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/DataManagement.jl"
+blob = "5a8891bf420a9d1727aa1fdf1c698a7de6e581f6"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Display.jl"
+blob = "53b28bfc2c438434b140f10fb36dca960dcee740"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/_main.jl"
+blob = "49f51a82ba81b4204df76868d6776e3357670aeb"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/advection_1d.jl"
+blob = "7f14f8e8ef40729e8660b19f5718f339bd6738b8"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/burgers_1d.jl"
+blob = "48a0f7303f6bc4523c69fd57152e2c1686af59aa"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/heat_1d.jl"
+blob = "d56405609b976ee1596bca031b444458ffdcba34"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/heat_2d.jl"
+blob = "cac60ac628396079ba93d4b7573fffc8d028d34e"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/particles_2d.jl"
+blob = "d5e834e9e60e73266c7c4e7e2898eeefd071b503"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Examples/poisson_2d.jl"
+blob = "a332297432f3932e298f901474d2c71f24652023"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/IOUtils.jl"
+blob = "c3b7484e67fec114abd29767aad8aa2c2638d5f5"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/PDEStudioCore.jl"
+blob = "edc3e85e9f13993206720ebdd973aa34d937fef8"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/SimData.jl"
+blob = "410f80f3d0d7e608b1868be4f19bc0851fa79ed3"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/StatCalculation.jl"
+blob = "65041cafbd6e7e1c09bdde5fe9d718c55b767c6e"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Structs.jl"
+blob = "0ddcdad29db04d794c413879d3f77f347122151b"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/Project.toml"
+blob = "40eb4ce7504a62067e4faa0526f6d8143643772c"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/runtests.jl"
+blob = "a252c1ff69988245c9bdeba8bbaa346fd1b56154"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/solvers.jl"
+blob = "e69213647433f76496f2ea0e8f4f24553ef850ff"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_constructors.jl"
+blob = "3f78b0ebaa5739e9ab15ec0f9d2935a153387b44"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_data.jl"
+blob = "93cada8bd0f3e588581c473fc4d806e5ab5abb00"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_examples.jl"
+blob = "9cc3591c5be386c375c5af3f41fb1c64f312cef8"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_pipeline.jl"
+blob = "c1db7e020bc7dde258a25ac7216e6c2913f462ce"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_serialization.jl"
+blob = "686749dce6e6917416b2080e909f16a114661660"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_statistics.jl"
+blob = "fb47fb22ced4cdae5b1bd29def3e7e631f29379d"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_types.jl"
+blob = "e2925dd0ba844d64db921531ada4ee264a71d3eb"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Simulations.jl"
+blob = "4f1ae26895f13830ebb6d3326a388bf19b76fe66"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+path = ".github/CODEOWNERS"
+blob = "d4a4a7377ab0d98ee10c4e8f57147fe55137c452"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/citation.yml"
+blob = "80ed5ba2573dfd68d39395dfda9ef40e7206db1b"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = ".github/workflows/file-signoff.yml"
+blob = "efc043799e472a6b91ad3d1c3d4a157164fc8fbb"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "docs/src/aisignoff.md"
+blob = "915bd57087a875d52f0ab1e08efe6f7da4535a9f"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/fixtures/v0.4/write_fixtures.jl"
+blob = "a83b76f0859674a269ea1710b87bed20202d4225"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/reference_str2val.jl"
+blob = "8a3f2c29f11e80ea6b9af22d53c2c1c0f1161fba"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_review_fixes.jl"
+blob = "3cb700662bfa6fd52092e6b55e705f68b6d6cdff"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_roundtrip.jl"
+blob = "d14b595190348f5f5dfe2e3e41e1cd727c40171e"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_store.jl"
+blob = "636dde9264a411e7fb31e62e3534830e402f96da"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "test/test_str2val_differential.jl"
+blob = "bfda234824e9ad89750ec25b52a545fc88056d1b"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "docs/src/index.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "docs/src/statistics.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/ConversionUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/Examples/_main.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/PDEStudioCore.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/SimData.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "test/test_data.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "0231ce555304479e14e6c33e32285c9bb347760b"
+path = "test/test_serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "110775f6282f783e7026e7e2ac4eeee4a4f6b98d"
+path = ".github/workflows/CI.yml"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "110775f6282f783e7026e7e2ac4eeee4a4f6b98d"
+path = ".github/workflows/pr-signoff.yml"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "110775f6282f783e7026e7e2ac4eeee4a4f6b98d"
+path = "CLAUDE.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "110775f6282f783e7026e7e2ac4eeee4a4f6b98d"
+path = "README.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "157a908eec396e46fa7a220e4e88097ae48b56e3"
+path = "CLAUDE.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "157a908eec396e46fa7a220e4e88097ae48b56e3"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "157a908eec396e46fa7a220e4e88097ae48b56e3"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "157a908eec396e46fa7a220e4e88097ae48b56e3"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "157a908eec396e46fa7a220e4e88097ae48b56e3"
+path = "src/PDEStudioCore.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "157a908eec396e46fa7a220e4e88097ae48b56e3"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "157a908eec396e46fa7a220e4e88097ae48b56e3"
+path = "test/test_data.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "157a908eec396e46fa7a220e4e88097ae48b56e3"
+path = "test/test_serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+path = "src/ConversionUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "minor"
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+path = "presets/hyperbolic.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+path = "src/Examples/advection_1d.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+path = "test/runtests.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1617111ca7e877237134ca1c4d4841dab78e18d9"
+path = "test/test_pipeline.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1da4b0b066a6b72a1de4822c4d0d778be97e6fef"
+path = ".github/workflows/pr-signoff.yml"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1f1890fd25f5482bf42b6b7176762062cd25aeaa"
+path = "src/ConversionUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1f1890fd25f5482bf42b6b7176762062cd25aeaa"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1f1890fd25f5482bf42b6b7176762062cd25aeaa"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "1f1890fd25f5482bf42b6b7176762062cd25aeaa"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "2818d7e7c6bfa65eb7bdedf9004eeecb4986087d"
+path = ".github/workflows/pr-signoff.yml"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5a733deb3e11f57476cd04fc9ea6e3203c0a6556"
+path = ".github/workflows/CI.yml"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5a733deb3e11f57476cd04fc9ea6e3203c0a6556"
+path = ".gitignore"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5a733deb3e11f57476cd04fc9ea6e3203c0a6556"
+path = "README.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5a733deb3e11f57476cd04fc9ea6e3203c0a6556"
+path = "docs/make.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5b4ebbc901ae75ad021366834686979a386742f9"
+path = ".github/workflows/reuse.yml"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5b4ebbc901ae75ad021366834686979a386742f9"
+path = "CITATION.cff"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5b4ebbc901ae75ad021366834686979a386742f9"
+path = "docs/src/examples.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = ".gitignore"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "docs/src/advanced_config.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "docs/src/index.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "src/Constructors.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "src/ConversionUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "src/SimData.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "test/test_data.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "test/test_examples.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5dd99bd5152f4c87e69f6b6005920e9191057671"
+path = "test/test_pipeline.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6a5ee06120129371b28674876977043b16433332"
+path = "src/ConversionUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6a5ee06120129371b28674876977043b16433332"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6a5ee06120129371b28674876977043b16433332"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = ".gitignore"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "README.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "docs/src/statistics.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "presets/hyperbolic.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "src/Config.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "src/Examples/advection_1d.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "test/test_data.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "test/test_examples.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "test/test_pipeline.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "test/test_serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "6e3690489f94cfaa048d9c5fc71d98ef2aefa50c"
+path = "test/test_statistics.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "7018d3501ea78ccfed89c8c5438d0e8dd61050ba"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "7018d3501ea78ccfed89c8c5438d0e8dd61050ba"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "7018d3501ea78ccfed89c8c5438d0e8dd61050ba"
+path = "src/PDEStudioCore.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "7018d3501ea78ccfed89c8c5438d0e8dd61050ba"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "7018d3501ea78ccfed89c8c5438d0e8dd61050ba"
+path = "test/runtests.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "7018d3501ea78ccfed89c8c5438d0e8dd61050ba"
+path = "test/test_data.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "7018d3501ea78ccfed89c8c5438d0e8dd61050ba"
+path = "test/test_pipeline.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "CLAUDE.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "src/ConversionUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "src/SimData.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "src/Structs.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "test/runtests.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "864d17fed309779b04b5f346cd778b5643355e88"
+path = "test/test_data.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "904535c180b9b157561156731685869d8a003bb6"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "904535c180b9b157561156731685869d8a003bb6"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "a3188e055080aeb596cc509a344ac95b7d828fac"
+path = "docs/src/advanced_config.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "a3188e055080aeb596cc509a344ac95b7d828fac"
+path = "docs/src/index.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "a3188e055080aeb596cc509a344ac95b7d828fac"
+path = "src/PDEStudioCore.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "a3188e055080aeb596cc509a344ac95b7d828fac"
+path = "src/Structs.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "a3188e055080aeb596cc509a344ac95b7d828fac"
+path = "test/test_pipeline.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "a7b7112b60270b62d27737e5d3c1bea326c0d2f4"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "a7b7112b60270b62d27737e5d3c1bea326c0d2f4"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "a7b7112b60270b62d27737e5d3c1bea326c0d2f4"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "a7b7112b60270b62d27737e5d3c1bea326c0d2f4"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c0fe36094c4747b5e4394e0654ad9c0d72a1a457"
+path = "docs/src/advanced_config.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c0fe36094c4747b5e4394e0654ad9c0d72a1a457"
+path = "test/test_pipeline.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "minor"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "README.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "presets/hyperbolic.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "src/Constructors.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "src/PDEStudioCore.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "src/Simulations.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "test/test_data.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "c1966ff106755f15a79dc169df23a3ba31c13d05"
+path = "test/test_store.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "caab90ac4748332f40b1a1e6da66094ebfd615c1"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "caab90ac4748332f40b1a1e6da66094ebfd615c1"
+path = "presets/hyperbolic.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "caab90ac4748332f40b1a1e6da66094ebfd615c1"
+path = "src/Constructors.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "caab90ac4748332f40b1a1e6da66094ebfd615c1"
+path = "src/ConversionUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "caab90ac4748332f40b1a1e6da66094ebfd615c1"
+path = "src/DataManagement.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "caab90ac4748332f40b1a1e6da66094ebfd615c1"
+path = "src/IOUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "caab90ac4748332f40b1a1e6da66094ebfd615c1"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "CLAUDE.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "docs/src/data.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "docs/src/simulation_config.md"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "src/Config.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "src/ConversionUtils.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "src/Serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "src/SimData.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "src/StatCalculation.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "test/test_pipeline.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "test/test_serialization.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "d60e6c72463c7195f882fc0ce19264ee4ae4141e"
+path = "test/test_statistics.jl"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "8b86a74a6ac521d3a02a929b3e8c5a0912d1378d"
+AI-Review = "A2"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-main-8b86a74-codex.md"]
+AI-Review-Findings = "major"
