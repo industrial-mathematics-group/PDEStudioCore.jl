@@ -1,0 +1,23 @@
+Named tuple top level: accepted hash=73ab4135b1157d6f3275d3e654e53c172987d1ebd445dc430426a39da38dc113
+Named tuple declared field: accepted hash=ffad8e9d26a627ab4721903c01fb3ed74cea5bb525524fd8984046b22f81a978
+Named tuple array element: accepted hash=702300eb65425eeffdb0e37eebb01a7d74c0743ad18031db4fc5f4ec6922deb0
+Named tuple dictionary key: accepted hash=558cd5c045dda59cf782dbfbe22b6013308b9e9194daafa31cc02772e8bbfa0f
+Named tuple dictionary value: accepted hash=edfad9157cc2bb2996eb25bcc5b6f50e1d9d40d0e23b47d640aae531ac7a483c
+Named tuple pair value: accepted hash=1802e7959b384a9a39e0fa1f46ea72b618e79b84028139e56edab61d59fa2f79
+Named tuple set element: accepted hash=3f11465472af3bb92bfc3553fae533dba123e96b962babeb6d286846b9fe9246
+Named tuple tuple element: accepted hash=04650ac6d374a69fd5a14f65649f8fb2b97b4310305200ce68a2c881abbed3d1
+Ordinary declared identity: stored="WithDetail(detail=Dict{Symbol, Int64}(:x => 1))"
+direct key: hashes_match=true
+tuple key: hashes_match=true
+pair key: hashes_match=true
+vector key: hashes_match=true
+  first stored form="Dict{Vector{KeyWithWork}, String}(KeyWithWork[KeyWithWork(id=1)] => \"low\", KeyWithWork[KeyWithWork(id=2)] => \"high\")"
+  second stored form="Dict{Vector{KeyWithWork}, String}(KeyWithWork[KeyWithWork(id=1)] => \"low\", KeyWithWork[KeyWithWork(id=2)] => \"high\")"
+  first ran=1 second ran=0 second cached=1 stored files=1
+tuple containing a vector key: hashes_match=true
+Mixed keys: equal dictionaries=true and equal raw sort keys=true
+Mixed keys in a declared identity: hashes_match=true
+  first stored form="MixedLabels(labels=Dict{Any, Int64}(\"label_2\" => 10, :label_2 => 20))"
+  second stored form="MixedLabels(labels=Dict{Any, Int64}(\"label_2\" => 10, :label_2 => 20))"
+  first ran=1 second ran=0 second cached=1 stored files=1
+One-pass filter, two files: imported=2 kept=true skipped file present=true

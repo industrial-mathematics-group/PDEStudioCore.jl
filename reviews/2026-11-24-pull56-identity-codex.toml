@@ -1,0 +1,20 @@
+# An independent AI review, recorded by 'aisignoff attest'. The review folder keeps it as it is:
+# a later review goes into a new file.
+
+[[attestations]]
+commit = "78a30a82980c0cfac7664066b26a1491e0c09f32"
+AI-Review = "A3"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-pull56-identity-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "de2b6fa9297e75ad95f930dbaeadd7019bda7061"
+AI-Review = "A3"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-pull56-identity-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "e7239b665302c4b95373a791a491dba4b1761d62"
+AI-Review = "A3"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-24-pull56-identity-codex.md"]
+AI-Review-Findings = "major"
