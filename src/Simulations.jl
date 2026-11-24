@@ -380,20 +380,21 @@ function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, f
         has_reference = ref_factory !== nothing
         # Statistics evaluated with another reference (or an unknown one) are evaluated again, all of them; with the
         # same reference whose code changed (its file or package version), `on_changed` decides, as for solver results:
-        # `:warn` keeps them (`:outdated`; statistics that are missing, e.g. newly registered, are evaluated, and the
-        # record of the old reference stays, so the kept ones stay outdated), `:recompute` evaluates them again,
-        # `:ignore` doesn't look at the file
-        change, stored = has_reference ? _reference_change(path, ref_record; ignore_file = on_changed === :ignore) : (:none, "")
+        # `:warn` keeps them (`:outdated`), `:recompute` evaluates them again, `:ignore` doesn't look at the file. The
+        # statistics of a file always belong to one reference (one record): if some are missing (e.g. newly registered),
+        # all of them are evaluated with the current reference (`:refreshed`, reported) rather than mixing references.
+        change, _ = has_reference ? _reference_change(path, ref_record; ignore_file = on_changed === :ignore) : (:none, "")
         missing_stats = _needs_stats(path, required, has_reference)
         keep = change === :code && on_changed !== :recompute && !force_overwrite
         keep && !missing_stats && return (:outdated, nothing)
-        force = !keep && (force_overwrite || change !== :none)
+        force = force_overwrite || change !== :none
         (force || missing_stats) || return (:cached, nothing)
-        dry_run && return (keep ? :outdated : :ran, nothing)
+        status = keep ? :refreshed : :ran
+        dry_run && return (status, nothing)
         sim_data = _load_key(path, "raw")
         ref_func = has_reference ? ref_factory(deepcopy(params)) : nothing   # (a copy, like the solver's: the task stays as it is)
-        _calculate_all_stats!(sim_data, ref_func, force, true, true; reference = keep ? stored : ref_record)
-        return (keep ? :outdated : :ran, nothing)
+        _calculate_all_stats!(sim_data, ref_func, force, true, true; reference = ref_record)
+        return (status, nothing)
     catch e
         e isa InterruptException && rethrow()
         @error "Statistics failed for parameters $params" exception = (e, catch_backtrace())
@@ -606,8 +607,9 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
    a reference are evaluated again once a reference is configured, and all of them when another reference is
    configured. Statistics evaluated with the same reference whose code changed (the file defining it, or its
    package's version) are handled by `on_changed_sources` like solver results: `:warn` keeps them and reports them
-   as `:outdated` (statistics that are missing, e.g. newly registered ones, are evaluated meanwhile), `:recompute`
-   evaluates them again, `:ignore` only looks at the package version.
+   as `:outdated`, `:recompute` evaluates them again, `:ignore` only looks at the package version. The statistics
+   of a file belong to one reference: if some are missing (e.g. newly registered ones), all of them are evaluated with
+   the current reference and reported as `:refreshed`.
    `force_stats = true` recomputes every registered statistic without rerunning the simulations,
 3. with `post_process = true`, calls `config.postprocess(data)` for every dataset it hasn't post-processed yet and
    saves the data again when it returns `true`. A post-processor adds statistics (`add_stat!`) and metadata; one that
@@ -704,6 +706,11 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
             @warn "$(stats[:outdated]) dataset(s) have statistics evaluated with another version of the reference " *
                   "$(config.reference) (its file or package changed) and are kept. on_changed_sources = :recompute or " *
                   "force_stats = true evaluates them again."
+        end
+        if get(stats, :refreshed, 0) > 0
+            @warn "$(stats[:refreshed]) dataset(s) had statistics evaluated with another version of the reference " *
+                  "$(config.reference) and miss others (e.g. newly registered): all of their statistics were evaluated " *
+                  "again with the current reference, so the statistics of a file belong to one reference."
         end
     end
 

@@ -12,7 +12,7 @@ _ambiguous_text(s::AbstractString) = s == "<empty>" || occursin(r", [A-Za-z_]\w*
 # visible in `Main`, `Wall` for `HyperCloud.Wall`): `string(T)` qualifies the names `Main` doesn't see, so a parameter
 # would be stored and hashed differently depending on what the session loaded with `using`. Quoted text (a symbol
 # such as `Symbol("left.mode")` in `Val{…}`, a character) is data and kept as it is.
-_type_text(T) = replace(string(T), r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*')|(?<![\w.:])(?:[A-Za-z_]\w*\.)+(?=[A-Za-z_])" => s"\1")
+_type_text(T) = replace(string(T), r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*')|(?<![\w.:!])(?:[\p{L}_][\w!]*\.)+(?=[\p{L}_])" => s"\1")
 
 """
     val2str(v; top_level::Bool = true)
@@ -30,7 +30,7 @@ function val2str(v; top_level::Bool = true)
     elseif isa(v, Function)
         return "Closure"
     elseif isa(v, Val)
-        return string(v)
+        return _type_text(typeof(v)) * "()"
     elseif isa(v, Enum)
         # Enums have no fields, so the generic struct branch would reduce every value to the type name.
         return string(typeof(v).name.name, ".", Symbol(v))

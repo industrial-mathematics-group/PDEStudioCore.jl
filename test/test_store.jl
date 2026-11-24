@@ -429,27 +429,42 @@ st_own_error(data) = (add_stat!(data, :l1error, 7.0, :time); true)   # (a post-p
         @test PDEStudioCore._type_text(Val{(Symbol("a.b"), :c)}) == "Val{(Symbol(\"a.b\"), :c)}"
     end
 
-    @testset "review of #46: with :warn, a newly registered statistic doesn't refresh outdated ones" begin
+    @testset "the statistics of a file belong to one reference (reviews of #46 and #48)" begin
         st_fresh()
         src = joinpath(mktempdir(), "model.jl")
-        write(src, "st_src2_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\nst_src2_reference(p) = _ -> 2.0\n")
+        model(c) = "st_src2_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\nst_src2_reference(p) = _ -> $c\n"
+        write(src, model(2.0))   # (reference A)
         cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_src2_solver); reference = :st_src2_reference, sources = [src])
+        stats() = load_sim_data(generate_tasks(cfg)[1]).stats
         old = PDEStudioCore.get_stat_registry()
         try
             set_stat_registry!(Dict(:l1error => :time))
             run_all_simulations(cfg; calculate_stats = true)
-            @test load_sim_data(generate_tasks(cfg)[1]).stats[:l1error][1] == 2.0
-            write(src, "st_src2_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\nst_src2_reference(p) = _ -> 4.0\n")
-            register_stat!(:mass, :time)
-            s = run_all_simulations(cfg; calculate_stats = true)
-            d = load_sim_data(generate_tasks(cfg)[1])
-            @test s.stats == Dict(:outdated => 1) && d.stats[:l1error][1] == 2.0 && d.stats[:mass][1] == 2.0
+            @test stats()[:l1error][1] == 2.0
+            write(src, model(4.0))   # (reference B, same name: the code changed)
+            @test run_all_simulations(cfg; calculate_stats = true).stats == Dict(:outdated => 1) && stats()[:l1error][1] == 2.0
+            register_stat!(:l2error, :time)   # (a statistic is missing: all of them are evaluated with B, not a mix)
+            s = @test_logs (:warn, r"evaluated\s+again with the current reference"s) match_mode = :any run_all_simulations(cfg; calculate_stats = true)
+            @test s.stats == Dict(:refreshed => 1) && stats()[:l1error][1] == 6.0 && stats()[:l2error][1] ≈ sqrt(18)
+            @test run_all_simulations(cfg; calculate_stats = true).stats == Dict(:cached => 1)
+            write(src, model(2.0))   # (back to A: kept as outdated with :warn, evaluated again with :recompute)
             @test run_all_simulations(cfg; calculate_stats = true).stats == Dict(:outdated => 1)
-            run_all_simulations(cfg; calculate_stats = true, on_changed_sources = :recompute)
-            @test load_sim_data(generate_tasks(cfg)[1]).stats[:l1error][1] == 6.0   # (|1 - 4| twice)
+            @test run_all_simulations(cfg; calculate_stats = true, on_changed_sources = :recompute).stats == Dict(:ran => 1)
+            @test stats()[:l1error][1] == 2.0 && stats()[:l2error][1] ≈ sqrt(2)
         finally
             set_stat_registry!(old)
         end
+    end
+
+    @testset "review of #48: Unicode module names; Float32 scatter of large values" begin
+        @eval module ΔStTags; export UnicodeTag; struct UnicodeTag{K} end; end
+        p = Dict(:t => Val{ΔStTags.UnicodeTag{1}}())
+        before = (val2str(p[:t]), calculate_hash(p))
+        @eval using .ΔStTags: UnicodeTag
+        @test before == (val2str(p[:t]), calculate_hash(p)) && before[1] == "Val{UnicodeTag{1}}()"
+        lag = create_sim_data([[SVector(0.0f0), SVector(1.0f0)]], [[SVector(1.0f30), SVector(1.0f30)]], Float32[0], ParamDict())
+        e = convert_to_eulerian(lag, (2, 1))
+        @test all(v -> v[1] == 1.0f30, e.u) && eltype(eltype(e.u)) === Float32
     end
 
     @testset "contract: prefix loads skip links; complex data is refused" begin
