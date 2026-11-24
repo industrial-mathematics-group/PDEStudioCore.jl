@@ -1,0 +1,9 @@
+Direct names: hash=9777c23ac5c09336882bd3653c557255dfdd07416110d359c0d553826fb50ff1 stored="DirectNames(left=1, right=2)" ran=1 cached=0 field=10.0
+Direct names: ArgumentError: param_identity(::DirectNames) returned the field name Symbol("left=1, right"), which isn't a plain Julia identifier
+Nested names: hash=bb3b551a6aa23f631b4b875d1e2375aac8d4c2bfafd4f2d5bec30d813e8c2bc7 stored="NestedNames(detail=NamedTuple(left=1, right=2))" ran=1 cached=0 field=10.0
+Nested names: hash=bb3b551a6aa23f631b4b875d1e2375aac8d4c2bfafd4f2d5bec30d813e8c2bc7 stored="NestedNames(detail=NamedTuple(left=1, right=2))" ran=0 cached=1 field=10.0
+Hidden stored field: hashes_differ=true
+Identical declared key pairs: hashes_match=true
+Duplicate declared dictionary key: ArgumentError: the parameter :v has keys that are the same parameter value (they differ only in what their identity leaves out), so its stored form would depend on their order
+Function filter: ArgumentError: the parameter :value is a function (sin): what a function computes can't be compared, so a function can't tell runs apart. Give it a name instead (e.g. a String or Symbol the solver looks up), or wrap it in a struct whose `param_identity` names it.
+Single-pass mismatch filter: imported=1 present=true
