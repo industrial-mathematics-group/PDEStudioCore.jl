@@ -34,7 +34,7 @@ _without_modules(ex) =
 Converts a value into a Julia-literal-like string (the basis of parameter normalisation).
 Top-level strings are written unquoted (unless their text could be read as something else, see below),
 strings inside containers are quoted, functions become
-`"Closure"` (parameters refuse them), enum values are written as `TypeName.value` and custom structs as
+`"Closure"` (they are skipped: no function tells parameters apart), enum values are written as `TypeName.value` and custom structs as
 `TypeName(field=value, ...)` (a struct without fields as its type with its parameters, e.g. `Limiter{:minmod}`).
 Type names are written without module prefixes, so the text doesn't depend on what the session loaded with `using`.
 """
@@ -444,24 +444,15 @@ function str2val(val_str::AbstractString)
 end
 
 # Normalisation used before saving and hashing: strings are kept verbatim (they are never
-# re-interpreted as code), other values round-trip through val2str. Functions are refused (`val2str` writes every one as
-# "Closure").
+# re-interpreted as code), other values round-trip through val2str. Only data identifies a run: a function (also a
+# field of a struct, e.g. a domain's `is_interior`) is skipped, written as "Closure" like every other one, since what a
+# function computes can't be read off it reliably; runs that differ only in a function need an identifier (data).
 # Known limitation: `nothing`/`missing` *inside* containers come back as the types `Nothing`/`Missing`
 # (or the container as a string); the normalised form is normalised again to itself, so lookups stay consistent.
 _normalize_param(v::AbstractString) = String(v)
 _normalize_param(v::Union{Nothing, Missing}) = v  # would otherwise become the types `Nothing`/`Missing`
 _normalize_param(v) = str2val(val2str(v))
-function _normalize_params(params)
-    for (k, v) in params   # (a function would be stored as "Closure", like every other one: two runs would be one)
-        _holds_function(v) && throw(ArgumentError(
-            "the parameter :$k holds a function ($v); parameters are data: give it a name instead (e.g. `:$k => \"sin\"`) " *
-            "and look the name up in the solver"))
-    end
-    return ParamDict(Symbol(k) => _normalize_param(v) for (k, v) in params)
-end
-_holds_function(v) = v isa Function ||
-    (v isa AbstractDict && any(((a, b),) -> _holds_function(a) || _holds_function(b), v)) ||
-    (v isa Union{AbstractArray, Tuple, Pair, AbstractSet} && !(eltype(v) <: Number) && any(_holds_function, v))
+_normalize_params(params) = ParamDict(Symbol(k) => _normalize_param(v) for (k, v) in params)
 
 """
     calculate_hash(params::AbstractDict)

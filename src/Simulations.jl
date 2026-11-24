@@ -263,7 +263,8 @@ function _collision_text(a::AbstractDict, b::AbstractDict)
     keys_ = sort!([k for k in union(keys(a), keys(b)) if !isequal(get(a, k, nothing), get(b, k, nothing))], by = string)
     diffs = join(("$k: $(repr(get(a, k, nothing))) and $(repr(get(b, k, nothing)))" for k in keys_), "; ")
     return "two runs of this configuration have parameters that are stored alike (the same hash), so they would be " *
-           "one run: $diffs. Make the values distinct as data (e.g. a name or number instead of an object)."
+           "one run: $diffs. Only data identifies a run (functions are skipped): add an identifier that tells them apart " *
+           "(e.g. a name or number, or a label field of the object)."
 end
 
 function _resolve_solver(params::AbstractDict)
