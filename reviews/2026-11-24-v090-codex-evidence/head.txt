@@ -1,0 +1,5 @@
+Julia 1.13.4
+tag identity: distinct=true cleaned=Val{:mode} / Val{:mode} same hash=true first ran=1 second cached=1 second field=10.0
+large field post-process: first node=101.0 mass present immediately=true next stats=Dict(:cached => 1) recorded mass=1.250025e9 independent sum=1.2500251e9
+reference edit in warn mode: old error=2.0 same registry=Dict(:outdated => 1) added mass=Dict(:ran => 1) error after adding mass=6.0
+post-processor supplied L1: first post=Dict(:ran => 1) saved error=missing next post=Dict(:skipped => 1) next error=missing
