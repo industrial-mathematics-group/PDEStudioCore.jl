@@ -91,8 +91,7 @@ function _finish_eulerian(axes_in::Tuple, sol::Array{SVector{M, T}, D}, params::
     mins = SVector{D, T}(ntuple(d -> mins_in[d] === nothing ? first(axes[d]) : T(mins_in[d]), Val(D)))
     maxs = SVector{D, T}(ntuple(d -> maxs_in[d] === nothing ? last(axes[d]) : T(maxs_in[d]), Val(D)))
     # The spacing is the mean node distance of each axis (independent of overridden bounds).
-    spacing = SVector{D, T}(ntuple(d -> length(axes[d]) > 1 ?
-        (last(axes[d]) - first(axes[d])) / T(length(axes[d]) - 1) : one(T), Val(D)))
+    spacing = SVector{D, T}(ntuple(d -> _axis_spacing(first(axes[d]), last(axes[d]), length(axes[d]), T), Val(D)))
     domain = DomainInfo{D, T}(dim_keys, mins, maxs, spacing, time_dim, get_stat_registry())
     DS = time_dim === nothing ? D : D - 1
     return ESimData{D, DS, M, T}(params, domain, axes, sol)
@@ -225,7 +224,7 @@ function _build_lsimdata(x::Vector{Vector{SVector{DS, T}}}, u::Vector{Vector{SVe
     else
         t0 = tmin === nothing ? first(t) : T(tmin)
         t1 = tmax === nothing ? last(t) : T(tmax)
-        dt = length(t) > 1 ? (last(t) - first(t)) / T(length(t) - 1) : one(T)
+        dt = _axis_spacing(first(t), last(t), length(t), T)
         domain = DomainInfo{D, T}(dim_keys, SVector{D, T}((smins..., t0)), SVector{D, T}((smaxs..., t1)),
                                   SVector{D, T}((s_spacing..., dt)), time_dim, registry)
     end

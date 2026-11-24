@@ -329,9 +329,10 @@ end
 # Writes a complete file to a temporary path and renames it into place, so an interrupted write never
 # corrupts existing data and rewrites do not grow the file. The dataset's metadata is stored once, as the
 # "metadata" entry (the "raw" dataset is stored without it), and a new file always gets a provenance. Entries of
-# `previous` that are not managed here (and are not stale conversion caches) are carried over.
+# `previous` that are not managed here (and are not stale conversion caches) are carried over, except `drop`; if one
+# can't be copied, nothing is written (an error).
 function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::AbstractDict,
-                         previous::Union{Nothing, AbstractString})
+                         previous::Union{Nothing, AbstractString}; drop = ())
     path = isfile(path) ? realpath(path) : path  # replace the file a symlink points to, not the link
     md = data.metadata
     (previous === nothing || !isfile(previous)) && !haskey(md, :provenance) && (md[:provenance] = _provenance())
@@ -347,12 +348,14 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::A
             if previous !== nothing && isfile(previous)
                 jldopen(previous, "r") do old
                     for k in keys(old)
-                        (k in _MANAGED_KEYS || startswith(k, "conv_") ||
+                        (k in _MANAGED_KEYS || startswith(k, "conv_") || k in drop ||
                          haskey(file, k)) && continue
                         try
                             _copy_entry!(file, old, k)
-                        catch e
-                            @warn "Could not carry over entry '$k' of $(basename(previous))" exception = e
+                        catch e   # (never dropped: the write fails, the file stays as it was)
+                            e isa InterruptException && rethrow()
+                            throw(ErrorException("Not saved: the entry '$k' of $(basename(previous)) can't be carried over " *
+                                                 "($(sprint(showerror, e))); the file is left as it was"))
                         end
                     end
                 end

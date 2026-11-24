@@ -74,6 +74,21 @@ function get_integration_measure(stat::Symbol, domain::DomainInfo{D, T}) where {
     return measure
 end
 
+# For statistics (the presets): `get_integration_measure` and the sums `∑ f(v) * measure` over the field values `v`
+# (and the reference's `a`) in at least Float64, so the squares and sums of Float16 data don't overflow where the result
+# doesn't (Float64 data is summed exactly as `sum(map(...))`); `_narrow` converts a result back to the data's precision
+_wide_measure(stat::Symbol, domain::DomainInfo{D}) where {D} =
+    (kept = get_kept_dims(stat, domain); prod((_wide(domain.spacing[d]) for d in 1:D if !(domain.dim_keys[d] in kept)); init = 1.0))
+function _wide_sum(f, u, measure)
+    isempty(u) && return zero(f(_wide.(zero(eltype(u)))) .* measure)
+    return sum(map(v -> f(_wide.(v)) .* measure, u))
+end
+function _wide_sum(f, u, ana, measure)
+    isempty(u) && return zero(f(_wide.(zero(eltype(u))), _wide.(zero(eltype(u)))) .* measure)
+    return sum(map((v, a) -> f(_wide.(v), _wide.(a)) .* measure, u, ana))
+end
+_narrow(u, x) = map(eltype(eltype(u)), x)
+
 # --- add_stat! ---------------------------------------------------------------
 
 _stat_value(v::Real, ::Val{M}, ::Type{T}) where {M, T} = SVector{M, T}(ntuple(_ -> T(v), Val(M)))
