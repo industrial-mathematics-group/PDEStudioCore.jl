@@ -612,12 +612,16 @@ st_run_from_function(cfg) = run_all_simulations(cfg)   # (the pipeline started f
     @test_throws r"isn't a plain Julia identifier" calculate_hash(Dict(:v => StId.Forged(2)))
     # `@param_struct` takes every stored field, also one the property interface hides
     @test calculate_hash(Dict(:v => StId.Hidden(1, 1))) != calculate_hash(Dict(:v => StId.Hidden(1, 2)))
-    # dictionary keys are ordered by their stored form: what their identity leaves out doesn't reorder them, and two keys
-    # that are the same parameter value are refused
-    a = Dict(StId.Key(1, 9) => "low", StId.Key(2, 0) => "high")
-    b = Dict(StId.Key(1, 0) => "low", StId.Key(2, 9) => "high")
-    @test calculate_hash(Dict(:v => a)) == calculate_hash(Dict(:v => b))
-    @test_throws r"keys that are the same parameter value" calculate_hash(Dict(:v => Dict(StId.Key(1, 1) => 1, StId.Key(1, 2) => 2)))
+    # Dict keys are of one plain type (Symbol, integer, String; review of #56): declared values, containers or mixed
+    # types as keys are refused, so nothing a key's identity leaves out, and no two keys of one text, can order them
+    @test_throws r"keys of type .*Key" calculate_hash(Dict(:v => Dict(StId.Key(1, 9) => "low", StId.Key(2, 0) => "high")))
+    @test_throws r"keys of type Vector" calculate_hash(Dict(:v => Dict([StId.Key(1, 9)] => "low")))
+    @test_throws r"keys of type Any" calculate_hash(Dict(:v => Dict{Any, Int}("label_2" => 1, :label_2 => 2)))
+    @test_throws r"keys of type Float64" calculate_hash(Dict(:v => Dict(0.5 => 1)))
+    for d in (Dict(:b => 1, :a => 2), Dict("b" => 1, "a" => 2), Dict(10 => 1, 2 => 2))
+        r = Dict(reverse(collect(d)))   # (the same mapping, inserted the other way round)
+        @test calculate_hash(Dict(:v => d)) == calculate_hash(Dict(:v => r))
+    end
     # a declaration in a source file of the configuration counts, also when the pipeline is started from a function
     st_fresh()
     src = joinpath(mktempdir(), "identity.jl")
