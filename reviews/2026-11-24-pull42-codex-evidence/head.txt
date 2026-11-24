@@ -1,0 +1,7 @@
+removed unused key: imports=1 before=11.0 after=12.0 source=11.0 cached solvers=1 post=Dict(:ran => 1)
+rational reference: actual first interval=1//3 stored spacing=6004799503160661//18014398509481984
+ordinary rewrite: before=(value = 47, units = "kelvin", group = true) after=(value = 47, units = missing, group = false)
+reference consumed task key: requested field=10.0 unrelated field=81.0 offset in summary=false post=Dict(:ran => 1)
+solver-attached diagnostic: source=23.0 imported has iterations=false has mass=true solvers ran=0
+integer cancellation: exact sum=1 mass=0
+rational reference with offset 10^16: (axis_step = 1//1, stored_spacing = 0//1)

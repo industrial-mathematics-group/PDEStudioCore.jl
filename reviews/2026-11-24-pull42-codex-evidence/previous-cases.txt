@@ -1,0 +1,12 @@
+Julia 1.13.4
+postprocess only k=1: outcomes=Dict(:failed => 1) k=2 before=2.0 after=2.0 k=1 has completion record=false
+edited import k=1 -> k=2: imports=1 stats=Dict(:ran => 1) stored L1 error=2.0 recomputed=2.0
+wide grid Float16: spacing=40000.0 mass=30000.0
+unit spacing Float16: L2 norm=424.25
+wide grid Float64: spacing=40000.0 mass=30000.0
+unit spacing Float64: L2 norm=424.26406871192853
+Julia 1.13.4
+same-parameter replacement at second prompt: reported imports=1 original destination preserved=true first field=7.0
+unusable output directory: returned 0 results original source present=true
+ERROR: LoadError: Not saved: the entry 'calibration' of 2e8a175a18c1c713598b26e67321e4344b7176e03a12f14c7c5a83e725b97163.jld2 can't be carried over (calibration writer unavailable); the file is left as it was
+readable immediately before overwrite=47
