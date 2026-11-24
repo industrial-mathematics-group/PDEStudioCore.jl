@@ -142,7 +142,7 @@ enable_cache!(true)                           # store conversions in the file
 ```
 
 - **Eulerian → Eulerian** ([`resample_eulerian`](@ref)): linear interpolation in space, nearest-neighbour in time (no cross-fading of snapshots); statistics are resampled along the dimensions they keep. Axes whose resolution does not change (e.g. adaptive time steps) are kept as they are.
-- **Lagrangian → Eulerian** ([`convert_to_eulerian`](@ref)): inverse-distance scatter of particles and per-particle statistics; empty cells become `NaN`. Output times take the nearest recorded snapshot.
+- **Lagrangian → Eulerian** ([`convert_to_eulerian`](@ref)): inverse-distance scatter of particles and per-particle statistics; empty cells become `NaN`. Output times take the nearest recorded snapshot. The scatter accumulates in at least `Float64` with weights of up to `1e12` (a particle on a node), so values up to about `1e296` in magnitude are converted (values near `floatmax` aren't supported).
 - **Eulerian → Lagrangian** ([`convert_to_lagrangian`](@ref)): grid nodes become stationary particles (sharing one position vector); fields become per-particle statistics.
 
 The resolution `res` always lists every axis: the spatial resolutions followed by the number of time slices.
@@ -172,3 +172,14 @@ A lookup is a single path, so files added or removed by other processes are seen
 ## 6. Parameter Normalisation
 
 Before hashing and saving, parameters are normalised: functions are refused (name them instead), custom structs become a descriptive string (their type name, with the type parameters for structs without fields such as `Limiter{:minmod}()`, and their fields; type names are written without module prefixes, so the text doesn't depend on what the session loaded with `using`) and other values round-trip through [`val2str`](@ref)/[`str2val`](@ref). Strings are always kept verbatim, so a parameter such as `:ic => "sin"` stays a string. [`str2val`](@ref) only parses literals (numbers, strings, symbols, tuples, vectors, `Dict`s, static arrays, arithmetic like `2π` and a range as the whole value, e.g. a sweep typed as `1:10`); it never executes code. Types come from an allowlist (numbers, text, the containers [`val2str`](@ref) writes and StaticArrays), and what a value may build is bounded (elements, digits, the size of types including static arrays, nesting), so a file cannot run code, and these limits bound what the parser computes and compiles for a text; anything else is kept as a string. Inspect the stored form with [`print_clean_params`](@ref).
+
+**What identifies a parameter value.** Two values are the same parameter (and so the same run, if all others agree) exactly when their stored forms are equal. The rules, fixed since hash format 4 and pinned by a test corpus (`test/test_store.jl`), so they don't change silently:
+
+- numbers by type and value, except that `Float32` (and `Float16`) are stored as `Float64`; `true` is not `1`, `1` is not `1.0`;
+- strings verbatim, symbols, characters, `nothing` and `missing` as such;
+- tuples, vectors, arrays (with their shape), static arrays and `Dict`s by their element type and elements;
+- types (as values, as element types, in `Val{…}`) by their **name only**, without the module they come from: `Base.Matrix` and a `Matrix` of your own are the same value, and a session stores and finds them alike whatever it loaded with `using`;
+- structs by their type name and their fields (a struct without fields by its type with its parameters, e.g. `Limiter{:minmod}`); the type parameters of a struct with fields don't count;
+- functions are refused.
+
+So don't use values that differ only in what these rules leave out (the module of a type, the type parameters of a struct with fields, `Float32` against `Float64`) to tell runs apart: a configuration with two such runs is refused, and across configurations they are one run.

@@ -8,11 +8,25 @@
 # through `val2str`, e.g. PDEStudio's typed CSV values such as `1.5f0`. (The hash doesn't depend on it, see `_identity`.)
 _ambiguous_text(s::AbstractString) = s == "<empty>" || occursin(r", [A-Za-z_]\w* => ", s)
 
-# The text of a type without module prefixes (`SVector{2, Float64}`, also where `StaticArraysCore.SVector` isn't
-# visible in `Main`, `Wall` for `HyperCloud.Wall`): `string(T)` qualifies the names `Main` doesn't see, so a parameter
-# would be stored and hashed differently depending on what the session loaded with `using`. Quoted text (a symbol
-# such as `Symbol("left.mode")` in `Val{…}`, a character) is data and kept as it is.
-_type_text(T) = replace(string(T), r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*')|(?<![\w.:!])(?:[\p{L}_][\w!]*\.)+(?=[\p{L}_])" => s"\1")
+# The text of a type without module paths: types in parameters are identified by their name (`SVector{2, Float64}`,
+# also where `StaticArraysCore.SVector` isn't visible in `Main`; `Wall` for `HyperCloud.Wall`; two types of one name are
+# one value). `string(T)` qualifies the names `Main` doesn't see, so the text would depend on what the session loaded
+# with `using`. The printed type is parsed by Julia's parser (nothing is evaluated) and the module paths are removed
+# from the expression, so identifiers and quoted data (`Symbol("left.mode")`, characters) follow Julia's own syntax; a
+# text without module paths is kept exactly as printed.
+function _type_text(T)
+    text = string(T)
+    ex = try
+        Meta.parse(text)
+    catch
+        return text
+    end
+    bare = _without_modules(ex)
+    return bare == ex ? text : string(bare)
+end
+_without_modules(ex) =
+    ex isa Expr && ex.head === :. && length(ex.args) == 2 && ex.args[2] isa QuoteNode && ex.args[2].value isa Symbol ?
+        ex.args[2].value : ex isa Expr ? Expr(ex.head, map(_without_modules, ex.args)...) : ex
 
 """
     val2str(v; top_level::Bool = true)

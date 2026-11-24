@@ -481,3 +481,90 @@ st_own_error(data) = (add_stat!(data, :l1error, 7.0, :time); true)   # (a post-p
         st_fresh()
     end
 end
+
+# The identity of parameter values (docs/src/data.md, "What identifies a parameter value"), pinned: the stored text and
+# the hash of representative values, the same in this session (`using StaticArrays`) and in a fresh one without it.
+# A failure here means normalisation changed: that is a new hash format, never a silent fix (CLAUDE.md).
+const ST_CORPUS_PRELUDE = """
+module StCorpus
+abstract type AbstractBC end
+struct Wall <: AbstractBC; id::Int; end
+struct Limiter{K} end
+struct Matrix end
+end
+"""
+const ST_CORPUS = [
+    "50" => ("50", "b9f27849763fc3ee7361a06036ef329530f6b56e214c92ae61ef690d623f17fa"),
+    "0.5" => ("0.5", "00ac8ba79233969e7ec276996b097ba8d96f2bdd1229580f6dfb3395a9c9ac67"),
+    "0.5f0" => ("0.5", "00ac8ba79233969e7ec276996b097ba8d96f2bdd1229580f6dfb3395a9c9ac67"),
+    "true" => ("true", "aa28ecfec4d33e8df0a1203198a50a45ccd4bc14af77c807736ddca061fbf395"),
+    "\"upwind\"" => ("upwind", "4bd5f3c038828a93295ec5796abd280d113a509463d053459cc3bf7e2ab45f47"),
+    ":sym" => (":sym", "3aac14729a53c26a719ec60c870b61361c4024bdce4535e50843c65340675f5d"),
+    "'c'" => ("'c'", "895f17656ea9c815e192f49c20e7fe86d00cc9d865972f452d40b8c5324eef7a"),
+    "nothing" => ("Nothing", "46b305f58f6c4e0e95564e7a68e7a115b8fb965be6475eed1bacfc41e58f50a0"),
+    "(20, 15)" => ("(20, 15)", "514bb70e74cfc1790bdfc5b8d8a4fbfea0b256f466f2326c02d1be3a0fea1a5f"),
+    "[0.1, 0.2]" => ("Float64[0.1, 0.2]", "a469708b22fbe28af0995e9988b83d84a563c316bf10431652d38fe1b6f97455"),
+    "[1 2; 3 4]" => ("reshape(Int64[1, 3, 2, 4], (2, 2))", "9e38e6675c59d49d7271e7830a126b0cfdea61e8748d2a78707fc60481945611"),
+    "PDEStudioCore.StaticArrays.SVector(1.0, 2.0)" => ("Float64[1.0, 2.0]", "4970cec9cb50d3bedb13ad4b9c01a93cd14ae4630b866d7d4bd5212ad40b370b"),
+    "[PDEStudioCore.StaticArrays.SVector(0.25, 0.5), PDEStudioCore.StaticArrays.SVector(0.75, 0.5)]" => ("SVector{2, Float64}[Float64[0.25, 0.5], Float64[0.75, 0.5]]", "c46f274a56f9d84325b330d1a51349e2392a06dffdb6434f8c27f982787316ee"),
+    "Dict(:a => 1, :b => \"x\")" => ("Dict{Symbol, Any}(:a => 1, :b => \"x\")", "df28499082a3d61b918c878545138425ee225b74d6796b1c8fa17d4ced12da7d"),
+    "Float64" => ("Float64", "f9c477815d8c5b0c733c098aa8c84b35423f1382671902bd08ac5aebeb76f972"),
+    "Val{:minmod}()" => ("Val{:minmod}()", "a83f2bdd193eb65af4370a744a468a44e864779dc801751e4f49875aa103351b"),
+    "1:10" => ("Int64[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]", "43fdb8ffb0eac9f04793a0c39697ec51f0a5d93c1877cb81727971776efa2ab5"),
+    "Dict{Int, StCorpus.AbstractBC}(1 => StCorpus.Wall(1))" => ("Dict{Int64, AbstractBC}(1 => Wall(id=1))", "7f5923ac9fec95d39561f7292b1e5e61fb5cacdf56880d8f5f63b68e2f5d28e8"),
+    "StCorpus.Limiter{:minmod}()" => ("Limiter{:minmod}", "5f8d994bff177ebc041f3bc2be8d9f128d7165ed959ae9732586c0213f0cd5e1"),
+    "Val{Symbol(\"left.mode\")}()" => ("Val{Symbol(\"left.mode\")}()", "6d289c2679807b60f7764204f4243edf6bb33726f5067334e51a42443b0c5b97"),
+    "Val{StCorpus.Matrix}()" => ("Val{Matrix}()", "918036f99fdc9ab0713acef15a59c6562a7e38c502a83ada7e44dec542f53b95")
+]
+
+@testset "Parameter identity: the pinned corpus" begin
+    include_string(Main, ST_CORPUS_PRELUDE)
+    for (code, (text, hash)) in ST_CORPUS
+        v = include_string(Main, code)
+        @test val2str(get_clean_params(Dict(:v => v))[:v]) == text
+        @test calculate_hash(Dict(:v => v)) == hash
+    end
+    script = "using PDEStudioCore; include_string(Main, $(repr(ST_CORPUS_PRELUDE))); " *
+             "for c in $(repr(first.(ST_CORPUS))); println(calculate_hash(Dict(:v => include_string(Main, c)))); end"
+    fresh = split(read(`$(Base.julia_cmd()) --project=$(Base.active_project()) -e $script`, String))
+    @test fresh == [last(last(e)) for e in ST_CORPUS]   # (no `using StaticArrays`, no `using .StCorpus` there)
+    # types by name only: `Base.Matrix` and a `Matrix` of one's own are one value; a configuration with both is refused
+    @test calculate_hash(Dict(:v => Val{Base.Matrix}())) == calculate_hash(Dict(:v => Val{StCorpus.Matrix}()))
+    cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1, :tag => Val{Base.Matrix}());
+                           varied = create_varied_dict(:tag => Any[Val{Base.Matrix}(), Val{StCorpus.Matrix}()]))
+    @test_throws r"stored alike" generate_tasks(cfg)
+end
+
+@testset "Review fixes (#50)" begin
+    @testset "a re-evaluation drops statistics that are no longer registered" begin
+        st_fresh()
+        src = joinpath(mktempdir(), "model.jl")
+        model(c) = "st_src3_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\nst_src3_reference(p) = _ -> $c\n"
+        write(src, model(2.0))   # (reference A)
+        cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_src3_solver); reference = :st_src3_reference, sources = [src])
+        stats() = load_sim_data(generate_tasks(cfg)[1]).stats
+        old = PDEStudioCore.get_stat_registry()
+        try
+            set_stat_registry!(Dict(:l1error => :time))
+            run_all_simulations(cfg; calculate_stats = true)
+            write(src, model(4.0))   # (reference B)
+            set_stat_registry!(Dict(:l2error => :time))   # (L1 unregistered, L2 registered: missing, so all are evaluated again)
+            s = @test_logs (:warn, r"would be evaluated\s+again"s) match_mode = :any run_all_simulations(cfg; calculate_stats = true, dry_run = true)
+            @test s.stats == Dict(:refreshed => 1) && stats()[:l1error][1] == 2.0   # (a dry run changes nothing)
+            @test run_all_simulations(cfg; calculate_stats = true).stats == Dict(:refreshed => 1)
+            @test !haskey(stats(), :l1error) && stats()[:l2error][1] ≈ sqrt(18)   # (the L1 of A is gone)
+            register_stat!(:l1error, :time)
+            @test run_all_simulations(cfg; calculate_stats = true).stats == Dict(:ran => 1) && stats()[:l1error][1] == 6.0
+        finally
+            set_stat_registry!(old)
+        end
+    end
+
+    @testset "module names follow Julia's identifier syntax" begin
+        @eval module ∇; export GradientTag; struct GradientTag end; end
+        p = Dict(:t => Val{∇.GradientTag}())
+        before = (val2str(p[:t]), calculate_hash(p))
+        @eval using .∇: GradientTag
+        @test before == (val2str(p[:t]), calculate_hash(p)) && before[1] == "Val{GradientTag}()"
+    end
+end

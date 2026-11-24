@@ -55,6 +55,13 @@ runs, and each solver shows what its docstring claims (stability limits, order, 
   instead of handling it (e.g. no interactive or parameter-changing imports beyond
   `remove_keys`). A review finding that needs one of these assumptions broken is hardening,
   not a bug; weigh it against the code it would add.
+- **Parameter normalisation is frozen.** What identifies a parameter value is specified in
+  `docs/src/data.md` ("What identifies a parameter value") and pinned by the corpus test in
+  `test/test_store.jl`. Values that differ only in what the rules leave out (a type's module,
+  a fielded struct's type parameters, Float32 vs Float64) are one value by design: refuse
+  collisions (as `generate_tasks` does), don't special-case them. A change to the rules is
+  a new hash format (`_HASH_FORMAT`, data brought over with `import_sim_data`), never a
+  silent patch.
 - **Name resolution.** Solvers, references and post-processing functions are referenced
   by name and resolved in the module set with `set_target_module!` (default `Main`;
   HyperCloud sets itself). Only names that module (or a submodule) defines itself resolve;

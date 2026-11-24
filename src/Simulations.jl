@@ -393,7 +393,11 @@ function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, f
         dry_run && return (status, nothing)
         sim_data = _load_key(path, "raw")
         ref_func = has_reference ? ref_factory(deepcopy(params)) : nothing   # (a copy, like the solver's: the task stays as it is)
-        _calculate_all_stats!(sim_data, ref_func, force, true, true; reference = ref_record)
+        # Evaluated again, the statistics get the current record: statistics of the earlier evaluation that are no
+        # longer registered go (they'd pass for evaluated with it); the ones the solver or a post-processor added stay
+        stale = force ? setdiff(jldopen(f -> haskey(f, "evaluated_stats") ? Symbol.(f["evaluated_stats"]) : Symbol[], path, "r"),
+                                required) : Symbol[]
+        _calculate_all_stats!(sim_data, ref_func, force, true, true; reference = ref_record, drop = stale)
         return (status, nothing)
     catch e
         e isa InterruptException && rethrow()
@@ -709,8 +713,9 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
         end
         if get(stats, :refreshed, 0) > 0
             @warn "$(stats[:refreshed]) dataset(s) had statistics evaluated with another version of the reference " *
-                  "$(config.reference) and miss others (e.g. newly registered): all of their statistics were evaluated " *
-                  "again with the current reference, so the statistics of a file belong to one reference."
+                  "$(config.reference) and miss others (e.g. newly registered): all of their statistics " *
+                  "$(dry_run ? "would be" : "were") evaluated again with the current reference, so the statistics of a " *
+                  "file belong to one reference."
         end
     end
 
