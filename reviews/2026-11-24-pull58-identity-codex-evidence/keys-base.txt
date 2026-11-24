@@ -1,0 +1,14 @@
+Vector of declared structs as key: hash=dc304842ad244e6fe62cd088d87b4053e8d17408f70145052c6ae9e5c4d3d0eb
+Mixed String/Symbol keys: hash=79141d36fec546e000d834785cb9330c273ea93fc51bc3d252507003bd4c2c7e
+Declared struct as key: hash=e6527c126a3411e52586307d5122adc4087b3a56c834680aa8c31eee67800eac
+Nonconcrete Integer key type: hash=fcf0d42925fcf66cbeef3fd592fbb5422e1f41febfb7c26fa346f1963c864932
+Float64 key type: hash=73e45ffd5182598b9d3f549ddad6f95297f9dc80d916d22e9d87d50abed28eaf
+Symbol key control: hashes_match=true normalized_keys_type=Symbol
+escaped String key control: hashes_match=true normalized_keys_type=String
+Int8 key control: hashes_match=true normalized_keys_type=Int8
+UInt64 key control: hashes_match=true normalized_keys_type=UInt64
+BigInt key control: hashes_match=true normalized_keys_type=BigInt
+Bool key control: hashes_match=true normalized_keys_type=Bool
+Custom integer: concrete=true count=2 identical text=true equal mappings=false
+Custom integer mapping: ArgumentError: the parameter :mapping has keys that are the same parameter value (they differ only in what their identity leaves out), so its stored form would depend on their order
+Custom integer mapping: ArgumentError: the parameter :mapping has keys that are the same parameter value (they differ only in what their identity leaves out), so its stored form would depend on their order

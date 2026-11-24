@@ -1,0 +1,14 @@
+Vector of declared structs as key: ArgumentError: the parameter :value is a Dict with keys of type Vector{KeyWithWork}: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Mixed String/Symbol keys: ArgumentError: the parameter :value is a Dict with keys of type Any: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Declared struct as key: ArgumentError: the parameter :value is a Dict with keys of type KeyWithWork: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Nonconcrete Integer key type: ArgumentError: the parameter :value is a Dict with keys of type Integer: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Float64 key type: ArgumentError: the parameter :value is a Dict with keys of type Float64: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Symbol key control: hashes_match=true normalized_keys_type=Symbol
+escaped String key control: hashes_match=true normalized_keys_type=String
+Int8 key control: hashes_match=true normalized_keys_type=Int8
+UInt64 key control: hashes_match=true normalized_keys_type=UInt64
+BigInt key control: hashes_match=true normalized_keys_type=BigInt
+Bool key control: hashes_match=true normalized_keys_type=Bool
+Custom integer: concrete=true count=2 identical text=true equal mappings=false
+Custom integer mapping: expected=10 actual=10.0 ran=1 cached=0 stored="Dict{TaggedIndex, Int64}(1 => 10, 1 => 20)" hash=797d176e2131e052a9d1db437aaba17dd6d4eb61009d0c58e8900321adc0e03a
+Custom integer mapping: expected=20 actual=10.0 ran=0 cached=1 stored="Dict{TaggedIndex, Int64}(1 => 10, 1 => 20)" hash=797d176e2131e052a9d1db437aaba17dd6d4eb61009d0c58e8900321adc0e03a
