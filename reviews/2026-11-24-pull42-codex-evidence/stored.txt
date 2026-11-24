@@ -1,0 +1,4 @@
+base creates run: spacing=Inf mass=Inf solvers ran=1 stats=Dict(:ran => 1)
+head normal run: spacing=Inf mass=Inf solvers ran=0 stats=Dict(:cached => 1)
+head forces statistics: spacing=Inf mass=Inf solvers ran=0 stats=Dict(:ran => 1)
+head reruns solver: spacing=40000.0 mass=30000.0 solvers ran=1 stats=Dict(:ran => 1)
