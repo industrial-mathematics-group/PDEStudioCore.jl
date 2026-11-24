@@ -306,7 +306,7 @@ function _run_task(params::ParamDict, force_overwrite::Bool, metadata::AbstractD
     changed = false
     try
         path = force_overwrite ? nothing : _find_file(params)
-        if path !== nothing && _is_current_file(path; upgrade = !dry_run)   # (a dry run writes nothing)
+        if path !== nothing && _is_current_file(path)
             changed = on_changed !== :ignore && _code_changed(path, params, metadata)
             (!changed || on_changed === :warn) && return (changed ? :changed : :cached, nothing, changed)
         end
@@ -685,7 +685,7 @@ end
 function _stored_file(params::AbstractDict)
     try
         path = _find_file(params)
-        return path !== nothing && _is_current_file(path; upgrade = false) ? path : nothing
+        return path !== nothing && _is_current_file(path) ? path : nothing
     catch e
         e isa InterruptException && rethrow()
         return nothing   # (an unreadable file, e.g. truncated: pass 1 reported it)

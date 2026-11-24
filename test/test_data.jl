@@ -156,11 +156,11 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
                 @test_logs (:warn, r"contains a type that isn't loaded.*Hidden") match_mode = :any PDEStudioCore._copy_entry!(d, src, "vv")
             end
         end
-        # A symlinked data file stays a symlink, and its target is updated
+        # The store keeps no links: a writer refuses one, the link and its target stay as they are
         link = foo_file * ".link.jld2"
         symlink(foo_file, link)
-        PDEStudioCore._set_key!(link, "evaluated_with_reference", false)
-        @test islink(link) && PDEStudioCore.JLD2.load(foo_file, "evaluated_with_reference") == false
+        @test_throws r"symbolic link" PDEStudioCore._set_key!(link, "evaluated_with_reference", false)
+        @test islink(link) && PDEStudioCore.JLD2.load(foo_file, "evaluated_with_reference") == true
 
         # Unchanged entries don't touch the file at all
         inode = stat(file).inode
@@ -248,19 +248,27 @@ end
     file_target_old = get_file_name(params_target)
     file_ignore_old = get_file_name(params_ignore)
 
-    # changed parameters within the store: a copy under the new parameters, the old files stay
-    imported = import_sim_data(joinpath(get_save_path(), "data"); filter_pairs = Dict(:target => true),
-                               remove_keys = [:obsolete])
-    @test length(imported) == 1 && first(imported[1]) == file_target_old
-    @test isfile(file_ignore_old) && isfile(file_target_old)
+    # the source must lie outside the data folder (and not contain it)
+    data = joinpath(get_save_path(), "data")
+    @test_throws r"overlap" import_sim_data(data)
+    @test_throws r"overlap" import_sim_data(file_target_old)
+    @test_throws r"overlap" import_sim_data(get_save_path())
+
+    # an unused key dropped: the run is stored under the remaining parameters, everything else as it was
+    moved = mktempdir()
+    mv(file_target_old, joinpath(moved, basename(file_target_old)))
+    mv(file_ignore_old, joinpath(moved, basename(file_ignore_old)))
+    imported = import_sim_data(moved; filter_pairs = Dict(:target => true), remove_keys = [:obsolete])
+    @test length(imported) == 1 && first(imported[1]) == joinpath(moved, basename(file_target_old))
+    @test isfile(first(imported[1])) && !does_sim_data_exist(params_target) && !does_sim_data_exist(params_ignore)
 
     params_new = create_param_dict(:N => 10, :scheme => "upwind", :cfl => 0.5, :target => true)
     @test does_sim_data_exist(params_new) && last(imported[1]) == get_file_name(params_new)
     sim_imported = load_sim_data(params_new)
     @test !haskey(sim_imported.params, :obsolete) && sim_imported.params[:target] == true
-    @test isempty(import_sim_data(joinpath(get_save_path(), "data"); filter_pairs = Dict(:target => true),
-                                  remove_keys = [:obsolete]))   # (stored already)
-
+    @test isempty(import_sim_data(moved; filter_pairs = Dict(:target => true), remove_keys = [:obsolete]))   # (stored already)
+    @test_throws MethodError import_sim_data(moved; prompt_keys = [:N])   # (removed in 0.8: rerun the solver instead)
+    @test_throws MethodError import_sim_data(moved; overwrite = true)
     # A symlink is read through: the copy is a regular file, the link and its target stay as they are
     p_link = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :obsolete => "x", :test_mode => "link")
     save_sim_data(advection_solver_1d(p_link); overwrite = true)

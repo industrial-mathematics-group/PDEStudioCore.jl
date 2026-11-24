@@ -75,21 +75,20 @@ function get_integration_measure(stat::Symbol, domain::DomainInfo{D, T}) where {
 end
 
 # For statistics (the presets): `get_integration_measure` and the sums `∑ f(v) * measure` over the field values `v`
-# (and the reference's `a`), floating-point values in at least Float64 (`_acc`), so the squares and sums of Float16 data
-# don't overflow where the result doesn't; integers and rationals stay exact. Float64 data is summed exactly as
-# `sum(map(...))`. `_narrow` converts a floating-point result back to the data's precision (exact data keeps the type of
-# the result, as before).
+# (and the reference's `a`) in at least Float64 (`_wide`), so the squares and sums of Float16 data don't overflow where
+# the result doesn't. Float64 data is summed exactly as `sum(map(...))`. `_narrow` converts a result back to the data's
+# precision.
 _wide_measure(stat::Symbol, domain::DomainInfo{D, T}) where {D, T} =
-    (kept = get_kept_dims(stat, domain); prod((_acc(domain.spacing[d]) for d in 1:D if !(domain.dim_keys[d] in kept)); init = _acc(one(T))))
+    (kept = get_kept_dims(stat, domain); prod((_wide(domain.spacing[d]) for d in 1:D if !(domain.dim_keys[d] in kept)); init = _wide(one(T))))
 function _wide_sum(f, u, measure)
-    isempty(u) && return zero(f(_acc.(zero(eltype(u)))) .* measure)
-    return sum(map(v -> f(_acc.(v)) .* measure, u))
+    isempty(u) && return zero(f(_wide.(zero(eltype(u)))) .* measure)
+    return sum(map(v -> f(_wide.(v)) .* measure, u))
 end
 function _wide_sum(f, u, ana, measure)
-    isempty(u) && return zero(f(_acc.(zero(eltype(u))), _acc.(zero(eltype(u)))) .* measure)
-    return sum(map((v, a) -> f(_acc.(v), _acc.(a)) .* measure, u, ana))
+    isempty(u) && return zero(f(_wide.(zero(eltype(u))), _wide.(zero(eltype(u)))) .* measure)
+    return sum(map((v, a) -> f(_wide.(v), _wide.(a)) .* measure, u, ana))
 end
-_narrow(u, x) = (T = eltype(eltype(u)); T <: AbstractFloat ? map(T, x) : x)
+_narrow(u, x) = map(eltype(eltype(u)), x)
 
 # --- add_stat! ---------------------------------------------------------------
 

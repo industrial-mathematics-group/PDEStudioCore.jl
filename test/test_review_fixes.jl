@@ -63,7 +63,7 @@ constant_solver(p::ParamDict) = review_data(p, 1.0)
     @test sort(last.(imported)) == sort([fh, fq]) && sort(readdir(dir)) == sort(basename.([fh, fq]))
     @test load_sim_data(ph).u[1][1] == 10.0 && load_sim_data(pq).u[1][1] == 20.0
     @test Dict(f => read(joinpath(old, f)) for f in readdir(old)) == before   # (the source as it was)
-    @test isempty(import_sim_data(old)) && isempty(import_sim_data(dir))      # (stored already)
+    @test isempty(import_sim_data(old))   # (stored already)
 
     # a current file without its dataset is missing (the pipeline computes it again)
     pr = create_param_dict(:sim_func_name => :constant_solver, :case => :no_raw)

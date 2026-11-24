@@ -26,7 +26,7 @@ The solution may be given as
 - an array of numbers with one extra trailing dimension holding the components (`u[i, j, n, c]`),
 - an array of vectors.
 
-Integer data is stored as `Float64`; `Float32` data stays `Float32`. Axes must be sorted. Beyond three spatial dimensions the default axis names are `:x1, :x2, …`; time is always the last axis (`time_dim = :t` by default).
+Data is always floating point: integer and rational data is stored as `Float64`, `Float16`/`Float32` data keeps its type. The typed constructors (`DomainInfo{D, T}`, `ESimData`, `LSimData`) accept only floating-point `T`. Statistics and spacings are computed in at least `Float64` and converted back, so `Float16` data doesn't overflow where the result doesn't. Axes must be sorted. Beyond three spatial dimensions the default axis names are `:x1, :x2, …`; time is always the last axis (`time_dim = :t` by default).
 
 `xmins`, `xmaxs`, `tmin` and `tmax` override the bounding box (e.g. the physical domain `[0, 1]` of a cell-centred grid). The integration measure (`domain.spacing`) is always the mean node distance of the axes, independent of these overrides.
 
@@ -89,9 +89,23 @@ On disk, the solution is stored once (in `u`).
 
 ## 3. Storage Layout
 
-Every run is one file, `<save path>/data/<sha256>.jld2`, named by the hash of its normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone. The hash digests a canonical encoding of the parameters in which every value carries its kind and every text its length, so distinct parameters never share an encoding (`true` and `1`, `"1"` and `1`, a matrix and a vector of the same numbers differ; hash format 4, PDEStudioCore 0.8). A lookup also checks the parameters stored in the file: a file is only ever taken for, and replaced by, the run its name stands for. A file at the name of a run that holds other parameters, or whose parameters can't be read (e.g. copied there by hand, or a symbolic link whose target is missing), is never replaced: saving that run is an error, and the pipeline reports it as failed without running it.
+Every run is one file, `<save path>/data/<sha256>.jld2`, named by the hash of its normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone. The hash digests a canonical encoding of the parameters in which every value carries its kind and every text its length, so distinct parameters never share an encoding (`true` and `1`, `"1"` and `1`, a matrix and a vector of the same numbers differ; hash format 4, PDEStudioCore 0.8). A lookup also checks the parameters stored in the file: a file is only ever taken for, and replaced by, the run its name stands for. A file at the name of a run that holds other parameters, or whose parameters can't be read, is never replaced: saving that run is an error, and the pipeline reports it as failed without running it.
 
-The store has a single rule: data is only ever written to its own name, atomically (see below). Nothing moves, renames or deletes data on its own: only [`delete_sim_data`](@ref) deletes, and only what you ask for ([`tidy_sim_data`](@ref) removes leftover temporary files). There are no duplicates of a run, so nothing has to choose between copies or clean them up.
+**The contract.** The store guarantees:
+
+- data is only ever written to its own name, atomically (see below);
+- nothing moves, renames or deletes data on its own: only [`delete_sim_data`](@ref) deletes, and only what you ask for ([`tidy_sim_data`](@ref) removes leftover temporary files);
+- there are no duplicates of a run, so nothing has to choose between copies or clean them up;
+- a rewrite of a file keeps every entry in it, or fails and leaves the file as it was.
+
+In return it assumes:
+
+- the files in the data folder are written by PDEStudioCore: your own values belong into `metadata`, statistics or files of their own (entries you add with JLD2 are kept as far as JLD2 can write them again; otherwise a rewrite fails);
+- the data folder holds no symbolic links: a link at a run's name is never read as the run, written through or replaced;
+- no two processes write the same run at the same time (the last rename wins);
+- callbacks (solvers, references, post-processors) don't change a run's parameters: they get copies, and a post-processor that changes them fails.
+
+Anything outside these assumptions isn't repaired automatically: lookups ignore it, [`tidy_sim_data`](@ref) lists it, and saves refuse to replace it.
 
 **Data of earlier versions** (other names) isn't found: PDEStudioCore is in an early stage and keeps no compatibility with them. Recompute it, or copy runs of PDEStudioCore 0.5 to 0.7 (file format 3) into the store with [`import_sim_data`](@ref); the old files are only read. Files of PDEStudioCore 0.4 aren't read at all.
 
@@ -148,9 +162,9 @@ tidy_sim_data(dry_run = true)                       # leftovers of killed writes
 
 `find_sim_data` prints one line per matching run (most recently written first) with the remaining parameters and returns the paths; `delete_sim_data` deletes exactly the files it would list and refuses an empty filter. `sim_data_table` reads only the metadata of each file, so it is quick for large data folders. These three only see the store: files at their own name. Their filters compare values as the hash tells them apart: `Dict(:k => 1)` matches neither `true` nor `1.0`.
 
-[`import_sim_data`](@ref) reads runs from a file or folder (recursively), normalises their parameters again and writes each to its name in the store; it never changes its source (also not with `overwrite = true`, also when the source is the data folder itself), and a run that is stored already is skipped, so an interrupted import is simply run again. Each source file is checked first: it must hold a dataset whose parameters, kind and shape are those stored in the file. A stored file of the same parameters that isn't a usable run (e.g. without its dataset) is replaced; a file of other parameters, a symbolic link or one of the source files is never replaced. What is installed is a copy with the SHA-256 digest the source had when it was checked: a source whose bytes change during the import (e.g. during a prompt) is reported, and its destination stays as it was. A run imported with other parameters loses the statistics the statistics pass evaluated (registered ones, such as errors against a reference of the old parameters) and their records: the pipeline evaluates them again for the new parameters. Statistics the solver or a post-processor added (e.g. an iteration count) and the post-processing record stay: the data is post-processed already, so its post-processor isn't run a second time (rerun the solver to repeat it). (Saving follows links instead: `save_sim_data` writes into the file a link at the run's name points to, if that file holds the run, and keeps the link.) It also changes parameters of stored runs: `import_sim_data(joinpath(get_save_path(), "data"); remove_keys = [:obsolete])` stores every run under its parameters without `:obsolete`, and the files of the old parameters stay until you delete them.
+[`import_sim_data`](@ref) copies runs from a file or folder (recursively) outside the data folder into the store, each to its name; it only reads its source, and a run that is stored already is skipped, so an interrupted import is simply run again. Each source file is copied next to its destination and that copy is checked before it is renamed into place: it must hold a dataset whose parameters, kind and shape are those stored in the file. A stored file of the same parameters that isn't a usable run (e.g. without its dataset) is replaced; anything else at the destination (a file of other parameters, a symbolic link) never. `remove_keys` drops parameters that didn't affect the result (e.g. one that no longer exists); the run is copied as it is otherwise, with its statistics and records. To change a parameter that matters, run the solver again. To drop a key from runs already in the store, move their files out of the data folder and import them back with `remove_keys`.
 
-[`tidy_sim_data`](@ref) removes temporary files of writes that never finished (older than an hour by default) and lists the files in the data folder that lookups don't use: other names (e.g. of earlier versions), parameters with another hash than the name, or parameters that can't be read. It never deletes them: import what you need, then delete them yourself.
+[`tidy_sim_data`](@ref) removes temporary files of writes that never finished (older than an hour by default) and lists the files in the data folder that lookups don't use: other names (e.g. of earlier versions), parameters with another hash than the name, parameters that can't be read, and symbolic links. It never deletes them: move them out of the data folder, import what you need, and delete the rest yourself.
 
 A lookup is a single path, so files added or removed by other processes are seen at once. Parallel jobs computing the same parameters write the same file; the last rename wins.
 

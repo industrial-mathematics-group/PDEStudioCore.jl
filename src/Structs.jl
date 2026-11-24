@@ -174,9 +174,11 @@ end
 # ==============================================================================
 
 """
-    DomainInfo{D, T <: Real}
+    DomainInfo{D, T <: AbstractFloat}
 
-Metadata describing the bounding box and dimension layout of a dataset.
+Metadata describing the bounding box and dimension layout of a dataset. `T` is the floating-point type of the data
+(`Float16`, `Float32`, `Float64`, `BigFloat`, …): integer or rational data is made floating point by
+[`create_sim_data`](@ref), and the typed constructors accept no other number types.
 
 # Fields
 - `dim_keys::NTuple{D, Symbol}`: ordered axis identifiers, e.g. `(:x, :y, :t)`.
@@ -188,7 +190,7 @@ Metadata describing the bounding box and dimension layout of a dataset.
 The constructor validates the layout, copies the registry (datasets never share registries) and
 always registers `:Solution => :all`.
 """
-struct DomainInfo{D, T <: Real}
+struct DomainInfo{D, T <: AbstractFloat}
     dim_keys::NTuple{D, Symbol}
     mins::SVector{D, T}
     maxs::SVector{D, T}
@@ -197,7 +199,7 @@ struct DomainInfo{D, T <: Real}
     stat_registry::StatRegistry
 
     function DomainInfo{D, T}(dim_keys, mins, maxs, spacing, time_dim::Union{Nothing, Symbol},
-                              stat_registry::AbstractDict = get_stat_registry()) where {D, T <: Real}
+                              stat_registry::AbstractDict = get_stat_registry()) where {D, T <: AbstractFloat}
         length(dim_keys) == D || throw(ArgumentError("expected $D dimension keys, got $(length(dim_keys))"))
         dkeys = ntuple(i -> Symbol(dim_keys[i]), Val(D))
         allunique(dkeys) || throw(ArgumentError("dimension keys must be unique, got $dkeys"))

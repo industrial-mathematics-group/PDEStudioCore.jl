@@ -111,7 +111,7 @@ function _file_for(normalized::AbstractDict, hash_val::AbstractString = calculat
 end
 
 # What the file at `path` holds: :missing (no file), :same (the parameters `normalized`), :other (other parameters) or
-# :unreadable (its parameters can't be read, also a link whose target is missing). Reads the file again.
+# :unreadable (its parameters can't be read, or it is a symbolic link: the store keeps no links). Reads the file again.
 function _file_state(path::AbstractString, normalized::AbstractDict)
     ispath(path) || islink(path) || return :missing
     ident = _stored_identity(path; fresh = true)
@@ -127,7 +127,7 @@ const _STORED_LOCK = ReentrantLock()   # (the pipeline looks files up from sever
 const _STORED_MAX = 10_000
 _file_version(path::AbstractString) = (st = stat(path); (UInt(st.inode), Int(st.size), Float64(st.mtime)))
 function _stored_identity(path::AbstractString; fresh::Bool = false)
-    isfile(path) || return nothing
+    (isfile(path) && !islink(path)) || return nothing   # (a link is never taken for a run)
     version = try
         _file_version(path)
     catch
@@ -218,7 +218,7 @@ function _update_entries!(path::AbstractString, entries::AbstractDict{String}; o
         filter(((k, v),) -> !haskey(file, k) || (!only_missing && !isequal(file[k], v)), entries)
     end
     isempty(pending) && return nothing
-    path = realpath(path)  # replace the file a symlink points to, not the link
+    _refuse_link(path)
     tmp = _tmp_path(path)
     try
         cp(path, tmp)
@@ -238,6 +238,10 @@ function _update_entries!(path::AbstractString, entries::AbstractDict{String}; o
     end
     return nothing
 end
+
+# The store keeps no symbolic links: a writer never writes through one or replaces it
+_refuse_link(path::AbstractString) =
+    islink(path) && throw(ArgumentError("$path is a symbolic link; the store keeps no links (nothing was written)"))
 
 _append_key!(path::AbstractString, key::AbstractString, value) =
     _update_entries!(path, Dict{String, Any}(key => value); only_missing = true)
@@ -346,7 +350,7 @@ end
 # can't be copied, nothing is written (an error).
 function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::AbstractDict,
                          previous::Union{Nothing, AbstractString}; drop = ())
-    path = isfile(path) ? realpath(path) : path  # replace the file a symlink points to, not the link
+    _refuse_link(path)
     md = data.metadata
     (previous === nothing || !isfile(previous)) && !haskey(md, :provenance) && (md[:provenance] = _provenance())
     tmp = _tmp_path(path)
@@ -396,10 +400,9 @@ _without_metadata(d::LSimData{D, DS, M, T}) where {D, DS, M, T} =
 
 Saves the dataset under the hash of its (normalised) parameters, `<save path>/data/<hash>.jld2`, and returns the file
 path. The data stored for these parameters is only replaced when `overwrite = true` (which also drops stale
-conversion caches); a file at that name that holds other parameters, or whose parameters can't be read (also a link
-whose target is missing), is never replaced (an error). A symbolic link at that name is followed: the file it points
-to is written, if it holds these parameters, and the link stays (unlike [`import_sim_data`](@ref), which never writes
-through links).
+conversion caches); a file at that name that holds other parameters, or whose parameters can't be read, is never
+replaced (an error). Neither is a symbolic link at that name: the store keeps no links, it neither writes through
+them nor replaces them.
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 The dataset's `metadata` field is saved with it; `metadata` entries given here are added to it first.
 The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources` or
@@ -490,7 +493,7 @@ function _update_metadata!(path::AbstractString, changes::Pair...)
         v === nothing ? delete!(md, k) : (md[k] = v)
     end
     if Base.summarysize(md) > 2^20   # (appending would leave a copy of large metadata in the file every time)
-        _rewrite_file!(path, changes...) === :upgraded || error("$(basename(path)) can't be rewritten: its data doesn't load")
+        _rewrite_file!(path, changes...) === :rewritten || error("$(basename(path)) can't be rewritten: its data doesn't load")
     else
         _set_key!(path, "metadata", md)
     end
@@ -607,7 +610,7 @@ end
 _name_taken(path::AbstractString, state::Symbol) = ErrorException(
     "Not saved: $path, the file of these parameters, " *
     (state === :other ? "holds the data of other parameters" :
-     islink(path) && !ispath(path) ? "is a symbolic link whose target is missing" : "is there, but its parameters can't be read") *
+     islink(path) ? "is a symbolic link (the store keeps no links)" : "is there, but its parameters can't be read") *
     " (it was put there from outside). Inspect it (`load_sim_data(\"" * first(basename(path), 12) * "\")`), move or " *
     "delete it, then save again.")
 
@@ -769,10 +772,9 @@ loaded without recomputation, exists on disk.
 does_sim_data_exist(params::AbstractDict) = does_sim_data_exist(params, Val(:raw))
 does_sim_data_exist(params::AbstractDict, kind::Symbol, args...) = does_sim_data_exist(params, Val(kind), args...)
 
-# A file the pipeline can use: data in the current file format (version 3) with its dataset and fast metadata. A file of PDEStudioCore 0.4 counts as
-# missing, so the pipeline recomputes (and replaces) it instead of failing on it. (`upgrade` is accepted for the
-# callers: nothing is upgraded any more.)
-function _is_current_file(path::AbstractString; upgrade::Bool = true)
+# A file the pipeline can use: data in the current file format (version 3) with its dataset and fast metadata. A file
+# of PDEStudioCore 0.4 counts as missing, so the pipeline recomputes (and replaces) it instead of failing on it.
+function _is_current_file(path::AbstractString)
     version, complete = jldopen(f -> (_format_version(f), all(k -> haskey(f, k), ("raw", "native", "shape", "params"))), path, "r")
     version >= _FORMAT_VERSION && complete && return true
     version >= _FORMAT_VERSION && return false   # (e.g. its dataset was removed: missing, the pipeline recomputes it)
@@ -789,7 +791,7 @@ function _format_version(file)
     return v >= 3 && !haskey(file, "metadata") ? 2 : Int(v)   # (written by these versions)
 end
 
-# Writes a file again, with the same data (and metadata `changes`): :upgraded, or :unreadable
+# Writes a file again, with the same data (and metadata `changes`): :rewritten, or :unreadable
 function _rewrite_file!(path::AbstractString, changes::Pair...)
     raw = try
         _load_key(path, "raw")   # (read with the metadata the file holds)
@@ -805,7 +807,7 @@ function _rewrite_file!(path::AbstractString, changes::Pair...)
     entries = jldopen(f -> haskey(f, "evaluated_stats") ? Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) :
                            Dict{String, Any}(), path, "r")
     _write_sim_file(path, raw, entries, path)
-    return :upgraded
+    return :rewritten
 end
 
 function does_sim_data_exist(params::AbstractDict, ::Val{:raw})

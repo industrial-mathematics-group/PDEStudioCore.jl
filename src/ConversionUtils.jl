@@ -8,20 +8,16 @@ function _check_res(res::Tuple, D::Int)
     return ntuple(d -> Int(res[d]), D)
 end
 
-# (in at least Float64, then converted back: `b - a` of Float16 bounds can overflow where the points don't)
-_linspace(a::T, b::T, n::Int) where {T} = n == 1 ? T[a] :
-    T <: AbstractFloat ? T.(range(_wide(a), _wide(b), length = n)) : collect(range(a, b, length = n))
+# A value in at least Float64 for arithmetic whose intermediate results can overflow a narrower type (`b - a` of
+# Float16 bounds, squares of Float16 values) where the final result doesn't. (Data is always floating point, see
+# `DomainInfo`; other numbers, e.g. a reference function's integers, are made floating point.)
 _wide(x::AbstractFloat) = convert(promote_type(typeof(x), Float64), x)
-_wide(x::Real) = float(x)   # (integer or rational coordinates of directly constructed domains)
+_wide(x::Real) = float(x)
 
-# For accumulating: floating-point values widened to at least Float64 (a Float16 extent or square overflows where the
-# result doesn't), exact values (integers, rationals) kept exact
-_acc(x::AbstractFloat) = _wide(x)
-_acc(x::Real) = x
+_linspace(a::T, b::T, n::Int) where {T} = n == 1 ? T[a] : T.(range(_wide(a), _wide(b), length = n))
 
-# The mean node distance of `n` nodes from `a` to `b` (`one(T)` for a single node), computed wide for floating-point
-# axes (and exactly for rational ones) and converted to `T` at the end
-_axis_spacing(a, b, n::Integer, ::Type{T}) where {T} = n > 1 ? T((_acc(b) - _acc(a)) / (n - 1)) : one(T)
+# The mean node distance of `n` nodes from `a` to `b` (`one(T)` for a single node), computed wide, converted at the end
+_axis_spacing(a, b, n::Integer, ::Type{T}) where {T} = n > 1 ? T((_wide(b) - _wide(a)) / (n - 1)) : one(T)
 
 function _copy_domain(domain::DomainInfo{D, T}; spacing = domain.spacing) where {D, T}
     return DomainInfo{D, T}(domain.dim_keys, domain.mins, domain.maxs, spacing, domain.time_dim, domain.stat_registry)
