@@ -628,3 +628,27 @@ st_run_from_function(cfg) = run_all_simulations(cfg)   # (the pipeline started f
     save_sim_data(create_sim_data([0.0], [1.0], ParamDict(:value => "Closure")); verbose = false)
     @test_throws r"is a function" delete_sim_data(ParamDict(:value => sin); dry_run = true)
 end
+
+# Fixes of the review of #54 (reviews/2026-11-24-pull54-identity-codex.md)
+module StId54
+using PDEStudioCore
+struct Nested; m::Int; end
+PDEStudioCore.param_identity(x::Nested) = (; detail = (; left = 1, right = 2))
+@param_struct struct LabelMap; labels::Dict{String, Int}; end
+end
+
+@testset "Review fixes (#54)" begin
+    # named tuples aren't parameter values: a declared identity is one already (top level and inside an identity)
+    @test_throws r":v is a named tuple" calculate_hash(Dict(:v => (left = 1, right = 2)))
+    @test_throws r":v.detail is a named tuple" calculate_hash(Dict(:v => StId54.Nested(1)))
+    # dictionary keys keep the order of hash format 4 (`string`), also inside a declared identity: "phase\tA" (a tab)
+    # before "phase0", though its stored text "phase\\tA" sorts after it
+    m = StId54.LabelMap(Dict("phase\tA" => 1, "phase0" => 2))
+    @test val2str(m) == "LabelMap(labels=Dict{String, Int64}(\"phase\\tA\" => 1, \"phase0\" => 2))"
+    # a one-pass filter is read once
+    st_fresh()
+    src = joinpath(mktempdir(), "run.jld2")
+    mv(st_save(st_params("skip"), 1), src)
+    st_fresh()
+    @test isempty(import_sim_data(src; filter_pairs = Iterators.Stateful([:k => "keep"])))
+end

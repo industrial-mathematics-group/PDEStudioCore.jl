@@ -70,8 +70,9 @@ function val2str(v; top_level::Bool = true)
         return length(v) == 1 ? "($elements,)" : "($elements)"
     elseif isa(v, Dict)
         K, V = keytype(v), valtype(v)
-        # (keys in the order of their stored text: what a declared identity leaves out of a key doesn't reorder them)
-        entries = sort!([(val2str(k; top_level = false), k) for k in keys(v)], by = first)
+        # (keys in the order of `string`, as since hash format 4; a key holding a declared value by its stored text, since
+        # `string` would show what its identity leaves out)
+        entries = sort!([(val2str(k; top_level = false), k) for k in keys(v)], by = e -> _has_declared(e[2]) ? e[1] : string(e[2]))
         elements = join(["$kt => $(val2str(v[k]; top_level = false))" for (kt, k) in entries], ", ")
         return "Dict{$(_type_text(K)), $(_type_text(V))}($elements)"
     else
@@ -506,6 +507,7 @@ _all_fields(x) = NamedTuple{fieldnames(typeof(x))}(map(f -> getfield(x, f), fiel
 
 # (in the latest world, as `_identity_of` calls it: a declaration included later, e.g. from `config.sources`, counts)
 _declares_identity(v) = hasmethod(param_identity, Tuple{typeof(v)}; world = Base.get_world_counter())
+_has_declared(v) = _declares_identity(v) || (v isa Union{Tuple, Pair} && any(_has_declared, v isa Pair ? (v.first, v.second) : v))
 function _identity_of(v)
     id = Base.invokelatest(param_identity, v)   # (declared after the caller started, e.g. in a script)
     id isa NamedTuple || throw(ArgumentError("param_identity(::$(typeof(v))) must return a NamedTuple, got $(typeof(id))"))
@@ -517,7 +519,7 @@ function _identity_of(v)
 end
 
 # Values that are data as they are, and element types whose arrays need no look at every element
-const _PLAIN = Union{AbstractString, Symbol, AbstractChar, Number, Type, Val, Enum, Nothing, Missing}
+const _PLAIN = Union{AbstractString, Symbol, AbstractChar, Number, Type, Val, Enum, Nothing, Missing}   # (named tuples: refused)
 _plain_eltype(T) = T <: _PLAIN || (T <: StaticArray && eltype(T) <: Number)
 
 # Refuses what can't identify a run: functions, and values of custom types that don't declare their identity
@@ -541,7 +543,11 @@ function _check_param(v, path::AbstractString)
         allunique(val2str(k; top_level = false) for k in keys(v)) || throw(ArgumentError(
             "the parameter $path has keys that are the same parameter value (they differ only in what their identity " *
             "leaves out), so its stored form would depend on their order"))
-    elseif v isa Union{NamedTuple, Pair}
+    elseif v isa NamedTuple   # (a struct of its own: its names would be data, and a declared identity is one already)
+        throw(ArgumentError(
+            "the parameter $path is a named tuple: use a Dict, or for the identity of a custom type its own fields " *
+            "(the NamedTuple that `param_identity` returns, not one inside it)"))
+    elseif v isa Pair
         foreach(f -> _check_param(getfield(v, f), "$path.$f"), fieldnames(typeof(v)))
     elseif _declares_identity(v)
         for (k, x) in pairs(_identity_of(v))
@@ -631,6 +637,7 @@ _same_value(a, b) = sprint(_encode, a) == sprint(_encode, b)
 # Whether normalised parameters contain all `pairs` (keys strings or symbols; values normalised here), compared as values
 # of the hash (`_same_value`)
 function _has_pairs(clean::AbstractDict, pairs)
+    pairs = collect(pairs)   # (read once: a one-pass iterator would be used up by the check)
     foreach(((k, v),) -> _check_param(v, ":$k"), pairs)   # (a filter value is a parameter value: a function is refused)
     return all(((k, v),) -> haskey(clean, Symbol(k)) && _same_value(clean[Symbol(k)], _normalize_param(v)), pairs)
 end

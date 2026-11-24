@@ -182,6 +182,7 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
         throw(ArgumentError("import_sim_data: $source is neither a file nor a directory"))
     end
     remove = Set(Symbol.(remove_keys))
+    filter_pairs === nothing || (filter_pairs = collect(filter_pairs))   # (read for every file: a one-pass iterator once)
     imported, skipped, failed = Pair{String, String}[], String[], String[]
     sources = Dict{String, String}()   # destination => the source imported to it here
     for src in paths
