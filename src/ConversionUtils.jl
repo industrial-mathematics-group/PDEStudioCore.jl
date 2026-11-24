@@ -143,7 +143,8 @@ function convert_to_eulerian(ldata::LSimData{D, DS, M, T}, res::Tuple; spatial_i
     end
     e_shape = D > DS ? (s_res..., length(steps)) : s_res
 
-    A = promote_type(T, Float32)   # (the scatter accumulates in it: Float16 sums of weights overflow or round to zero)
+    A = promote_type(T, Float64)   # (the scatter accumulates in it: Float16 sums of weights overflow, Float32 products of
+                                   # values and on-node weights of up to 1e12 too)
     zero_acc = zero(SVector{M, A})
     u_acc = fill(zero_acc, e_shape)
     w_out = zeros(A, e_shape)
