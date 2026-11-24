@@ -153,9 +153,11 @@ is written atomically, so an interrupted import is simply run again.
 
 Every source file the filter selects is checked before anything is written: it must hold a dataset (`"raw"`) whose
 parameters, kind and shape are those stored in the file, in the file format of PDEStudioCore 0.5 and later. Files that
-fail (can't be read, no dataset, written by PDEStudioCore 0.4, …) are reported and skipped. What is installed is a
-copy of the source, checked again (also that its parameters are still the ones planned): a source that changed in
-between is reported, and its destination is left as it is.
+fail (can't be read, no dataset, written by PDEStudioCore 0.4, …) are reported and skipped. The plan (the check, the
+prompts) refers to the source as it was then, identified by the SHA-256 digest of its bytes: what is installed is a
+copy with that digest, so a source whose bytes changed in between (whatever changed) is reported, and its destination
+is left as it is. A run imported with other parameters loses its statistics (except the solution), their evaluation
+records and its post-processing record, since they belong to the old parameters: the pipeline evaluates them again.
 
 A run that is stored already is skipped (`overwrite = true` replaces the stored data of the same parameters); a stored
 file of the same parameters that isn't a usable run (e.g. without its dataset) is replaced, with a message. A file
@@ -202,6 +204,14 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
         # (the filter on the lightweight parameters first: the dataset of a run it excludes isn't loaded)
         stored = try jldopen(f -> haskey(f, "params") ? f["params"] : nothing, src, "r") catch; nothing end
         filter_pairs === nothing || !(stored isa AbstractDict) || _has_pairs(_normalize_params(stored), filter_pairs) || continue
+        # the version of the source the plan refers to (its check, the prompts): its bytes' digest, taken first
+        digest = try
+            open(sha256, src)
+        catch e
+            e isa InterruptException && rethrow()
+            @warn "Not imported: $src can't be read" exception = e
+            push!(failed, src); continue
+        end
         problem = _run_problem(src)
         if problem !== nothing
             @warn "Not imported: $src: $problem"
@@ -213,13 +223,14 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
         foreach(k -> delete!(params, k), remove)
         isempty(prompt) || _prompt_param_values!(params, prompt, basename(src))
         params = _normalize_params(params)
-        push!(plan, (src = src, stored = stored, params = params, dest = _hash_path(calculate_hash(params), dir)))
+        push!(plan, (src = src, digest = digest, stored = stored, params = params, dest = _hash_path(calculate_hash(params), dir)))
     end
 
-    # 2. Copies: each source is copied next to its destination first, and that copy (the bytes installed) is checked
-    # again, so a source changed since the plan (e.g. during a prompt) is reported instead of installed
+    # 2. Copies: each source is copied next to its destination first, and that copy (the bytes installed) must be the
+    # version planned (the same digest; checked again), so a source changed since the plan (e.g. during a prompt) is
+    # reported instead of installed
     sources = Dict{String, String}()   # destination => the source imported to it here
-    for (; src, stored, params, dest) in plan
+    for (; src, digest, stored, params, dest) in plan
         if haskey(sources, dest)
             @warn "Not imported: $src holds the parameters of $(sources[dest]), imported before"
             push!(skipped, src); continue
@@ -245,11 +256,11 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
                   "writes (also not with `overwrite = true`)."
             push!(failed, src); continue
         end
-        mkpath(dir)
         staged = _tmp_path(dest)
         try
+            mkpath(dir)
             cp(src, staged; follow_symlinks = true)
-            changed = _run_problem(staged)
+            changed = open(sha256, staged) == digest ? _run_problem(staged) : "its content changed"
             changed === nothing && _raw_identity(_file_params(staged)) != _raw_identity(stored) &&
                 (changed = "its parameters changed")
             if changed !== nothing
@@ -263,14 +274,18 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
                 raw = _open_data(f -> (r = f["raw"]; r.metadata = _file_metadata(f); r), staged)
                 empty!(raw.params)
                 merge!(raw.params, params)
-                _write_sim_file(dest, raw, Dict{String, Any}(), staged)
+                # what was evaluated with the old parameters (statistics, e.g. errors against a reference of them, and
+                # post-processing) isn't valid for the new ones: the pipeline evaluates it again
+                foreach(k -> k === :Solution || delete!(raw.stats, k), collect(keys(raw.stats)))
+                delete!(raw.metadata, :postprocessed)
+                _write_sim_file(dest, raw, Dict{String, Any}(), staged; drop = ("evaluated_with_reference", "evaluated_reference"))
             end
         catch e
             e isa InterruptException && rethrow()
             @warn "Not imported: $src" exception = e
             push!(failed, src); continue
         finally
-            rm(staged; force = true)
+            ispath(staged) && rm(staged; force = true)   # (`rm` throws if the data folder isn't a directory)
         end
         sources[dest] = src
         push!(imported, src => dest)

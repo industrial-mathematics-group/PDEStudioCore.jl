@@ -433,6 +433,10 @@ function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::B
         records[name] = record
         sim_data = _load_key(path, "raw")   # (with its metadata)
         if post_func(sim_data) === true
+            # (saved under its parameters: a post-processor that changed them would replace another run)
+            _identity(_normalize_params(sim_data.params)) == _identity(_normalize_params(params)) ||
+                error("the post-processor $name changed the parameters of the data (to " *
+                      "$(_param_summary(_normalize_params(sim_data.params), Set{Symbol}()))); nothing was saved")
             # The rewrite keeps the record of evaluated statistics, so the next run doesn't redo them; the metadata
             # the post-processor changed is saved with the data.
             sim_data.metadata[:postprocessed] = records
@@ -554,7 +558,8 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
    a reference are evaluated again once a reference is configured. `force_stats = true` recomputes
    every registered statistic without rerunning the simulations,
 3. with `post_process = true`, calls `config.postprocess(data)` for every dataset it hasn't post-processed yet and
-   saves the (modified) data again when it returns `true`. Each file records the post-processor that ran (its name,
+   saves the (modified) data again when it returns `true` (a post-processor that changed the data's parameters fails:
+   the data would replace another run). Each file records the post-processor that ran (its name,
    the source files of the run and its package's version), so it runs once per dataset and post-processor: on new
    data, and for a post-processor of another name. Data post-processed by another version of it (other source files
    or package version; with `on_changed_sources = :ignore` only another package version) is kept and reported as
@@ -692,8 +697,7 @@ end
 # ==============================================================================
 
 function _grid_spacing(axes::Tuple, ::Type{T}) where {T}
-    return SVector{length(axes), T}(ntuple(d -> length(axes[d]) > 1 ?
-        (last(axes[d]) - first(axes[d])) / T(length(axes[d]) - 1) : one(T), length(axes)))
+    return SVector{length(axes), T}(ntuple(d -> _axis_spacing(first(axes[d]), last(axes[d]), length(axes[d]), T), length(axes)))
 end
 
 """

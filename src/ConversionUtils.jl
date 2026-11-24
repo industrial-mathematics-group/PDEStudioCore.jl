@@ -14,6 +14,10 @@ _linspace(a::T, b::T, n::Int) where {T} = n == 1 ? T[a] :
 _wide(x::AbstractFloat) = convert(promote_type(typeof(x), Float64), x)
 _wide(x::Real) = float(x)   # (integer or rational coordinates of directly constructed domains)
 
+# The mean node distance of `n` nodes from `a` to `b` (`one(T)` for a single node), computed wide and converted to `T`
+# at the end: the extent of a Float16 axis can overflow where the spacing doesn't
+_axis_spacing(a, b, n::Integer, ::Type{T}) where {T} = n > 1 ? T((_wide(b) - _wide(a)) / (n - 1)) : one(T)
+
 function _copy_domain(domain::DomainInfo{D, T}; spacing = domain.spacing) where {D, T}
     return DomainInfo{D, T}(domain.dim_keys, domain.mins, domain.maxs, spacing, domain.time_dim, domain.stat_registry)
 end
@@ -122,7 +126,7 @@ function convert_to_eulerian(ldata::LSimData{D, DS, M, T}, res::Tuple; spatial_i
             throw(ArgumentError("the particles have no extent along :$(domain.dim_keys[d]); use a resolution of 1 for that dimension"))
         end
     end
-    s_dx = SVector{DS, T}(ntuple(d -> s_res[d] > 1 ? T((_wide(s_maxs[d]) - _wide(s_mins[d])) / (s_res[d] - 1)) : one(T), Val(DS)))
+    s_dx = SVector{DS, T}(ntuple(d -> _axis_spacing(s_mins[d], s_maxs[d], s_res[d], T), Val(DS)))
     grid_axes = ntuple(d -> _linspace(s_mins[d], s_maxs[d], s_res[d]), Val(DS))
 
     if D > DS
@@ -169,7 +173,7 @@ function convert_to_eulerian(ldata::LSimData{D, DS, M, T}, res::Tuple; spatial_i
     end
 
     if D > DS
-        dt = length(t_new) > 1 ? (last(t_new) - first(t_new)) / T(length(t_new) - 1) : domain.spacing[D]
+        dt = length(t_new) > 1 ? _axis_spacing(first(t_new), last(t_new), length(t_new), T) : domain.spacing[D]
         e_axes = (grid_axes..., t_new)
         e_spacing = SVector{D, T}((s_dx..., dt))
     else
@@ -253,8 +257,7 @@ function resample_eulerian(data::ESimData{D, DS, M, T}, res::Tuple) where {D, DS
         key === :Solution && continue
         new_stats[key] = _resample_stat(key, value, data, new_axes)
     end
-    new_spacing = SVector{D, T}(ntuple(d -> res_[d] > 1 ?
-        (last(new_axes[d]) - first(new_axes[d])) / T(res_[d] - 1) : one(T), Val(D)))
+    new_spacing = SVector{D, T}(ntuple(d -> _axis_spacing(first(new_axes[d]), last(new_axes[d]), res_[d], T), Val(D)))
     return ESimData{D, DS, M, T}(data.params, _copy_domain(data.domain; spacing = new_spacing), new_axes, new_u, new_stats,
                                  _derived_metadata(data.metadata, :conversion))
 end

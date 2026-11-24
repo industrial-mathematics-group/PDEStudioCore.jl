@@ -327,3 +327,124 @@ h3_swap_during_prompt() = (mv(H3_SWAP[][2], H3_SWAP[][1]; force = true); "other"
         end
     end
 end
+
+# Fixes of the reviews of 2026-11-24 (reviews/2026-11-24-full-codebase-codex.md) and of #39
+# (reviews/2026-11-23-checked-import-codex.md), one case per finding
+struct H3Calibration
+    value::Int
+end
+const H3_WRITE = Ref(true)   # (a type whose stored form reads, but can't be written in this session)
+PDEStudioCore.JLD2.writeas(::Type{H3Calibration}) = Int
+PDEStudioCore.JLD2.wconvert(::Type{Int}, x::H3Calibration) = H3_WRITE[] ? x.value : error("calibration writer unavailable")
+PDEStudioCore.JLD2.rconvert(::Type{H3Calibration}, x::Int) = H3Calibration(x)
+h3_case(k) = create_param_dict(:sim_func_name => :h3_solver, :k => k)
+h3_solver(p) = create_sim_data([0.0, 1.0], fill(Float64(p[:k]), 2), p)
+h3_reference(p) = _ -> p[:k]
+h3_moving_post(data) = (data.params[:k] = 2; true)
+
+@testset "Review fixes (2026-11-24)" begin
+    @testset "1. an entry that can't be carried over fails the rewrite, the file stays" begin
+        h3_fresh()
+        p = h3_params("calibrated")
+        data = h3_data(p, 1)
+        path = save_sim_data(data; verbose = false)
+        PDEStudioCore.JLD2.jldopen(f -> (f["calibration"] = H3Calibration(47)), path, "a+")
+        before = read(path)
+        H3_WRITE[] = false
+        data.metadata[:units] = "K"
+        try
+            @test_throws r"entry 'calibration'.*can't be carried over"s save_sim_data(data; overwrite = true, verbose = false)
+        finally
+            H3_WRITE[] = true
+        end
+        @test read(path) == before && !any(f -> endswith(f, ".tmp"), readdir(dirname(path)))
+        @test PDEStudioCore.JLD2.jldopen(f -> f["calibration"].value, path, "r") == 47
+    end
+
+    @testset "2. a post-processor that changes the parameters fails, no run is replaced" begin
+        h3_fresh()
+        a, b = h3_case(1), h3_case(2)
+        save_sim_data(h3_solver(b); verbose = false)
+        s = run_all_simulations(SimulationConfig(a; postprocess = :h3_moving_post))
+        @test s.postprocessing[:failed] == 1 && occursin("changed the parameters", last(only(s.postprocessing_failed)))
+        @test load_sim_data(b).u[1][1] == 2.0 && load_sim_data(a).u[1][1] == 1.0
+        @test !haskey(load_sim_data(a).metadata, :postprocessed)
+    end
+
+    @testset "3. an import with other parameters drops what was evaluated with the old ones" begin
+        h3_fresh()
+        a, b = h3_case(1), h3_case(2)
+        cfg(p) = SimulationConfig(p; reference = :h3_reference, postprocess = :count_post)
+        run_all_simulations(cfg(a); calculate_stats = true)
+        @test load_sim_data(a).stats[:l1error][1] == 0.0 && haskey(load_sim_data(a).metadata, :postprocessed)
+        source = get_file_name(a)
+        h3_fresh()
+        imported = mktemp() do _, io
+            write(io, "2\n"); flush(io); seekstart(io)
+            redirect_stdout(devnull) do
+                redirect_stdin(() -> import_sim_data(source; prompt_keys = [:k]), io)
+            end
+        end
+        @test length(imported) == 1
+        d = load_sim_data(b)
+        @test collect(keys(d.stats)) == [:Solution] && !haskey(d.metadata, :postprocessed)
+        @test !PDEStudioCore.JLD2.jldopen(f -> haskey(f, "evaluated_with_reference") || haskey(f, "evaluated_stats"), get_file_name(b), "r")
+        s = run_all_simulations(cfg(b); calculate_stats = true)
+        @test get(s.stats, :ran, 0) == 1 && load_sim_data(b).stats[:l1error][1] == 2.0   # (|1 - 2| on two unit-spaced nodes)
+    end
+
+    @testset "4./5. Float16 spacing and statistics don't overflow where the result doesn't" begin
+        for T in (Float16, Float32, Float64)
+            d = create_sim_data(T[-40000, 0, 40000], T[0.25, 0.25, 0.25], ParamDict())
+            calculate_all_stats!(d; save = false)
+            @test d.domain.spacing[1] == T(40000) && d.stats[:mass][1] == T(30000) && d.stats[:mass] isa SVector{1, T}
+            d = create_sim_data(T[0, 1], T[300, 300], ParamDict())
+            calculate_all_stats!(d; save = false)
+            @test d.stats[:l2norm][1] ≈ T(sqrt(2) * 300) rtol = 1e-3
+        end
+        # resampled and reference grids
+        t = Float16[0, 30000, 60000]
+        e = create_sim_data(Float16[-40000, 0, 40000], fill(Float16(1), 3, 3), t, ParamDict())
+        r = resample_eulerian(e, (5, 3))
+        @test all(isfinite, r.domain.spacing) && r.domain.spacing[1] == Float16(20000) && e.domain.spacing[2] == Float16(30000)
+        @test PDEStudioCore._grid_spacing((Float16[-40000, 0, 40000],), Float16)[1] == Float16(40000)
+        lag = create_sim_data([[SVector(Float16(-40000)), SVector(Float16(40000))]], [[SVector(Float16(1)), SVector(Float16(1))]],
+                              Float16[0], ParamDict())
+        @test isfinite(convert_to_eulerian(lag, (3, 1)).domain.spacing[1])
+    end
+
+    @testset "6. a source replaced by another valid version during a prompt is reported" begin
+        h3_fresh()
+        p = h3_params("run")
+        dest = h3_save(p, 7)
+        original = read(dest)
+        folder = mktempdir()
+        src = joinpath(folder, "a-incoming.jld2")
+        cp(dest, src)
+        cp(h3_save(h3_params("other"), 11), joinpath(folder, "z-next.jld2"))
+        newer = joinpath(mktempdir(), "newer.jld2")
+        h3_fresh(); cp(h3_save(p, 91), newer)   # (a complete run of the same parameters, field 91)
+        set_save_path!(dirname(dirname(dest)))
+        H3_SWAP[] = (src, newer)
+        imported = mktemp() do _, io
+            write(io, "\nh3_swap_during_prompt()\n"); flush(io); seekstart(io)
+            redirect_stdout(devnull) do
+                redirect_stdin(io) do
+                    @test_logs (:warn, r"content changed") match_mode = :any import_sim_data(folder; prompt_keys = [:k], overwrite = true)
+                end
+            end
+        end
+        @test length(imported) == 1 && read(dest) == original && h3_stored(dest) == ("run", 7.0)
+    end
+
+    @testset "7. a data folder that isn't a directory fails each import, not the batch" begin
+        h3_fresh()
+        external = joinpath(mktempdir(), "run.jld2")
+        mv(h3_save(h3_params("first"), 7), external)
+        dir = joinpath(get_save_path(), "data")
+        rm(dir; recursive = true)
+        write(dir, "store path occupied by a regular file")
+        @test isempty(@test_logs (:warn, r"Not imported") match_mode = :any import_sim_data(external)) && isfile(external)
+        h3_fresh()   # (later tests save to the save path)
+    end
+end
