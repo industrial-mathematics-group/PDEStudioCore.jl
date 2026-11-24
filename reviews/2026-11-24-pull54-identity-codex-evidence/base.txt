@@ -1,0 +1,9 @@
+Direct names: hash=9777c23ac5c09336882bd3653c557255dfdd07416110d359c0d553826fb50ff1 stored="DirectNames(left=1, right=2)" ran=1 cached=0 field=10.0
+Direct names: hash=9777c23ac5c09336882bd3653c557255dfdd07416110d359c0d553826fb50ff1 stored="DirectNames(left=1, right=2)" ran=0 cached=1 field=10.0
+Nested names: hash=bb3b551a6aa23f631b4b875d1e2375aac8d4c2bfafd4f2d5bec30d813e8c2bc7 stored="NestedNames(detail=NamedTuple(left=1, right=2))" ran=1 cached=0 field=10.0
+Nested names: hash=bb3b551a6aa23f631b4b875d1e2375aac8d4c2bfafd4f2d5bec30d813e8c2bc7 stored="NestedNames(detail=NamedTuple(left=1, right=2))" ran=0 cached=1 field=10.0
+Hidden stored field: hashes_differ=false
+Identical declared key pairs: hashes_match=false
+Duplicate declared dictionary key: accepted hash=aa2ca6aa02d6ded40adc2b7b7a67bf72359a8bc5fa8ca0f13e053cf84e769651
+Function filter: preview_matches=1
+Single-pass mismatch filter: imported=0 present=false
