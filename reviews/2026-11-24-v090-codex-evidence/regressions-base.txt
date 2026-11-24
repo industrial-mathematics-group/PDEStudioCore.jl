@@ -1,0 +1,6 @@
+unused import key: imports=1 source bytes preserved=true field=11.0 diagnostic=23.0 mass=20.0 post=Dict(:skipped => 1)
+interactive import keyword: MethodError
+mutating reference factory: requested=11.0 unrelated=80.0 task kept offset=true
+rewrite user entry: (47, "kelvin", true)
+rewrite group with attributes: original preserved=true outcome=Not saved: the entry 'pending' of <run>.jld2 can't be carried over (the group 'pending' has attributes (units), which a rewrite can't keep); the file is left as it was
+import incomplete destination: imported=1 destination preserved=false
