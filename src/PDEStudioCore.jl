@@ -10,7 +10,7 @@ any dimension, deterministic parameter hashing with atomic on-disk caching, para
 module PDEStudioCore
 
 using LinearAlgebra, StaticArrays, ProgressMeter, Polyester, Interpolations
-using JLD2, FileIO, SHA, Dates, DataFrames
+using JLD2, SHA, Dates, DataFrames
 
 # --- Core types ---
 export AbstractSimData, ESimData, LSimData, NoSimData, DomainInfo, StatsView, SimulationConfig
