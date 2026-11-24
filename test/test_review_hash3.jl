@@ -341,6 +341,10 @@ h3_case(k) = create_param_dict(:sim_func_name => :h3_solver, :k => k)
 h3_solver(p) = create_sim_data([0.0, 1.0], fill(Float64(p[:k]), 2), p)
 h3_reference(p) = _ -> p[:k]
 h3_moving_post(data) = (data.params[:k] = 2; true)
+h3_diag(k) = create_param_dict(:sim_func_name => :h3_diag_solver, :k => k)
+h3_diag_solver(p) = (d = h3_solver(p); add_stat!(d, :iterations, 23.0, Symbol[]); d)   # (a solver diagnostic)
+h3_double_reference(p) = _ -> 2 * p[:k]
+h3_add_one(data) = (data.u = map(v -> v .+ 1, data.u); true)
 
 @testset "Review fixes (2026-11-24)" begin
     @testset "1. an entry that can't be carried over fails the rewrite, the file stays" begin
@@ -371,12 +375,13 @@ h3_moving_post(data) = (data.params[:k] = 2; true)
         @test !haskey(load_sim_data(a).metadata, :postprocessed)
     end
 
-    @testset "3. an import with other parameters drops what was evaluated with the old ones" begin
+    @testset "3. an import with other parameters drops what the statistics pass evaluated with the old ones" begin
         h3_fresh()
-        a, b = h3_case(1), h3_case(2)
-        cfg(p) = SimulationConfig(p; reference = :h3_reference, postprocess = :count_post)
+        a, b = h3_diag(1), h3_diag(2)
+        cfg(p) = SimulationConfig(p; reference = :h3_double_reference, postprocess = :h3_add_one)
         run_all_simulations(cfg(a); calculate_stats = true)
-        @test load_sim_data(a).stats[:l1error][1] == 0.0 && haskey(load_sim_data(a).metadata, :postprocessed)
+        d = load_sim_data(a)
+        @test d.u[1][1] == 2.0 && d.stats[:l1error][1] == 2.0 && haskey(d.metadata, :postprocessed)   # (|1 - 2| twice, before +1)
         source = get_file_name(a)
         h3_fresh()
         imported = mktemp() do _, io
@@ -387,10 +392,12 @@ h3_moving_post(data) = (data.params[:k] = 2; true)
         end
         @test length(imported) == 1
         d = load_sim_data(b)
-        @test collect(keys(d.stats)) == [:Solution] && !haskey(d.metadata, :postprocessed)
+        @test !haskey(d.stats, :l1error) && d.stats[:iterations][1] == 23.0 && haskey(d.metadata, :postprocessed)
         @test !PDEStudioCore.JLD2.jldopen(f -> haskey(f, "evaluated_with_reference") || haskey(f, "evaluated_stats"), get_file_name(b), "r")
         s = run_all_simulations(cfg(b); calculate_stats = true)
-        @test get(s.stats, :ran, 0) == 1 && load_sim_data(b).stats[:l1error][1] == 2.0   # (|1 - 2| on two unit-spaced nodes)
+        d = load_sim_data(b)
+        @test get(s.stats, :ran, 0) == 1 && d.stats[:l1error][1] == 4.0   # (|2 - 4| on two unit-spaced nodes)
+        @test d.u[1][1] == 2.0 && d.stats[:iterations][1] == 23.0 && get(s.postprocessing, :ran, 0) == 0   # (not post-processed twice)
     end
 
     @testset "4./5. Float16 spacing and statistics don't overflow where the result doesn't" begin
@@ -446,5 +453,77 @@ h3_moving_post(data) = (data.params[:k] = 2; true)
         write(dir, "store path occupied by a regular file")
         @test isempty(@test_logs (:warn, r"Not imported") match_mode = :any import_sim_data(external)) && isfile(external)
         h3_fresh()   # (later tests save to the save path)
+    end
+end
+
+# Fixes of the review of #42 (reviews/2026-11-24-pull42-codex.md), one case per finding
+h3_popping_reference(p) = (pop!(p, :offset); _ -> 0.0)   # (a reference factory that takes its parameter out)
+
+@testset "Review fixes (#42)" begin
+    # 1. and 4. (no second post-processing after an import, solver statistics kept): `Review fixes (2026-11-24)`, case 3
+    @testset "2. integer and rational statistics stay exact" begin
+        old = PDEStudioCore.get_stat_registry()
+        try
+            set_stat_registry!(Dict(:mass => :time))
+            d = DomainInfo{1, Int}((:x,), (0,), (1,), (1,), nothing)
+            vals = [2^53 + 1, -2^53]
+            field = ESimData(ParamDict(), d, ([0, 1],), SVector.(vals))
+            calculate_all_stats!(field, _ -> 0; save = false)
+            @test field.stats[:mass][1] === 1
+            r = DomainInfo{1, Rational{Int}}((:x,), (0 // 1,), (1 // 1,), (1 // 1,), nothing)
+            rf = ESimData(ParamDict(), r, ([0 // 1, 1 // 1],), SVector.([1 // 3, 1 // 6]))
+            calculate_all_stats!(rf, _ -> 0; save = false)
+            @test rf.stats[:mass][1] === 1 // 2
+        finally
+            set_stat_registry!(old)
+        end
+    end
+
+    @testset "3. rational grids keep exact spacings" begin
+        T = Rational{Int}
+        lo = 10^16 // 1
+        bounds = DomainInfo{1, T}((:x,), (lo,), (lo + 1,), (1 // 1,), nothing)
+        ref = generate_reference_simdata(_ -> 1 // 1, ParamDict(), bounds, (2,), :eulerian)
+        @test ref.axes[1][2] - ref.axes[1][1] == 1 && only(ref.domain.spacing) === 1 // 1
+        unit = DomainInfo{1, T}((:x,), (0 // 1,), (1 // 1,), (1 // 3,), nothing)
+        @test only(generate_reference_simdata(_ -> SVector(1 // 1), ParamDict(), unit, (4,), :eulerian).domain.spacing) === 1 // 3
+        @test PDEStudioCore._axis_spacing(0 // 1, 1 // 1, 4, T) === 1 // 3
+    end
+
+    @testset "outside: a reference factory gets a copy of the task" begin
+        h3_fresh()
+        p = create_param_dict(:sim_func_name => :h3_solver, :k => 10, :offset => 5)
+        other = create_param_dict(:sim_func_name => :h3_solver, :k => 10)
+        save_sim_data(create_sim_data([0.0, 1.0], [80.0, 80.0], other); verbose = false)
+        s = run_all_simulations(SimulationConfig(p; reference = :h3_popping_reference, postprocess = :h3_add_one); calculate_stats = true)
+        @test load_sim_data(p).u[1][1] == 11.0 && load_sim_data(other).u[1][1] == 80.0
+        @test haskey(only(s.tasks), :offset) && get(s.postprocessing, :ran, 0) == 1
+    end
+
+    @testset "outside: a rewrite keeps attributes and empty groups, or fails" begin
+        JLD2 = PDEStudioCore.JLD2
+        h3_fresh()
+        p = h3_params("entries")
+        d = h3_data(p, 1)
+        path = save_sim_data(d; verbose = false)
+        JLD2.jldopen(path, "a+") do f
+            ds = JLD2.create_dataset(f, "calibration")
+            JLD2.add_attribute(ds, "units", "kelvin")
+            JLD2.write_dataset(ds, 47)
+            JLD2.Group(f, "pending_measurements")
+            g = JLD2.Group(f, "outer")
+            inner = JLD2.Group(g, "inner")
+            nested = JLD2.create_dataset(inner, "x")
+            JLD2.add_attribute(nested, "a", 1.5)
+            JLD2.write_dataset(nested, [1, 2])
+        end
+        d.metadata[:note] = "completed"
+        save_sim_data(d; overwrite = true, verbose = false)
+        JLD2.jldopen(path, "r") do f
+            @test f["calibration"] == 47 && JLD2.attributes(JLD2.get_dataset(f, "calibration"))["units"] == "kelvin"
+            @test haskey(f, "pending_measurements") && isempty(keys(f["pending_measurements"]))
+            @test f["outer/inner/x"] == [1, 2] && JLD2.attributes(JLD2.get_dataset(f["outer"]["inner"], "x"))["a"] == 1.5
+        end
+        @test load_sim_data(p).metadata[:note] == "completed"
     end
 end

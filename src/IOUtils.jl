@@ -309,19 +309,32 @@ function _may_hide(T, depth::Int = 4)
     return false
 end
 
-# Copies an entry (recursively for groups) from one open JLD2 file to another. Entries are loaded and stored
-# again, so an entry whose type isn't loaded in this session is stored as JLD2's reconstruction (warned).
+# Copies an entry (recursively for groups, also empty ones) from one open JLD2 file or group to another, with the
+# attributes of datasets. Entries are loaded and stored again, so an entry whose type isn't loaded in this session is
+# stored as JLD2's reconstruction (warned). A group with attributes (which JLD2 can't write) fails the copy: a rewrite
+# never drops what it can't keep.
 function _copy_entry!(dest, src, key::AbstractString)
+    attrs = JLD2.attributes(JLD2.get_dataset(src, key))
     value = src[key]
+    if value isa JLD2.Group
+        isempty(attrs) || error("the group '$key' has attributes ($(join(keys(attrs), ", "))), which a rewrite can't keep")
+        group = JLD2.Group(dest, key)
+        for sub in keys(value)
+            _copy_entry!(group, value, sub)
+        end
+        return nothing
+    end
     found = _reconstructed_type(value)
     found === nothing || @warn "Entry '$key' contains a type that isn't loaded in this session ($found); it is " *
         "kept as JLD2's reconstruction. Load the package that defines it before rewriting the data."
-    if value isa JLD2.Group
-        for sub in keys(value)
-            _copy_entry!(dest, src, string(key, "/", sub))
-        end
-    else
+    if isempty(attrs)
         dest[key] = value
+    else
+        dataset = JLD2.create_dataset(dest, key)
+        for (k, v) in attrs
+            JLD2.add_attribute(dataset, k, v)
+        end
+        JLD2.write_dataset(dataset, value)
     end
     return nothing
 end
