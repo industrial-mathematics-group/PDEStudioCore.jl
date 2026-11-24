@@ -1,0 +1,10 @@
+Nested undeclared: accepted as "NamedTuple(data=Any[Undeclared(id=1)])"
+Wrong return type: accepted as "BadIdentity(id=1)"
+Function returned by identity: accepted as "FunctionIdentity(f=Closure)"
+Distinct identity names: stored="Delimiters(mode=1)" hash=f3da61ac5bc4d913c27cc79c1f2a1153a28c99ff471281cee7b2efb50facff3e ran=1 cached=0 field=10.0
+Distinct identity names: stored="Delimiters(mode=2)" hash=7736fe3f6c722ff69bfe9aedeee1b11a5df729d048b0766348bf258f282de7f2 ran=1 cached=0 field=20.0
+All fields macro: stored="HiddenField(public_value=1)" hash=786ee757c17f445e32a2a633d294cf604c1c3b192ccee455ff3f5765c0b34fb2 ran=1 cached=0 field=10.0
+All fields macro: stored="HiddenField(public_value=1)" hash=786ee757c17f445e32a2a633d294cf604c1c3b192ccee455ff3f5765c0b34fb2 ran=0 cached=1 field=10.0
+Dictionary keys: stored="Dict{BoundaryKey, String}(BoundaryKey(work=0, id=2) => \"high\", BoundaryKey(work=9, id=1) => \"low\")" hash=50c68d0e5258dbaebc8814fed5eccb667eb6aa4de1cd424fab70c0c4c5dcb62d
+Dictionary keys: stored="Dict{BoundaryKey, String}(BoundaryKey(work=0, id=1) => \"low\", BoundaryKey(work=9, id=2) => \"high\")" hash=8d5f9fb8521fb3abb1b64efccc7178fd50ed86837a90723e377c2de6b3ea9f7f
+Function used as delete filter: preview_matches=1
