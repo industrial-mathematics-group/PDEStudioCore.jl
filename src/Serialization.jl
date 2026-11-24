@@ -8,14 +8,20 @@
 # through `val2str`, e.g. PDEStudio's typed CSV values such as `1.5f0`. (The hash doesn't depend on it, see `_identity`.)
 _ambiguous_text(s::AbstractString) = s == "<empty>" || occursin(r", [A-Za-z_]\w* => ", s)
 
+# The text of a type without module prefixes (`SVector{2, Float64}`, also where `StaticArraysCore.SVector` isn't
+# visible in `Main`, `Wall` for `HyperCloud.Wall`): `string(T)` qualifies the names `Main` doesn't see, so a parameter
+# would be stored and hashed differently depending on what the session loaded with `using`
+_type_text(T) = replace(string(T), r"(?<![\w.:])(?:[A-Za-z_]\w*\.)+(?=[A-Za-z_])" => "")
+
 """
     val2str(v; top_level::Bool = true)
 
 Converts a value into a Julia-literal-like string (the basis of parameter normalisation).
 Top-level strings are written unquoted (unless their text could be read as something else, see below),
 strings inside containers are quoted, functions become
-`"Closure"`, enum values are written as `TypeName.value` and custom structs as
-`TypeName(field=value, ...)`.
+`"Closure"` (parameters refuse them), enum values are written as `TypeName.value` and custom structs as
+`TypeName(field=value, ...)` (a struct without fields as its type with its parameters, e.g. `Limiter{:minmod}`).
+Type names are written without module prefixes, so the text doesn't depend on what the session loaded with `using`.
 """
 function val2str(v; top_level::Bool = true)
     if v isa AbstractString && isempty(v)
@@ -33,11 +39,13 @@ function val2str(v; top_level::Bool = true)
         return top_level && !_ambiguous_text(v) ? String(v) : repr(String(v))
     elseif isa(v, AbstractChar)
         return repr(v)
-    elseif isa(v, Number) || isa(v, Type)
+    elseif isa(v, Number)
         return string(v)
+    elseif isa(v, Type)
+        return _type_text(v)
     elseif isa(v, AbstractArray)
         T = eltype(v)
-        prefix = T === Any ? "Any" : string(T)
+        prefix = T === Any ? "Any" : _type_text(T)
         elements = join([val2str(x; top_level = false) for x in v], ", ")
         # Multidimensional arrays keep their shape (vectors are written without `reshape`).
         return ndims(v) == 1 ? "$(prefix)[$elements]" : "reshape($(prefix)[$elements], $(val2str(size(v))))"
@@ -48,11 +56,11 @@ function val2str(v; top_level::Bool = true)
         K, V = keytype(v), valtype(v)
         sorted_keys = sort(collect(keys(v)), by = string)
         elements = join(["$(val2str(k; top_level = false)) => $(val2str(v[k]; top_level = false))" for k in sorted_keys], ", ")
-        return "Dict{$K, $V}($elements)"
+        return "Dict{$(_type_text(K)), $(_type_text(V))}($elements)"
     else
         type_name = string(typeof(v).name.name)
         fields = propertynames(v)
-        isempty(fields) && return type_name
+        isempty(fields) && return _type_text(typeof(v))   # (a tag such as `Limiter{:minmod}()`: its parameters tell it apart)
         field_strs = ["$f=$(val2str(getproperty(v, f); top_level = false))" for f in fields]
         return "$type_name(" * join(field_strs, ", ") * ")"
     end
@@ -421,13 +429,24 @@ function str2val(val_str::AbstractString)
 end
 
 # Normalisation used before saving and hashing: strings are kept verbatim (they are never
-# re-interpreted as code), closures become "Closure", other values round-trip through val2str.
+# re-interpreted as code), other values round-trip through val2str. Functions are refused (`val2str` writes every one as
+# "Closure").
 # Known limitation: `nothing`/`missing` *inside* containers come back as the types `Nothing`/`Missing`
 # (or the container as a string); the normalised form is normalised again to itself, so lookups stay consistent.
 _normalize_param(v::AbstractString) = String(v)
 _normalize_param(v::Union{Nothing, Missing}) = v  # would otherwise become the types `Nothing`/`Missing`
 _normalize_param(v) = str2val(val2str(v))
-_normalize_params(params) = ParamDict(Symbol(k) => _normalize_param(v) for (k, v) in params)
+function _normalize_params(params)
+    for (k, v) in params   # (a function would be stored as "Closure", like every other one: two runs would be one)
+        _holds_function(v) && throw(ArgumentError(
+            "the parameter :$k holds a function ($v); parameters are data: give it a name instead (e.g. `:$k => \"sin\"`) " *
+            "and look the name up in the solver"))
+    end
+    return ParamDict(Symbol(k) => _normalize_param(v) for (k, v) in params)
+end
+_holds_function(v) = v isa Function ||
+    (v isa AbstractDict && any(((a, b),) -> _holds_function(a) || _holds_function(b), v)) ||
+    (v isa Union{AbstractArray, Tuple, Pair, AbstractSet} && !(eltype(v) <: Number) && any(_holds_function, v))
 
 """
     calculate_hash(params::AbstractDict)
@@ -464,8 +483,8 @@ _encode(io::IO, v::Bool) = (print(io, v ? "b1" : "b0"); nothing)
 _encode(io::IO, v::AbstractString) = (print(io, "s"); _encode_text(io, v))
 _encode(io::IO, v::Symbol) = (print(io, "y"); _encode_text(io, String(v)))
 _encode(io::IO, v::AbstractChar) = (print(io, "c"); _encode_text(io, repr(v)))
-_encode(io::IO, v::Number) = (print(io, "#"); _encode_text(io, string(typeof(v))); _encode_text(io, string(v)))
-_encode(io::IO, v::Type) = (print(io, "t"); _encode_text(io, string(v)))
+_encode(io::IO, v::Number) = (print(io, "#"); _encode_text(io, _type_text(typeof(v))); _encode_text(io, string(v)))
+_encode(io::IO, v::Type) = (print(io, "t"); _encode_text(io, _type_text(v)))
 _encode(io::IO, v::Pair) = (print(io, "p"); _encode(io, v.first); _encode(io, v.second))
 function _encode(io::IO, v::Tuple)
     print(io, "(", length(v), ":")
@@ -475,7 +494,7 @@ end
 function _encode(io::IO, v::AbstractArray)
     print(io, "a")
     _encode_text(io, string(nameof(typeof(v))))   # (Array, SArray, UnitRange, …)
-    _encode_text(io, string(eltype(v)))
+    _encode_text(io, _type_text(eltype(v)))
     print(io, ndims(v), ":", join(size(v), ","), ":")
     foreach(x -> _encode(io, x), v)
     return nothing
@@ -483,7 +502,7 @@ end
 function _encode(io::IO, v::AbstractDict)
     entries = [(sprint(_encode, k), sprint(_encode, x)) for (k, x) in v]
     print(io, "d")
-    _encode_text(io, string(typeof(v)))
+    _encode_text(io, _type_text(typeof(v)))
     print(io, length(entries), ":")
     for (k, x) in sort!(entries, by = first)   # (sorted by the encoded key: one order for every dictionary)
         print(io, k, x)
@@ -491,7 +510,7 @@ function _encode(io::IO, v::AbstractDict)
     return nothing
 end
 # anything else (e.g. `Val`s): its type and `val2str` text
-_encode(io::IO, v) = (print(io, "x"); _encode_text(io, string(typeof(v))); _encode_text(io, val2str(v)))
+_encode(io::IO, v) = (print(io, "x"); _encode_text(io, _type_text(typeof(v))); _encode_text(io, val2str(v)))
 
 # The canonical encoding of parameters as they are stored in a file (not normalised again), or `nothing`
 _raw_identity(stored) = stored isa AbstractDict ? _identity(ParamDict(Symbol(k) => v for (k, v) in stored)) : nothing

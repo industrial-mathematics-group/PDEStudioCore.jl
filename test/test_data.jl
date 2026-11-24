@@ -267,7 +267,7 @@ end
     sim_imported = load_sim_data(params_new)
     @test !haskey(sim_imported.params, :obsolete) && sim_imported.params[:target] == true
     @test isempty(import_sim_data(moved; filter_pairs = Dict(:target => true), remove_keys = [:obsolete]))   # (stored already)
-    @test_throws MethodError import_sim_data(moved; prompt_keys = [:N])   # (removed in 0.8: rerun the solver instead)
+    @test_throws MethodError import_sim_data(moved; prompt_keys = [:N])   # (removed in 0.9: rerun the solver instead)
     @test_throws MethodError import_sim_data(moved; overwrite = true)
     # A symlink is read through: the copy is a regular file, the link and its target stay as they are
     p_link = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :obsolete => "x", :test_mode => "link")
@@ -304,37 +304,7 @@ end
     save_sim_data(create_sim_data(collect(0.0:0.25:0.75), [SVector(1.0) for _ in 1:4], ps); overwrite = true)
     si = get_sim_data_info(ps)
     @test si.kind === :eulerian && si.time_dim === nothing && si.n_steps == 0 && si.dim_keys == (:x,)
-    # files written before the axes were part of the metadata: read from the data
     JLD2 = PDEStudioCore.JLD2
-    for p in (PARAMS_CONV, pl)
-        path = get_file_name(p)
-        entries = JLD2.jldopen(f -> Dict(k => f[k] for k in keys(f) if !(k in ("dim_keys", "time_dim"))), path, "r")
-        rm(path)
-        JLD2.jldopen(path, "w") do f
-            for (k, v) in entries
-                f[k] = v
-            end
-        end
-        @test !JLD2.jldopen(f -> haskey(f, "dim_keys"), path, "r")
-    end
-    @test get_sim_data_info(PARAMS_CONV) == info && get_sim_data_info(pl) == li
-    # ... also when an older file holds user metadata under these names: the axes come from the data
-    path = get_file_name(PARAMS_CONV)
-    JLD2.jldopen(path, "a+") do f
-        f["dim_keys"] = ["user"]
-        f["time_dim"] = "user value"
-    end
-    @test get_sim_data_info(PARAMS_CONV) == info
-    # ... or that look like axes but not like what this version writes (time axis not last, repeated names, no
-    # "time_dim" entry)
-    for (keys_, tdim) in (([:t, :x], :t), ([:x, :x], nothing), ([:missing], nothing))
-        JLD2.jldopen(path, "a+") do f
-            delete!(f, "dim_keys"); delete!(f, "time_dim")
-            f["dim_keys"] = keys_
-            isnothing(tdim) || (f["time_dim"] = tdim)
-        end
-        @test get_sim_data_info(PARAMS_CONV) == info
-    end
     # the axes this version writes are read without loading the data: also found in a copy without "raw"
     save_sim_data(load_sim_data(PARAMS_CONV); overwrite = true, verbose = false)
     path = get_file_name(PARAMS_CONV)
@@ -447,16 +417,7 @@ end
         save_sim_data(advection_solver_1d(p); verbose = false)
         path = get_file_name(p)
         @test JLD2.jldopen(f -> f["format_version"], path, "r") == PDEStudioCore._FORMAT_VERSION
-        # a file of 0.4 (no version, no axes) isn't read since 0.7: it counts as missing and is recomputed
-        JLD2.jldopen(path, "a+") do f
-            delete!(f, "format_version"); delete!(f, "dim_keys"); delete!(f, "time_dim")
-        end
-        @test JLD2.jldopen(PDEStudioCore._format_version, path, "r") == 1 && sim_data_table().format_version == [1]
-        @test !(@test_logs (:info, r"PDEStudioCore 0.4") match_mode = :any does_sim_data_exist(p))
-        @test length(run_all_simulations(SimulationConfig(p); dry_run = true).ran) == 1
-        SOLVER_CALLS[] = 0
-        @test length(run_all_simulations(SimulationConfig(p)).ran) == 1 && SOLVER_CALLS[] == 1
-        @test JLD2.jldopen(PDEStudioCore._format_version, path, "r") == PDEStudioCore._FORMAT_VERSION
+        # (files of 0.4 can't be at a name of the store: `import_sim_data` refuses them, see `files of 0.4`)
         @test !isdefined(PDEStudioCore, :upgrade_sim_data)   # (PDEStudioCore 0.6 upgrades such files)
     end
 end

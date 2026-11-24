@@ -22,11 +22,14 @@ end
 const _WARNED_REFERENCE_NAMES = Set{Symbol}()
 function _warn_skipped_solvers(config)
     for m in config.defaults
-        (is_reference_method(m) && haskey(get(config.methods, m, ParamDict()), :sim_func_name)) || continue
-        m in _WARNED_REFERENCE_NAMES && continue
-        push!(_WARNED_REFERENCE_NAMES, m)
-        @warn "Method :$m has its own :sim_func_name, but its name marks it as a reference method " *
-              "(see `is_reference_method`), so it is not run. Rename it to run it."
+        (is_reference_method(m) && !(m in _WARNED_REFERENCE_NAMES)) || continue
+        push!(_WARNED_REFERENCE_NAMES, m)   # (once per name and session: frontends generate tasks often)
+        if haskey(get(config.methods, m, ParamDict()), :sim_func_name)
+            @warn "Method :$m has its own :sim_func_name, but its name marks it as a reference method " *
+                  "(see `is_reference_method`), so it is not run. Rename it to run it."
+        else
+            @info "Method :$m isn't run: its name marks it as a reference method (see `is_reference_method`)."
+        end
     end
     return nothing
 end
@@ -225,7 +228,7 @@ function generate_tasks(config::SimulationConfig)
     _warn_skipped_solvers(config)
 
     tasks = ParamDict[]
-    seen = Set{String}()
+    seen = Dict{String, ParamDict}()
     used = Set{Symbol}()
     for method in methods
         base = method === nothing ? copy(config.shared) : assemble_params(config.shared, config.methods, method)
@@ -241,8 +244,11 @@ function generate_tasks(config::SimulationConfig)
         method_tasks, _ = generate_method_tasks(base, vkeys, vvals; ignore_keys = ignore)
         for task in method_tasks
             h = _param_hash(task)
-            h in seen && continue
-            push!(seen, h)
+            if haskey(seen, h)   # (the same run twice, e.g. from a varied key a method doesn't use; or two runs stored alike)
+                isequal(seen[h], task) || throw(ArgumentError(_collision_text(seen[h], task)))
+                continue
+            end
+            seen[h] = task
             push!(tasks, task)
         end
     end
@@ -250,6 +256,14 @@ function generate_tasks(config::SimulationConfig)
         k in used || @warn "Varied parameter :$k does not appear in the parameters of any active method and is ignored."
     end
     return tasks
+end
+
+# Two different tasks whose parameters are stored alike (and so would be one run): which values they differ in
+function _collision_text(a::AbstractDict, b::AbstractDict)
+    keys_ = sort!([k for k in union(keys(a), keys(b)) if !isequal(get(a, k, nothing), get(b, k, nothing))], by = string)
+    diffs = join(("$k: $(repr(get(a, k, nothing))) and $(repr(get(b, k, nothing)))" for k in keys_), "; ")
+    return "two runs of this configuration have parameters that are stored alike (the same hash), so they would be " *
+           "one run: $diffs. Make the values distinct as data (e.g. a name or number instead of an object)."
 end
 
 function _resolve_solver(params::AbstractDict)
@@ -359,14 +373,19 @@ function _source_metadata(sources::AbstractVector{<:AbstractString})
 end
 
 function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, force_overwrite::Bool, dry_run::Bool,
-                     ref_record::AbstractString = "")
+                     ref_record::AbstractString = "", on_changed::Symbol = :warn)
     try
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
         has_reference = ref_factory !== nothing
-        # (statistics evaluated with another reference, or an unknown one, are evaluated again, all of them)
-        force = force_overwrite || (has_reference && _reference_changed(path, ref_record))
-        (force || _needs_stats(path, required, has_reference)) || return (:cached, nothing)
+        # Statistics evaluated with another reference (or an unknown one) are evaluated again, all of them; with the
+        # same reference whose code changed (its file or package version), `on_changed` decides, as for solver results:
+        # `:warn` keeps them (`:outdated`), `:recompute` evaluates them again, `:ignore` doesn't look at the file
+        change = has_reference ? _reference_change(path, ref_record; ignore_file = on_changed === :ignore) : :none
+        missing_stats = _needs_stats(path, required, has_reference)
+        change === :code && on_changed !== :recompute && !force_overwrite && !missing_stats && return (:outdated, nothing)
+        force = force_overwrite || change !== :none
+        (force || missing_stats) || return (:cached, nothing)
         dry_run && return (:ran, nothing)
         sim_data = _load_key(path, "raw")
         ref_func = has_reference ? ref_factory(deepcopy(params)) : nothing   # (a copy, like the solver's: the task stays as it is)
@@ -392,15 +411,22 @@ function _reference_record(name, factory)
     return join(parts, "; ")
 end
 
-# Whether the statistics of a file were evaluated with a reference other than `record` (or one not recorded: files
-# of 0.6.2 and earlier, `calculate_all_stats!`)
-function _reference_changed(path::AbstractString, record::AbstractString)
-    return jldopen(path, "r") do file
-        # (a record: the reference of the values evaluated with one, "" if it isn't known; none: files of 0.6.2 and
-        # earlier, whose values evaluated with a reference count as evaluated with another one)
-        haskey(file, "evaluated_reference") && return (stored = file["evaluated_reference"]; isempty(stored) || stored != record)
-        return haskey(file, "evaluated_with_reference") && file["evaluated_with_reference"] === true
+# How the reference the statistics of a file were evaluated with differs from `record`: `:none`, `:reference` (another
+# reference, or one not recorded: `calculate_all_stats!`, files of 0.6.2 and earlier) or `:code` (the same reference,
+# its file or package version changed; with `ignore_file` only the package version counts)
+function _reference_change(path::AbstractString, record::AbstractString; ignore_file::Bool = false)
+    stored = jldopen(path, "r") do file
+        haskey(file, "evaluated_reference") && return file["evaluated_reference"]
+        return haskey(file, "evaluated_with_reference") && file["evaluated_with_reference"] === true ? "" : nothing
     end
+    stored === nothing && return :none   # (nothing evaluated with a reference)
+    stored == record && return :none
+    isempty(stored) && return :reference
+    parts(r) = Dict(split(p, "="; limit = 2) for p in split(r, "; ") if occursin("=", p))
+    a, b = parts(stored), parts(record)
+    get(a, "name", "") == get(b, "name", "") || return :reference
+    ignore_file && (delete!(a, "file"); delete!(b, "file"))
+    return a == b ? :none : :code
 end
 
 # What identifies a post-processor in the records of a dataset (`metadata[:postprocessed]`: name => record): its
@@ -432,16 +458,23 @@ function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::B
         dry_run && return (:ran, nothing)
         records[name] = record
         sim_data = _load_key(path, "raw")   # (with its metadata)
+        solution = _solution_hash(sim_data)
         if post_func(sim_data) === true
             # (saved under its parameters: a post-processor that changed them would replace another run)
             _identity(_normalize_params(sim_data.params)) == _identity(_normalize_params(params)) ||
                 error("the post-processor $name changed the parameters of the data (to " *
                       "$(_param_summary(_normalize_params(sim_data.params), Set{Symbol}()))); nothing was saved")
-            # The rewrite keeps the record of evaluated statistics, so the next run doesn't redo them; the metadata
-            # the post-processor changed is saved with the data.
+            # The rewrite keeps the record of evaluated statistics, so the next run doesn't redo them, unless the
+            # post-processor changed the solution: then the statistics the statistics pass evaluated describe the old
+            # one and are dropped (the next pass evaluates them again). The metadata it changed is saved with the data.
             sim_data.metadata[:postprocessed] = records
-            entries = jldopen(f -> haskey(f, "evaluated_stats") ? Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) :
-                                   Dict{String, Any}(), path, "r")
+            evaluated = jldopen(f -> haskey(f, "evaluated_stats") ? f["evaluated_stats"] : Symbol[], path, "r")
+            if _solution_hash(sim_data) == solution
+                entries = Dict{String, Any}("evaluated_stats" => evaluated)
+            else
+                foreach(k -> k === :Solution || delete!(sim_data.stats, k), intersect(Symbol.(evaluated), collect(keys(sim_data.stats))))
+                entries = Dict{String, Any}()
+            end
             _save_sim_data(sim_data, true, false, entries)
         else
             _update_metadata!(path, :postprocessed => records)   # (nothing changed: only the record)
@@ -453,6 +486,10 @@ function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::B
         return (:failed, _error_text(e))
     end
 end
+
+# A digest of the solution of a dataset (its axes or positions and values), to tell whether a callback changed it
+_solution_hash(d::ESimData) = hash((d.axes, d.u))
+_solution_hash(d::LSimData) = hash((d.t, d.x, d.u))
 
 # Whether a file is missing (or has stale) entries for any of the required statistics. A statistic that
 # was evaluated without a reference and dropped (all NaN) is due again once a reference is available.
@@ -555,8 +592,11 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
    lists them on every run), `:recompute` runs them again, `:ignore` keeps them silently,
 2. with `calculate_stats = true`, evaluates missing statistics using the reference factory
    `config.reference` (`params -> (x -> u_exact)`); statistics that were dropped earlier for lack of
-   a reference are evaluated again once a reference is configured. `force_stats = true` recomputes
-   every registered statistic without rerunning the simulations,
+   a reference are evaluated again once a reference is configured, and all of them when another reference is
+   configured. Statistics evaluated with the same reference whose code changed (the file defining it, or its
+   package's version) are handled by `on_changed_sources` like solver results: `:warn` keeps them and reports them
+   as `:outdated`, `:recompute` evaluates them again, `:ignore` only looks at the package version.
+   `force_stats = true` recomputes every registered statistic without rerunning the simulations,
 3. with `post_process = true`, calls `config.postprocess(data)` for every dataset it hasn't post-processed yet and
    saves the (modified) data again when it returns `true` (a post-processor that changed the data's parameters fails:
    the data would replace another run). Each file records the post-processor that ran (its name,
@@ -642,10 +682,15 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
             st, err = not_run[i] ? (:not_run, nothing) :
                       dry_run && would_run[i] ? (isempty(required) ? :cached : :ran, nothing) :
                       Base.invokelatest(_stats_task, params, ref_factory, required, force_overwrite || force_stats, dry_run,
-                                        ref_record)
+                                        ref_record, on_changed_sources)
             stats[st] = get(stats, st, 0) + 1
             st === :failed && push!(stats_failed, params => err)
             next!(progress)
+        end
+        if get(stats, :outdated, 0) > 0
+            @warn "$(stats[:outdated]) dataset(s) have statistics evaluated with another version of the reference " *
+                  "$(config.reference) (its file or package changed) and are kept. on_changed_sources = :recompute or " *
+                  "force_stats = true evaluates them again."
         end
     end
 
