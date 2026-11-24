@@ -1,0 +1,8 @@
+Direct lookup of control: true
+Unfiltered listing: ArgumentError: the parameter :map is a Dict with keys of type Float64: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Filtered listing of unrelated control: ArgumentError: the parameter :map is a Dict with keys of type Float64: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Table for unrelated control: ArgumentError: the parameter :map is a Dict with keys of type Float64: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Tidy dry run: ArgumentError: the parameter :map is a Dict with keys of type Float64: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Delete dry run for unrelated control: ArgumentError: the parameter :map is a Dict with keys of type Float64: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Import of directory filtered for control: ArgumentError: the parameter :map is a Dict with keys of type Float64: the keys of a Dict in parameters are Symbols (a ParamDict), integers or Strings, all of one type
+Imported control is present: false
