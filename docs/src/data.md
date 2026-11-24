@@ -104,7 +104,7 @@ In return it assumes:
 - the data folder holds no symbolic links: a link at a run's name is never read as the run, written through or replaced;
 - no two processes write the same run at the same time (the last rename wins);
 - callbacks (solvers, references, post-processors) don't change a run's parameters: they get copies, and a post-processor that changes them fails; a post-processor adds statistics and metadata and doesn't change the solution either (it fails, nothing is saved);
-- parameter values are data (numbers, strings, symbols, containers of them, …): functions are refused, so name them (`:ic => "sin"`) and look the name up in the solver.
+- only data identifies a run: parameter values are data, or values of custom types that declare what identifies them ([`param_identity`](@ref), or [`@param_struct`](@ref) for types whose fields are all data); functions and undeclared structs are refused. So a struct with functions or derived fields (e.g. a geometric domain's `is_interior` or `volume`) is identified by the data its `param_identity` names, such as its label, bounds and boundary conditions.
 
 Anything outside these assumptions isn't repaired automatically: lookups ignore it, [`tidy_sim_data`](@ref) lists it, and saves refuse to replace it.
 
@@ -142,7 +142,7 @@ enable_cache!(true)                           # store conversions in the file
 ```
 
 - **Eulerian → Eulerian** ([`resample_eulerian`](@ref)): linear interpolation in space, nearest-neighbour in time (no cross-fading of snapshots); statistics are resampled along the dimensions they keep. Axes whose resolution does not change (e.g. adaptive time steps) are kept as they are.
-- **Lagrangian → Eulerian** ([`convert_to_eulerian`](@ref)): inverse-distance scatter of particles and per-particle statistics; empty cells become `NaN`. Output times take the nearest recorded snapshot.
+- **Lagrangian → Eulerian** ([`convert_to_eulerian`](@ref)): inverse-distance scatter of particles and per-particle statistics; empty cells become `NaN`. Output times take the nearest recorded snapshot. The scatter accumulates in at least `Float64` with weights of up to `1e12` (a particle on a node), so values up to about `1e296` in magnitude are converted (values near `floatmax` aren't supported).
 - **Eulerian → Lagrangian** ([`convert_to_lagrangian`](@ref)): grid nodes become stationary particles (sharing one position vector); fields become per-particle statistics.
 
 The resolution `res` always lists every axis: the spatial resolutions followed by the number of time slices.
@@ -171,4 +171,15 @@ A lookup is a single path, so files added or removed by other processes are seen
 
 ## 6. Parameter Normalisation
 
-Before hashing and saving, parameters are normalised: functions are refused (name them instead), custom structs become a descriptive string (their type name, with the type parameters for structs without fields such as `Limiter{:minmod}()`, and their fields; type names are written without module prefixes, so the text doesn't depend on what the session loaded with `using`) and other values round-trip through [`val2str`](@ref)/[`str2val`](@ref). Strings are always kept verbatim, so a parameter such as `:ic => "sin"` stays a string. [`str2val`](@ref) only parses literals (numbers, strings, symbols, tuples, vectors, `Dict`s, static arrays, arithmetic like `2π` and a range as the whole value, e.g. a sweep typed as `1:10`); it never executes code. Types come from an allowlist (numbers, text, the containers [`val2str`](@ref) writes and StaticArrays), and what a value may build is bounded (elements, digits, the size of types including static arrays, nesting), so a file cannot run code, and these limits bound what the parser computes and compiles for a text; anything else is kept as a string. Inspect the stored form with [`print_clean_params`](@ref).
+Before hashing and saving, parameters are normalised: functions are refused, custom structs become a descriptive string from what identifies them (their type name and their [`param_identity`](@ref): `TypeName(key=value, …)`; a struct whose identity is empty, such as the tag `Limiter{:minmod}()`, by its type with its parameters; type names are written without module prefixes, so the text doesn't depend on what the session loaded with `using`) and other values round-trip through [`val2str`](@ref)/[`str2val`](@ref). Strings are always kept verbatim, so a parameter such as `:ic => "sin"` stays a string. [`str2val`](@ref) only parses literals (numbers, strings, symbols, tuples, vectors, `Dict`s, static arrays, arithmetic like `2π` and a range as the whole value, e.g. a sweep typed as `1:10`); it never executes code. Types come from an allowlist (numbers, text, the containers [`val2str`](@ref) writes and StaticArrays), and what a value may build is bounded (elements, digits, the size of types including static arrays, nesting), so a file cannot run code, and these limits bound what the parser computes and compiles for a text; anything else is kept as a string. Inspect the stored form with [`print_clean_params`](@ref).
+
+**What identifies a parameter value.** Two values are the same parameter (and so the same run, if all others agree) exactly when their stored forms are equal. The rules, fixed since hash format 4 and pinned by a test corpus (`test/test_store.jl`), so they don't change silently:
+
+- numbers by type and value, except that `Float32` (and `Float16`) are stored as `Float64`; `true` is not `1`, `1` is not `1.0`;
+- strings verbatim, symbols, characters, `nothing` and `missing` as such;
+- tuples, named tuples, pairs, sets, vectors, arrays (with their shape), static arrays and `Dict`s by their element type and elements;
+- types (as values, as element types, in `Val{…}`) by their **name only**, without the module they come from: `Base.Matrix` and a `Matrix` of your own are the same value, and a session stores and finds them alike whatever it loaded with `using`;
+- values of custom types by their type name and what their [`param_identity`](@ref) names (all fields with [`@param_struct`](@ref)); a type that doesn't declare it is refused. An empty identity counts the type parameters (e.g. `Limiter{:minmod}`);
+- functions are refused: what a function computes can't be compared. Name it (`:ic => "sin"`, looked up in the solver), or keep it in a struct whose `param_identity` leaves it out and names what tells such values apart (e.g. a geometric domain: its label, bounds, boundary conditions and shape, not its `is_interior`, `get_tag`, `volume` or `piece_of_tag`).
+
+So don't use values that differ only in what these rules leave out (what a `param_identity` leaves out, the module of a type, the type parameters of a struct with a non-empty identity, `Float32` against `Float64`) to tell runs apart: a configuration with two such runs is refused, and across configurations they are one run.

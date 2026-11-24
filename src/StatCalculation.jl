@@ -250,9 +250,12 @@ calculate_all_stats!(sim_data::AbstractSimData, ref_func = nothing; force_overwr
 # `known_native = true`: `sim_data` was just loaded as "raw" from its file (the pipeline), so the comparison
 # with the stored solution can be skipped.
 function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwrite::Bool, save::Bool, known_native::Bool;
-                               reference::AbstractString = "")
+                               reference::AbstractString = "", drop = Symbol[])
     names, changed = _sync_registry!(sim_data)
     raw = _raw_stats(sim_data)
+    for name in drop   # (statistics of an earlier evaluation that aren't evaluated again: they'd pass for current ones)
+        haskey(raw, name) && (delete!(raw, name); changed = true)
+    end
     pending = force_overwrite ? names : filter(n -> !haskey(raw, n), names)
     if !isempty(pending)
         # `invokelatest` makes `calc_stat` methods and reference functions that were defined after the
