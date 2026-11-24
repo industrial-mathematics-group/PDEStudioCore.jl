@@ -1,0 +1,12 @@
+Declared domain: ignores callbacks and working fields=true changes when id changes=true stable after normalization=true
+Module import check: tag="Tags{:minmod}" hash=fe1962f4618ff9406974f2af141ded1c75b188f0cc24a17b696ca239cebb61cb
+Nested undeclared: ArgumentError: the parameter :value.data[1] has the type Undeclared, which doesn't declare what identifies it. Define `PDEStudioCore.param_identity(x::Undeclared)` returning a NamedTuple of the data that tells such values apart (leave out functions and derived fields), or write `@param_struct Undeclared` if all its fields are data.
+Wrong return type: ArgumentError: param_identity(::BadIdentity) must return a NamedTuple, got Int64
+Function returned by identity: ArgumentError: the parameter :value.function_value is a function (sin): what a function computes can't be compared, so a function can't tell runs apart. Give it a name instead (e.g. a String or Symbol the solver looks up), or wrap it in a struct whose `param_identity` names it.
+Distinct identity names: stored="Delimiters(left=1, right=2)" hash=a2ffe5198aea2f6c793a25de2a26db5bd7c1272bf5de6eef6ecda62a44caa81a ran=1 cached=0 field=10.0
+Distinct identity names: stored="Delimiters(left=1, right=2)" hash=a2ffe5198aea2f6c793a25de2a26db5bd7c1272bf5de6eef6ecda62a44caa81a ran=0 cached=1 field=10.0
+All fields macro: stored="HiddenField(public_value=1)" hash=786ee757c17f445e32a2a633d294cf604c1c3b192ccee455ff3f5765c0b34fb2 ran=1 cached=0 field=10.0
+All fields macro: stored="HiddenField(public_value=1)" hash=786ee757c17f445e32a2a633d294cf604c1c3b192ccee455ff3f5765c0b34fb2 ran=0 cached=1 field=10.0
+Dictionary keys: stored="Dict{BoundaryKey, String}(BoundaryKey(id=2) => \"high\", BoundaryKey(id=1) => \"low\")" hash=cb9e233b8a0687f00c2f96699fcf99d55a7a2b4c5bcb7d92516d38b94f9765f1
+Dictionary keys: stored="Dict{BoundaryKey, String}(BoundaryKey(id=1) => \"low\", BoundaryKey(id=2) => \"high\")" hash=314d1da0ff0bdfbeba63c41e7e21a4c6ea6d05d2279dcc8934027c2fca8e01ed
+Function used as delete filter: preview_matches=1

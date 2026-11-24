@@ -1,0 +1,5 @@
+First parent stored b2ce3f90d0e63f7f36f762f45c3ad9831350c7ce806bb0e8896eae2814ad0c5c.jld2
+Head found b2ce3f90d0e63f7f36f762f45c3ad9831350c7ce806bb0e8896eae2814ad0c5c.jld2 field=3.0
+Identity declared by config.sources: ArgumentError: the parameter :limiter has the type SourcedLimiter, which doesn't declare what identifies it. Define `PDEStudioCore.param_identity(x::SourcedLimiter)` returning a NamedTuple of the data that tells such values apart (leave out functions and derived fields), or write `@param_struct SourcedLimiter` if all its fields are data.
+Method exists in the latest world=true
+Latest-world retry: ran=1 field=3.0
