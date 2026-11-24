@@ -1,0 +1,7 @@
+Julia 1.13.4
+postprocess only k=1: outcomes=Dict(:ran => 1) k=2 before=2.0 after=1.0 k=1 has completion record=false
+edited import k=1 -> k=2: imports=1 stats=Dict(:cached => 1) stored L1 error=0.0 recomputed=2.0
+wide grid Float16: spacing=Inf mass=Inf
+unit spacing Float16: L2 norm=Inf
+wide grid Float64: spacing=40000.0 mass=30000.0
+unit spacing Float64: L2 norm=424.26406871192853

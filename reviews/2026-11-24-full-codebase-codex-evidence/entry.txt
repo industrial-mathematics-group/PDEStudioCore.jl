@@ -1,0 +1,2 @@
+readable immediately before overwrite=47
+save returned destination=true carry-over warning=true key present after save=false
