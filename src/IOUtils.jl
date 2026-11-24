@@ -138,7 +138,8 @@ function _stored_identity(path::AbstractString; fresh::Bool = false)
         !isnothing(hit) && hit[1] == version && return hit[2]
     end
     p = _file_params(path)
-    ident = p isa AbstractDict ? _identity(_normalize_params(p)) : nothing
+    clean = _valid_stored(p)
+    ident = clean === nothing ? nothing : _identity(clean)
     lock(_STORED_LOCK) do
         length(_STORED_IDENTITY) >= _STORED_MAX && empty!(_STORED_IDENTITY)
         _STORED_IDENTITY[path] = (version, ident)

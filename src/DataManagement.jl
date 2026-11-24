@@ -74,8 +74,9 @@ function _files_with_params(match_params::AbstractDict)
         h = _filename_hash(basename(path))
         (h === nothing || islink(path)) && continue   # (the store keeps no links)
         file_params = _file_params(path)
-        file_params isa AbstractDict && calculate_hash(file_params) == h || continue
-        _has_pairs(_normalize_params(file_params), match_params) || continue
+        clean = _valid_stored(file_params)   # (parameters this version doesn't accept: not part of the store)
+        clean !== nothing && calculate_hash(clean) == h || continue
+        _has_pairs(clean, match_params) || continue
         push!(matched, path => file_params)
     end
     return matched
@@ -192,7 +193,12 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
             @warn "Not imported: $src: " * something(_run_problem(src), "it has no parameters")
             push!(failed, src); continue
         end
-        old = _normalize_params(stored)
+        old = _valid_stored(stored)
+        if old === nothing
+            @warn "Not imported: $src: its parameters aren't valid parameters of this version (see \"What identifies a " *
+                  "parameter value\" in the manual)"
+            push!(failed, src); continue
+        end
         filter_pairs === nothing || _has_pairs(old, filter_pairs) || continue
         params = _normalize_params(filter(p -> !(first(p) in remove), old))
         dest = _hash_path(calculate_hash(params), dir)
@@ -264,8 +270,9 @@ function _run_problem(path::AbstractString)
             all(k -> haskey(f, k), ("raw", "native", "shape", "params")) || return "it has no dataset or no fast metadata"
             raw, stored = f["raw"], f["params"]
             raw isa AbstractSimData || return "its \"raw\" entry is no dataset (a $(typeof(raw)))"
-            stored isa AbstractDict && _identity(_normalize_params(raw.params)) == _identity(_normalize_params(stored)) ||
-                return "its dataset has other parameters than the file"
+            a, b = _valid_stored(raw.params), _valid_stored(stored)
+            (a === nothing || b === nothing) && return "its parameters aren't valid parameters of this version"
+            _identity(a) == _identity(b) || return "its dataset has other parameters than the file"
             (f["native"] === _data_kind(raw) && Tuple(f["shape"]) == _data_shape(raw)) ||
                 return "the kind or shape stored in it isn't that of its dataset"
             return nothing
@@ -284,7 +291,7 @@ Removes the temporary files of writes that never finished (a process killed whil
 they are older than `min_tmp_age` seconds (a running write keeps its temporary file younger), and lists the files
 there that aren't part of the store: `.jld2` files under other names than `<hash>.jld2` (e.g. data of earlier
 versions or copies), files whose stored parameters have another hash than their name, files whose parameters can't
-be read, and symbolic links (the store keeps none). Lookups never use them, and they are never deleted here: move them
+be read or aren't valid parameters of this version, and symbolic links (the store keeps none). Lookups never use them, and they are never deleted here: move them
 out of the data folder and bring their runs into the store with [`import_sim_data`](@ref).
 
 Returns the paths of the temporary files it removed (with `dry_run = true`: would remove) and of the foreign files.
@@ -295,8 +302,8 @@ function tidy_sim_data(; dry_run::Bool = false, min_tmp_age::Real = 3600)
     isdir(dir) || return (temp_files = temp_files, foreign = foreign)
     for path in _data_files(dir)
         h = _filename_hash(basename(path))
-        p = h === nothing || islink(path) ? nothing : _file_params(path)
-        p isa AbstractDict && calculate_hash(p) == h || push!(foreign, path)
+        clean = h === nothing || islink(path) ? nothing : _valid_stored(_file_params(path))
+        clean !== nothing && calculate_hash(clean) == h || push!(foreign, path)
     end
     now_s = time()
     for f in readdir(dir)
