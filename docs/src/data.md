@@ -177,7 +177,7 @@ Before hashing and saving, parameters are normalised: functions are refused, cus
 
 - numbers by type and value, except that `Float32` (and `Float16`) are stored as `Float64`; `true` is not `1`, `1` is not `1.0`;
 - strings verbatim, symbols, characters, `nothing` and `missing` as such;
-- tuples, named tuples, pairs, sets, vectors, arrays (with their shape), static arrays and `Dict`s by their element type and elements;
+- tuples, pairs, sets, vectors, arrays (with their shape), static arrays and `Dict`s by their element type and elements (named tuples are refused: use a `Dict`, or a type with a declared identity);
 - types (as values, as element types, in `Val{…}`) by their **name only**, without the module they come from: `Base.Matrix` and a `Matrix` of your own are the same value, and a session stores and finds them alike whatever it loaded with `using`;
 - values of custom types by their type name and what their [`param_identity`](@ref) names (its field names must be plain identifiers; all stored fields with [`@param_struct`](@ref)); a type that doesn't declare it is refused. `Dict` keys are ordered by their stored form, and two keys that are the same value are refused. An empty identity counts the type parameters (e.g. `Limiter{:minmod}`);
 - functions are refused: what a function computes can't be compared. Name it (`:ic => "sin"`, looked up in the solver), or keep it in a struct whose `param_identity` leaves it out and names what tells such values apart (e.g. a geometric domain: its label, bounds, boundary conditions and shape, not its `is_interior`, `get_tag`, `volume` or `piece_of_tag`).
