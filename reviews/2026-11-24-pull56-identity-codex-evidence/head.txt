@@ -1,0 +1,23 @@
+Named tuple top level: ArgumentError: the parameter :v is a named tuple: use a Dict, or for the identity of a custom type its own fields (the NamedTuple that `param_identity` returns, not one inside it)
+Named tuple declared field: ArgumentError: the parameter :v.detail is a named tuple: use a Dict, or for the identity of a custom type its own fields (the NamedTuple that `param_identity` returns, not one inside it)
+Named tuple array element: ArgumentError: the parameter :v[1] is a named tuple: use a Dict, or for the identity of a custom type its own fields (the NamedTuple that `param_identity` returns, not one inside it)
+Named tuple dictionary key: ArgumentError: the parameter :v (a key) is a named tuple: use a Dict, or for the identity of a custom type its own fields (the NamedTuple that `param_identity` returns, not one inside it)
+Named tuple dictionary value: ArgumentError: the parameter :v[:a] is a named tuple: use a Dict, or for the identity of a custom type its own fields (the NamedTuple that `param_identity` returns, not one inside it)
+Named tuple pair value: ArgumentError: the parameter :v.second is a named tuple: use a Dict, or for the identity of a custom type its own fields (the NamedTuple that `param_identity` returns, not one inside it)
+Named tuple set element: ArgumentError: the parameter :v[1] is a named tuple: use a Dict, or for the identity of a custom type its own fields (the NamedTuple that `param_identity` returns, not one inside it)
+Named tuple tuple element: ArgumentError: the parameter :v[1] is a named tuple: use a Dict, or for the identity of a custom type its own fields (the NamedTuple that `param_identity` returns, not one inside it)
+Ordinary declared identity: stored="WithDetail(detail=Dict{Symbol, Int64}(:x => 1))"
+direct key: hashes_match=true
+tuple key: hashes_match=true
+pair key: hashes_match=true
+vector key: hashes_match=false
+  first stored form="Dict{Vector{KeyWithWork}, String}(KeyWithWork[KeyWithWork(id=2)] => \"high\", KeyWithWork[KeyWithWork(id=1)] => \"low\")"
+  second stored form="Dict{Vector{KeyWithWork}, String}(KeyWithWork[KeyWithWork(id=1)] => \"low\", KeyWithWork[KeyWithWork(id=2)] => \"high\")"
+  first ran=1 second ran=1 second cached=0 stored files=2
+tuple containing a vector key: hashes_match=false
+Mixed keys: equal dictionaries=true and equal raw sort keys=true
+Mixed keys in a declared identity: hashes_match=false
+  first stored form="MixedLabels(labels=Dict{Any, Int64}(\"label_2\" => 10, :label_2 => 20))"
+  second stored form="MixedLabels(labels=Dict{Any, Int64}(:label_2 => 20, \"label_2\" => 10))"
+  first ran=1 second ran=1 second cached=0 stored files=2
+One-pass filter, two files: imported=1 kept=true skipped file present=false
