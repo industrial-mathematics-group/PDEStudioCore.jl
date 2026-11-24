@@ -70,10 +70,10 @@ function val2str(v; top_level::Bool = true)
         return length(v) == 1 ? "($elements,)" : "($elements)"
     elseif isa(v, Dict)
         K, V = keytype(v), valtype(v)
-        # (keys in the order of `string`, as since hash format 4; a key holding a declared value by its stored text, since
-        # `string` would show what its identity leaves out)
-        entries = sort!([(val2str(k; top_level = false), k) for k in keys(v)], by = e -> _has_declared(e[2]) ? e[1] : string(e[2]))
-        elements = join(["$kt => $(val2str(v[k]; top_level = false))" for (kt, k) in entries], ", ")
+        # (keys in the order of `string`, as since hash format 4: parameters only hold Dicts with keys of one plain type,
+        # Symbol, integer or String, whose distinct keys have distinct texts, so the order is canonical)
+        sorted_keys = sort(collect(keys(v)), by = string)
+        elements = join(["$(val2str(k; top_level = false)) => $(val2str(v[k]; top_level = false))" for k in sorted_keys], ", ")
         return "Dict{$(_type_text(K)), $(_type_text(V))}($elements)"
     else
         # a struct by what identifies it (`param_identity`; for other values, e.g. shown in a frontend, its fields)
@@ -507,7 +507,6 @@ _all_fields(x) = NamedTuple{fieldnames(typeof(x))}(map(f -> getfield(x, f), fiel
 
 # (in the latest world, as `_identity_of` calls it: a declaration included later, e.g. from `config.sources`, counts)
 _declares_identity(v) = hasmethod(param_identity, Tuple{typeof(v)}; world = Base.get_world_counter())
-_has_declared(v) = _declares_identity(v) || (v isa Union{Tuple, Pair} && any(_has_declared, v isa Pair ? (v.first, v.second) : v))
 function _identity_of(v)
     id = Base.invokelatest(param_identity, v)   # (declared after the caller started, e.g. in a script)
     id isa NamedTuple || throw(ArgumentError("param_identity(::$(typeof(v))) must return a NamedTuple, got $(typeof(id))"))
@@ -536,13 +535,13 @@ function _check_param(v, path::AbstractString)
             _check_param(x, "$path[$i]")
         end
     elseif v isa Dict
+        K = keytype(v)
+        (isconcretetype(K) && K <: Union{Symbol, Integer, String}) || throw(ArgumentError(
+            "the parameter $path is a Dict with keys of type $K: the keys of a Dict in parameters are Symbols (a " *
+            "ParamDict), integers or Strings, all of one type"))
         for (k, x) in v
-            _check_param(k, "$path (a key)")
             _check_param(x, "$path[$(repr(k))]")
         end
-        allunique(val2str(k; top_level = false) for k in keys(v)) || throw(ArgumentError(
-            "the parameter $path has keys that are the same parameter value (they differ only in what their identity " *
-            "leaves out), so its stored form would depend on their order"))
     elseif v isa NamedTuple   # (a struct of its own: its names would be data, and a declared identity is one already)
         throw(ArgumentError(
             "the parameter $path is a named tuple: use a Dict, or for the identity of a custom type its own fields " *
