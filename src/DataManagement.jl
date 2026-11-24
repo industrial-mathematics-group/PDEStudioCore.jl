@@ -72,7 +72,7 @@ function _files_with_params(match_params::AbstractDict)
     matched = Pair{String, Any}[]
     for path in sort!(_data_files(), by = p -> (mtime(p), basename(p)), rev = true)
         h = _filename_hash(basename(path))
-        h === nothing && continue
+        (h === nothing || islink(path)) && continue   # (the store keeps no links)
         file_params = _file_params(path)
         file_params isa AbstractDict && calculate_hash(file_params) == h || continue
         _has_pairs(_normalize_params(file_params), match_params) || continue
@@ -141,47 +141,39 @@ function delete_sim_data(match_params::AbstractDict; dry_run::Bool = false)
 end
 
 """
-    import_sim_data(source; filter_pairs = nothing, remove_keys = Symbol[], prompt_keys = Symbol[],
-                    overwrite = false) -> Vector{Pair{String, String}}
+    import_sim_data(source; filter_pairs = nothing, remove_keys = Symbol[]) -> Vector{Pair{String, String}}
 
-Copies runs into the data folder of the current save path: the `.jld2` file `source`, or every `.jld2` file below the
-directory `source` (e.g. the data folder of an earlier PDEStudioCore version or of another machine). The parameters
-of each run are normalised again (after removing `remove_keys` and asking for `prompt_keys`) and the run is stored
-under their hash, as `data/<hash>.jld2` ([`calculate_hash`](@ref)). The source is only read: nothing in it is moved,
-renamed, rewritten or deleted (also with `overwrite = true`, also when it is the data folder itself), and every copy
-is written atomically, so an interrupted import is simply run again.
+Copies runs into the store, the data folder of the current save path: the `.jld2` file `source`, or every `.jld2`
+file below the directory `source` (e.g. the data folder of an earlier PDEStudioCore version, of another save path or of
+another machine). Each run is stored under the hash of its parameters, as `data/<hash>.jld2` ([`calculate_hash`](@ref)).
+The source must lie outside the data folder (and not contain it); it is only read.
 
-Every source file the filter selects is checked before anything is written: it must hold a dataset (`"raw"`) whose
-parameters, kind and shape are those stored in the file, in the file format of PDEStudioCore 0.5 and later. Files that
-fail (can't be read, no dataset, written by PDEStudioCore 0.4, …) are reported and skipped. The plan (the check, the
-prompts) refers to the source as it was then, identified by the SHA-256 digest of its bytes: what is installed is a
-copy with that digest, so a source whose bytes changed in between (whatever changed) is reported, and its destination
-is left as it is. A run imported with other parameters loses the statistics the statistics pass evaluated (registered
-statistics such as errors against a reference of the old parameters) and their records: the pipeline evaluates them
-again. Statistics the solver or a post-processor added (e.g. iteration counts) and the post-processing record stay as
-they are: the data is post-processed, so its post-processor doesn't run again (to repeat it, rerun the solver).
+Each selected source file is copied next to its destination, and that copy is checked before it is renamed into
+place: it must hold a dataset (`"raw"`) whose parameters, kind and shape are those stored in the file, in the file
+format of PDEStudioCore 0.5 and later. Files that fail (can't be read, no dataset, written by PDEStudioCore 0.4, …) are
+reported and skipped. Every copy is written atomically, so an interrupted import is simply run again.
 
-A run that is stored already is skipped (`overwrite = true` replaces the stored data of the same parameters); a stored
-file of the same parameters that isn't a usable run (e.g. without its dataset) is replaced, with a message. A file
-at the destination is never replaced if it holds other parameters or its parameters can't be read, if it is a
-symbolic link (an import neither writes through links nor replaces them), or if it is one of the source files. Of
-several source files of the same parameters the first (by path) is imported, the others are reported.
-
-To change parameters of stored runs (e.g. drop one that no longer exists), import the data folder itself:
-`import_sim_data(joinpath(get_save_path(), "data"); remove_keys = [:obsolete])` stores every run under its new
-parameters; the files of the old parameters stay until you delete them ([`delete_sim_data`](@ref)).
+A run that is stored already is skipped; a stored file of its parameters that isn't a usable run (e.g. without its
+dataset) is replaced, with a message. Anything else at the destination (a file of other parameters, one whose
+parameters can't be read, a symbolic link) is never replaced. Of several source files of the same parameters the
+first (by path) is imported, the others are reported.
 
 # Keywords
 - `filter_pairs`: only import runs whose stored parameters contain these exact pairs (compared as the hash tells
   values apart: `1` matches neither `true` nor `1.0`).
-- `remove_keys`: parameter keys to drop.
-- `prompt_keys`: interactively ask (in the REPL) for new values of these keys for every run.
-- `overwrite`: replace the stored data of the same parameters.
+- `remove_keys`: parameter keys that didn't affect the result (e.g. one that no longer exists), dropped from the
+  parameters. Otherwise the run is copied as it is: its data, statistics, and evaluation and post-processing records.
+  To change a parameter that matters, run the solver again.
 
 Returns the `source => destination` pairs of the runs it copied.
 """
-function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_keys::AbstractVector = Symbol[],
-                         prompt_keys::AbstractVector = Symbol[], overwrite::Bool = false)
+function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_keys::AbstractVector = Symbol[])
+    dir = _data_dir()
+    real(p) = ispath(p) ? realpath(p) : abspath(p)
+    inside(a, b) = startswith(joinpath(real(a), ""), joinpath(real(b), ""))
+    (inside(source, dir) || inside(dir, source)) && throw(ArgumentError(
+        "import_sim_data: $source and the data folder $dir overlap; import from a folder outside of it (to change " *
+        "parameters of stored runs, move the files out of the data folder first)"))
     paths = if isfile(source)
         [String(source)]
     elseif isdir(source)
@@ -189,59 +181,23 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
     else
         throw(ArgumentError("import_sim_data: $source is neither a file nor a directory"))
     end
-    remove, prompt = Symbol.(remove_keys), Symbol.(prompt_keys)
-    dir = _data_dir()
+    remove = Set(Symbol.(remove_keys))
     imported, skipped, failed = Pair{String, String}[], String[], String[]
-    # the source files (and the files links among them point to): only read, never written
-    inputs = Set{String}(abspath.(paths))
-    for p in paths
-        r = try realpath(p) catch; nothing end
-        r === nothing || push!(inputs, r)
-    end
-    is_input(dest) = abspath(dest) in inputs || (ispath(dest) && realpath(dest) in inputs)
-
-    # 1. Plan: check every source file and choose its destination (nothing is written yet)
-    plan = NamedTuple[]
-    for src in paths
-        # (the filter on the lightweight parameters first: the dataset of a run it excludes isn't loaded)
-        stored = try jldopen(f -> haskey(f, "params") ? f["params"] : nothing, src, "r") catch; nothing end
-        filter_pairs === nothing || !(stored isa AbstractDict) || _has_pairs(_normalize_params(stored), filter_pairs) || continue
-        # the version of the source the plan refers to (its check, the prompts): its bytes' digest, taken first
-        digest = try
-            open(sha256, src)
-        catch e
-            e isa InterruptException && rethrow()
-            @warn "Not imported: $src can't be read" exception = e
-            push!(failed, src); continue
-        end
-        problem = _run_problem(src)
-        if problem !== nothing
-            @warn "Not imported: $src: $problem"
-            push!(failed, src); continue
-        end
-        stored = _file_params(src)
-        old = _normalize_params(stored)
-        params = copy(old)
-        foreach(k -> delete!(params, k), remove)
-        isempty(prompt) || _prompt_param_values!(params, prompt, basename(src))
-        params = _normalize_params(params)
-        push!(plan, (src = src, digest = digest, stored = stored, params = params, dest = _hash_path(calculate_hash(params), dir)))
-    end
-
-    # 2. Copies: each source is copied next to its destination first, and that copy (the bytes installed) must be the
-    # version planned (the same digest; checked again), so a source changed since the plan (e.g. during a prompt) is
-    # reported instead of installed
     sources = Dict{String, String}()   # destination => the source imported to it here
-    for (; src, digest, stored, params, dest) in plan
+    for src in paths
+        # (the filter on the lightweight parameters: the dataset of a run it excludes isn't loaded)
+        stored = try jldopen(f -> haskey(f, "params") ? f["params"] : nothing, src, "r") catch; nothing end
+        if !(stored isa AbstractDict)
+            @warn "Not imported: $src: " * something(_run_problem(src), "it has no parameters")
+            push!(failed, src); continue
+        end
+        old = _normalize_params(stored)
+        filter_pairs === nothing || _has_pairs(old, filter_pairs) || continue
+        params = _normalize_params(filter(p -> !(first(p) in remove), old))
+        dest = _hash_path(calculate_hash(params), dir)
         if haskey(sources, dest)
             @warn "Not imported: $src holds the parameters of $(sources[dest]), imported before"
             push!(skipped, src); continue
-        end
-        ispath(dest) && samefile(src, dest) && continue   # (in the store under its name already)
-        if islink(dest)
-            @warn "Not imported: $src. Its destination $dest is a symbolic link, which an import neither writes " *
-                  "through nor replaces; remove the link (its target stays), then import again."
-            push!(failed, src); continue
         end
         state = _file_state(dest, params)
         if state === :other || state === :unreadable
@@ -249,40 +205,31 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
             push!(failed, src); continue
         end
         problem = state === :same ? _run_problem(dest) : nothing
-        if state === :same && problem === nothing && !overwrite
-            @info "Already stored: $src (as $(basename(dest)); `overwrite = true` replaces it)"
+        if state === :same && problem === nothing
+            @info "Already stored: $src (as $(basename(dest)))"
             push!(skipped, src); continue
-        end
-        if is_input(dest)
-            @warn "Not imported: $src. Its destination $dest is one of the files this import reads, which it never " *
-                  "writes (also not with `overwrite = true`)."
-            push!(failed, src); continue
         end
         staged = _tmp_path(dest)
         try
             mkpath(dir)
-            cp(src, staged; follow_symlinks = true)
-            changed = open(sha256, staged) == digest ? _run_problem(staged) : "its content changed"
-            changed === nothing && _raw_identity(_file_params(staged)) != _raw_identity(stored) &&
-                (changed = "its parameters changed")
-            if changed !== nothing
-                @warn "Not imported: $src changed since it was checked ($changed); $dest is left as it was"
+            cp(src, staged; follow_symlinks = true)   # (what is checked is what is installed)
+            checked = _run_problem(staged)
+            checked === nothing && _raw_identity(_file_params(staged)) != _raw_identity(stored) &&
+                (checked = "it changed while it was imported")
+            if checked !== nothing
+                @warn "Not imported: $src: $checked"
                 push!(failed, src); continue
             end
             problem === nothing || @info "Replacing $dest, which isn't a usable run ($problem), with $src"
             if _raw_identity(stored) == _identity(params)
                 mv(staged, dest; force = true)   # (stored as it is: the checked copy)
-            else   # (other parameters: the data of the checked copy is written again with them)
+            else   # (keys removed: the same data and records, stored with the remaining parameters)
                 raw = _open_data(f -> (r = f["raw"]; r.metadata = _file_metadata(f); r), staged)
                 empty!(raw.params)
                 merge!(raw.params, params)
-                # what the statistics pass evaluated with the old parameters (e.g. errors against a reference of them)
-                # isn't valid for the new ones: dropped with its records, the pipeline evaluates it again. The rest stays:
-                # statistics the solver or a post-processor added, and the post-processing record (the data is
-                # post-processed; running the post-processor again would apply it twice)
-                evaluated = _open_data(f -> haskey(f, "evaluated_stats") ? Symbol.(f["evaluated_stats"]) : Symbol[], staged)
-                foreach(k -> k === :Solution || delete!(raw.stats, k), intersect(evaluated, collect(keys(raw.stats))))
-                _write_sim_file(dest, raw, Dict{String, Any}(), staged; drop = ("evaluated_with_reference", "evaluated_reference"))
+                entries = _open_data(f -> haskey(f, "evaluated_stats") ?
+                                          Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) : Dict{String, Any}(), staged)
+                _write_sim_file(dest, raw, entries, staged)
             end
         catch e
             e isa InterruptException && rethrow()
@@ -323,41 +270,15 @@ function _run_problem(path::AbstractString)
 end
 
 
-function _prompt_param_values!(params::ParamDict, prompt_keys::Vector{Symbol}, name::AbstractString)
-    println("\n--- Current parameters of $name ---")
-    for (k, v) in sort(collect(params), by = x -> string(x[1]))
-        println("  $k => $(val2str(v))")
-    end
-    println("-" ^ 40)
-    for key in prompt_keys
-        print("Enter value for '$key' (Julia expression, leave blank to skip): ")
-        input = strip(readline())
-        if isempty(input)
-            @info "  Skipped '$key'."
-            continue
-        end
-        try
-            # Interactive input is trusted: evaluate it in the user's target module.
-            params[key] = Core.eval(get_target_module(), Meta.parse(input))
-            @info "  Set $key = $(params[key])"
-        catch e
-            @warn "  Failed to evaluate '$input'; '$key' is unchanged." exception = e
-        end
-    end
-    return params
-end
-
-
-
 """
     tidy_sim_data(; dry_run = false, min_tmp_age = 3600) -> (temp_files, foreign)
 
 Removes the temporary files of writes that never finished (a process killed while writing) from the data folder, if
 they are older than `min_tmp_age` seconds (a running write keeps its temporary file younger), and lists the files
 there that aren't part of the store: `.jld2` files under other names than `<hash>.jld2` (e.g. data of earlier
-versions or copies), files whose stored parameters have another hash than their name, and files whose parameters
-can't be read. Lookups never use them, and they are never deleted here: bring their runs into the store with
-[`import_sim_data`](@ref), then delete them yourself.
+versions or copies), files whose stored parameters have another hash than their name, files whose parameters can't
+be read, and symbolic links (the store keeps none). Lookups never use them, and they are never deleted here: move them
+out of the data folder and bring their runs into the store with [`import_sim_data`](@ref).
 
 Returns the paths of the temporary files it removed (with `dry_run = true`: would remove) and of the foreign files.
 """
@@ -367,7 +288,7 @@ function tidy_sim_data(; dry_run::Bool = false, min_tmp_age::Real = 3600)
     isdir(dir) || return (temp_files = temp_files, foreign = foreign)
     for path in _data_files(dir)
         h = _filename_hash(basename(path))
-        p = h === nothing ? nothing : _file_params(path)
+        p = h === nothing || islink(path) ? nothing : _file_params(path)
         p isa AbstractDict && calculate_hash(p) == h || push!(foreign, path)
     end
     now_s = time()

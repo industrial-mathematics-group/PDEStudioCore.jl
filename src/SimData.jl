@@ -3,20 +3,20 @@
 # ==============================================================================
 
 """
-    AbstractSimData{D, DS, M, T <: Real}
+    AbstractSimData{D, DS, M, T <: AbstractFloat}
 
 Root type of all simulation datasets.
 - `D`: total (spacetime) dimensions, `DS`: spatial dimensions (`D == DS` for static data),
 - `M`: number of field components, `T`: floating point precision.
 """
-abstract type AbstractSimData{D, DS, M, T <: Real} end
+abstract type AbstractSimData{D, DS, M, T <: AbstractFloat} end
 
 """
     NoSimData()
 
 Placeholder returned by solvers or the pipeline when no data was produced (or the run was skipped).
 """
-struct NoSimData <: AbstractSimData{0, 0, 0, Real} end
+struct NoSimData <: AbstractSimData{0, 0, 0, AbstractFloat} end
 
 const AbstractStatTensor{M, T} = Union{
     SVector{M, T},

@@ -47,8 +47,14 @@ runs, and each solver shows what its docstring claims (stability limits, order, 
   that way for every new writer.
 - **The store never moves or deletes data on its own.** A run is only ever written to its
   own name, after checking that the file there holds its parameters. No renaming, staging,
-  duplicate cleanup or other in-place maintenance; tools that change parameters copy
-  (`import_sim_data`), and only `delete_sim_data` deletes.
+  duplicate cleanup or other in-place maintenance; only `delete_sim_data` deletes.
+- **The store's contract** is written down in `docs/src/data.md` ("The contract"): what it
+  guarantees and what it assumes (files written by PDEStudioCore, no symbolic links in the
+  data folder, one writer per run, callbacks don't change parameters, floating-point data,
+  imports from outside the data folder). Keep features inside it: refuse what's outside it
+  instead of handling it (e.g. no interactive or parameter-changing imports beyond
+  `remove_keys`). A review finding that needs one of these assumptions broken is hardening,
+  not a bug; weigh it against the code it would add.
 - **Name resolution.** Solvers, references and post-processing functions are referenced
   by name and resolved in the module set with `set_target_module!` (default `Main`;
   HyperCloud sets itself). Only names that module (or a submodule) defines itself resolve;
