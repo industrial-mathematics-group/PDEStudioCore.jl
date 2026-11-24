@@ -519,6 +519,21 @@ end
 
 # Values that are data as they are, and element types whose arrays need no look at every element
 const _PLAIN = Union{AbstractString, Symbol, AbstractChar, Number, Type, Val, Enum, Nothing, Missing}   # (named tuples: refused)
+# The key types of a Dict in parameters: explicit types whose distinct values have distinct texts (a user-defined
+# Integer could print two keys alike), so the order by text is canonical
+const _KEY_TYPES = Union{Symbol, String, Base.BitInteger}
+
+# Parameters read from a file, normalised, or `nothing` if they aren't valid parameters of this version (e.g. a Dict
+# with keys of another type, written by an earlier one): such a file isn't part of the store, and scans go on without it
+function _valid_stored(p)
+    p isa AbstractDict || return nothing
+    try
+        return _normalize_params(p)
+    catch e
+        e isa ArgumentError || rethrow()
+        return nothing
+    end
+end
 _plain_eltype(T) = T <: _PLAIN || (T <: StaticArray && eltype(T) <: Number)
 
 # Refuses what can't identify a run: functions, and values of custom types that don't declare their identity
@@ -536,9 +551,9 @@ function _check_param(v, path::AbstractString)
         end
     elseif v isa Dict
         K = keytype(v)
-        (isconcretetype(K) && K <: Union{Symbol, Integer, String}) || throw(ArgumentError(
+        (isconcretetype(K) && K <: _KEY_TYPES) || throw(ArgumentError(
             "the parameter $path is a Dict with keys of type $K: the keys of a Dict in parameters are Symbols (a " *
-            "ParamDict), integers or Strings, all of one type"))
+            "ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type"))
         for (k, x) in v
             _check_param(x, "$path[$(repr(k))]")
         end

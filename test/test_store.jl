@@ -656,3 +656,35 @@ end
     st_fresh()
     @test isempty(import_sim_data(src; filter_pairs = Iterators.Stateful([:k => "keep"])))
 end
+
+# Fixes of the review of #58 (reviews/2026-11-24-pull58-identity-codex.md)
+struct StTaggedIndex <: Integer   # (a user-defined Integer: two distinct keys print alike)
+    i::Int
+    side::Symbol
+end
+Base.show(io::IO, x::StTaggedIndex) = print(io, x.i)
+Base.isequal(a::StTaggedIndex, b::StTaggedIndex) = a.i == b.i && a.side === b.side
+Base.:(==)(a::StTaggedIndex, b::StTaggedIndex) = isequal(a, b)
+Base.hash(k::StTaggedIndex, h::UInt) = hash(k.i, h)
+
+@testset "Review fixes (#58)" begin
+    # Dict keys of explicit types only: Symbol, String, Base integers
+    @test_throws r"keys of type StTaggedIndex" calculate_hash(Dict(:v => Dict(StTaggedIndex(1, :left) => 10, StTaggedIndex(1, :right) => 20)))
+    @test calculate_hash(Dict(:v => Dict(Int32(1) => 1))) != calculate_hash(Dict(:v => Dict(1 => 1)))
+    @test calculate_hash(Dict(:v => Dict(UInt8(3) => 1))) isa String
+    # a stored file whose parameters this version doesn't accept (e.g. written by an earlier one) is foreign: listings,
+    # deletions, tidy and imports go on with the other files
+    dir = st_fresh()
+    good = st_save(st_params("good"), 1)
+    bad = joinpath(dir, "9"^64 * ".jld2")
+    cp(good, bad)
+    PDEStudioCore.JLD2.jldopen(f -> (delete!(f, "params"); f["params"] = ParamDict(:k => "bad", :m => Dict(0.5 => 1))), bad, "a+")
+    @test find_sim_data(; verbose = false) == [good] && size(sim_data_table(), 1) == 1
+    @test delete_sim_data(Dict(:k => "good"); dry_run = true) == [good]
+    @test tidy_sim_data().foreign == [bad]
+    src = mktempdir()
+    cp(good, joinpath(src, "good.jld2")); cp(bad, joinpath(src, "bad.jld2"))
+    st_fresh()
+    imported = @test_logs (:warn, r"aren't valid parameters of this version") match_mode = :any import_sim_data(src)
+    @test length(imported) == 1 && st_stored(get_file_name(st_params("good"))) == ("good", 1.0)
+end
