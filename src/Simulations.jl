@@ -369,7 +369,7 @@ function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, f
         (force || _needs_stats(path, required, has_reference)) || return (:cached, nothing)
         dry_run && return (:ran, nothing)
         sim_data = _load_key(path, "raw")
-        ref_func = has_reference ? ref_factory(params) : nothing
+        ref_func = has_reference ? ref_factory(deepcopy(params)) : nothing   # (a copy, like the solver's: the task stays as it is)
         _calculate_all_stats!(sim_data, ref_func, force, true, true; reference = ref_record)
         return (:ran, nothing)
     catch e

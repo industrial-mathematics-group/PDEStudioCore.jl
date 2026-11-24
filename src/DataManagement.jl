@@ -156,8 +156,10 @@ parameters, kind and shape are those stored in the file, in the file format of P
 fail (can't be read, no dataset, written by PDEStudioCore 0.4, …) are reported and skipped. The plan (the check, the
 prompts) refers to the source as it was then, identified by the SHA-256 digest of its bytes: what is installed is a
 copy with that digest, so a source whose bytes changed in between (whatever changed) is reported, and its destination
-is left as it is. A run imported with other parameters loses its statistics (except the solution), their evaluation
-records and its post-processing record, since they belong to the old parameters: the pipeline evaluates them again.
+is left as it is. A run imported with other parameters loses the statistics the statistics pass evaluated (registered
+statistics such as errors against a reference of the old parameters) and their records: the pipeline evaluates them
+again. Statistics the solver or a post-processor added (e.g. iteration counts) and the post-processing record stay as
+they are: the data is post-processed, so its post-processor doesn't run again (to repeat it, rerun the solver).
 
 A run that is stored already is skipped (`overwrite = true` replaces the stored data of the same parameters); a stored
 file of the same parameters that isn't a usable run (e.g. without its dataset) is replaced, with a message. A file
@@ -274,10 +276,12 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
                 raw = _open_data(f -> (r = f["raw"]; r.metadata = _file_metadata(f); r), staged)
                 empty!(raw.params)
                 merge!(raw.params, params)
-                # what was evaluated with the old parameters (statistics, e.g. errors against a reference of them, and
-                # post-processing) isn't valid for the new ones: the pipeline evaluates it again
-                foreach(k -> k === :Solution || delete!(raw.stats, k), collect(keys(raw.stats)))
-                delete!(raw.metadata, :postprocessed)
+                # what the statistics pass evaluated with the old parameters (e.g. errors against a reference of them)
+                # isn't valid for the new ones: dropped with its records, the pipeline evaluates it again. The rest stays:
+                # statistics the solver or a post-processor added, and the post-processing record (the data is
+                # post-processed; running the post-processor again would apply it twice)
+                evaluated = _open_data(f -> haskey(f, "evaluated_stats") ? Symbol.(f["evaluated_stats"]) : Symbol[], staged)
+                foreach(k -> k === :Solution || delete!(raw.stats, k), intersect(evaluated, collect(keys(raw.stats))))
                 _write_sim_file(dest, raw, Dict{String, Any}(), staged; drop = ("evaluated_with_reference", "evaluated_reference"))
             end
         catch e

@@ -14,9 +14,14 @@ _linspace(a::T, b::T, n::Int) where {T} = n == 1 ? T[a] :
 _wide(x::AbstractFloat) = convert(promote_type(typeof(x), Float64), x)
 _wide(x::Real) = float(x)   # (integer or rational coordinates of directly constructed domains)
 
-# The mean node distance of `n` nodes from `a` to `b` (`one(T)` for a single node), computed wide and converted to `T`
-# at the end: the extent of a Float16 axis can overflow where the spacing doesn't
-_axis_spacing(a, b, n::Integer, ::Type{T}) where {T} = n > 1 ? T((_wide(b) - _wide(a)) / (n - 1)) : one(T)
+# For accumulating: floating-point values widened to at least Float64 (a Float16 extent or square overflows where the
+# result doesn't), exact values (integers, rationals) kept exact
+_acc(x::AbstractFloat) = _wide(x)
+_acc(x::Real) = x
+
+# The mean node distance of `n` nodes from `a` to `b` (`one(T)` for a single node), computed wide for floating-point
+# axes (and exactly for rational ones) and converted to `T` at the end
+_axis_spacing(a, b, n::Integer, ::Type{T}) where {T} = n > 1 ? T((_acc(b) - _acc(a)) / (n - 1)) : one(T)
 
 function _copy_domain(domain::DomainInfo{D, T}; spacing = domain.spacing) where {D, T}
     return DomainInfo{D, T}(domain.dim_keys, domain.mins, domain.maxs, spacing, domain.time_dim, domain.stat_registry)
