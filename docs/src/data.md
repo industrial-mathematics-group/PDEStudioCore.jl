@@ -70,7 +70,7 @@ The pipeline writes three entries itself (any value of the same name is replaced
 | `:sources` | SHA-256 digests of the source files of the run (pipeline runs with `sources`) |
 | `:postprocessed` | the post-processors that ran on this data (name => the digests of the source files and the package's version), so the pipeline doesn't run them again |
 
-The metadata saved is the dataset's own: new data replaces the stored metadata (with a new provenance, without `:sources` and `:postprocessed`), and an entry you remove from `data.metadata` stays removed when you save. Writing the same data again (statistics, post-processing, `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref), or a recomputed dataset) takes the pipeline's entries of the stored metadata it doesn't have; `:postprocessed` only if the data still has the stored statistics (a recomputed dataset lacks what a post-processor added). Conversions carry the metadata of their source. Metadata is read with every dataset, so keep it small (large results belong into statistics or files of their own).
+The metadata saved is the dataset's own: new data replaces the stored metadata (with a new provenance, without `:sources` and `:postprocessed`), and an entry of your own that you remove from `data.metadata` stays removed when you save (the pipeline's entries `:provenance`, `:sources` and `:postprocessed` don't, see next). Writing the same data again (statistics, post-processing, `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref), or a recomputed dataset) takes the pipeline's entries of the stored metadata it doesn't have; `:postprocessed` only if the data still has the stored statistics (a recomputed dataset lacks what a post-processor added). Conversions carry the metadata of their source. Metadata is read with every dataset, so keep it small (large results belong into statistics or files of their own).
 
 ## 2. The Statistics View
 
@@ -89,21 +89,22 @@ On disk, the solution is stored once (in `u`).
 
 ## 3. Storage Layout
 
-Every run is one file, `<save path>/data/<sha256>.jld2`, named by the hash of its normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone. The hash digests a canonical encoding of the parameters in which every value carries its kind and every text its length, so distinct parameters never share an encoding (`true` and `1`, `"1"` and `1`, a matrix and a vector of the same numbers differ; hash format 4, PDEStudioCore 0.8). A lookup also checks the parameters stored in the file: a file is only ever taken for, and replaced by, the run its name stands for. A file at the name of a run that holds other parameters, or whose parameters can't be read, is never replaced: saving that run is an error, and the pipeline reports it as failed without running it.
+Every run is one file, `<save path>/data/<sha256>.jld2`, named by the hash of its normalised parameters ([`calculate_hash`](@ref)), so a run is found again from its parameters alone. The hash digests a canonical encoding of the parameters in which every value carries its kind and every text its length, so distinct normalised parameters never share an encoding (`true` and `1`, `"1"` and `1`, a matrix and a vector of the same numbers differ; hash format 4, PDEStudioCore 0.8). Normalisation itself is lossy for values that aren't data (see 6.): two values with the same stored text are one run, and [`generate_tasks`](@ref) refuses a configuration with two such runs. A lookup also checks the parameters stored in the file: a file is only ever taken for, and replaced by, the run its name stands for. A file at the name of a run that holds other parameters, or whose parameters can't be read, is never replaced: saving that run is an error, and the pipeline reports it as failed without running it.
 
 **The contract.** The store guarantees:
 
 - data is only ever written to its own name, atomically (see below);
 - nothing moves, renames or deletes data on its own: only [`delete_sim_data`](@ref) deletes, and only what you ask for ([`tidy_sim_data`](@ref) removes leftover temporary files);
 - there are no duplicates of a run, so nothing has to choose between copies or clean them up;
-- a rewrite of a file keeps every entry in it, or fails and leaves the file as it was.
+- a rewrite of a file keeps every entry in it (apart from the cached conversions and the statistics records, which belong to the data and go when the data is replaced), or fails and leaves the file as it was.
 
 In return it assumes:
 
 - the files in the data folder are written by PDEStudioCore: your own values belong into `metadata`, statistics or files of their own (entries you add with JLD2 are kept as far as JLD2 can write them again; otherwise a rewrite fails);
 - the data folder holds no symbolic links: a link at a run's name is never read as the run, written through or replaced;
 - no two processes write the same run at the same time (the last rename wins);
-- callbacks (solvers, references, post-processors) don't change a run's parameters: they get copies, and a post-processor that changes them fails.
+- callbacks (solvers, references, post-processors) don't change a run's parameters: they get copies, and a post-processor that changes them fails;
+- parameter values are data (numbers, strings, symbols, containers of them, …): functions are refused, so name them (`:ic => "sin"`) and look the name up in the solver.
 
 Anything outside these assumptions isn't repaired automatically: lookups ignore it, [`tidy_sim_data`](@ref) lists it, and saves refuse to replace it.
 
@@ -114,7 +115,7 @@ Each file contains:
 | Entry | Content |
 | :--- | :--- |
 | `"raw"` | the native dataset |
-| `"native"`, `"params"`, `"stat_keys"`, `"registry"`, `"shape"`, `"dim_keys"`, `"time_dim"` | fast metadata, read without loading the data (`"shape"` is `size(u)`, or time steps and total particle count for Lagrangian data; the axes are stored since November 2026, see [`get_sim_data_info`](@ref)) |
+| `"native"`, `"params"`, `"stat_keys"`, `"registry"`, `"shape"`, `"dim_keys"`, `"time_dim"` | fast metadata, read without loading the data (`"shape"` is `size(u)`, or time steps and total particle count for Lagrangian data; see [`get_sim_data_info`](@ref)) |
 | `"format_version"` | the layout of the file (see below) |
 | `"metadata"` | the dataset's `metadata` (stored once, here: `"raw"` holds the dataset without it), read and updated without loading the data |
 | `"evaluated_stats"` | statistics already evaluated for this data |
@@ -124,7 +125,7 @@ Each file contains:
 
 Other entries (e.g. written with JLD2 directly) are kept when the data is rewritten; if one of them can't be copied, the rewrite fails and the file stays as it was.
 
-The **format version** is 3 for files written by PDEStudioCore 0.5 and later. Files of earlier layouts (0.4) count as missing: the pipeline recomputes them.
+The **format version** is 3 for files written by PDEStudioCore 0.5 and later; [`import_sim_data`](@ref) refuses files of earlier layouts (0.4).
 
 
 Writes are atomic: a file is written to a temporary path and renamed into place, so an interrupted run never corrupts existing data, and rewriting the data does not grow the file. This includes the bookkeeping entries of the statistics pass and cached conversions: they are written into a copy of the file that then replaces it (a changed bookkeeping entry grows the file by about its own size, a few hundred bytes to a few kB). When the data itself is rewritten, the other entries are loaded and stored again: load the packages that define the types of entries you stored yourself first, otherwise they are kept as JLD2's reconstructions (with a warning). Writers in several processes are not coordinated: if two of them rewrite the same file at once, the last rename wins. Rewriting the raw data drops stale conversion caches but keeps any other entries (including groups) you stored yourself.
@@ -170,4 +171,4 @@ A lookup is a single path, so files added or removed by other processes are seen
 
 ## 6. Parameter Normalisation
 
-Before hashing and saving, parameters are normalised: closures become `"Closure"`, custom structs become a descriptive string and other values round-trip through [`val2str`](@ref)/[`str2val`](@ref). Strings are always kept verbatim, so a parameter such as `:ic => "sin"` stays a string. [`str2val`](@ref) only parses literals (numbers, strings, symbols, tuples, vectors, `Dict`s, static arrays, arithmetic like `2π` and a range as the whole value, e.g. a sweep typed as `1:10`); it never executes code. Types come from an allowlist (numbers, text, the containers [`val2str`](@ref) writes and StaticArrays), and what a value may build is bounded (elements, digits, the size of types including static arrays, nesting), so a file cannot run code, and these limits bound what the parser computes and compiles for a text; anything else is kept as a string. Inspect the stored form with [`print_clean_params`](@ref).
+Before hashing and saving, parameters are normalised: functions are refused (name them instead), custom structs become a descriptive string (their type name, with the type parameters for structs without fields such as `Limiter{:minmod}()`, and their fields; type names are written without module prefixes, so the text doesn't depend on what the session loaded with `using`) and other values round-trip through [`val2str`](@ref)/[`str2val`](@ref). Strings are always kept verbatim, so a parameter such as `:ic => "sin"` stays a string. [`str2val`](@ref) only parses literals (numbers, strings, symbols, tuples, vectors, `Dict`s, static arrays, arithmetic like `2π` and a range as the whole value, e.g. a sweep typed as `1:10`); it never executes code. Types come from an allowlist (numbers, text, the containers [`val2str`](@ref) writes and StaticArrays), and what a value may build is bounded (elements, digits, the size of types including static arrays, nesting), so a file cannot run code, and these limits bound what the parser computes and compiles for a text; anything else is kept as a string. Inspect the stored form with [`print_clean_params`](@ref).

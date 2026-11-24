@@ -21,7 +21,7 @@ It is the engine behind the interactive frontend [PDEStudio.jl](https://github.c
 
 ## Features
 
-- **One data type for any dimension:** Eulerian grids (`ESimData`) and Lagrangian particles (`LSimData`) in 1D, 2D, 3D or more, with or without time, in any floating point precision. Conversions between both representations are built in and cached.
+- **One data type for any dimension:** Eulerian grids (`ESimData`) and Lagrangian particles (`LSimData`) in 1D, 2D, 3D or more, with or without time, in any floating point precision. Conversions between both representations are built in (and cached in the file with `enable_cache!(true)`).
 - **Declarative sweeps:** shared parameters, per-method overrides and swept values (`SimulationConfig`) expand into the Cartesian product of runs; duplicate runs are removed.
 - **Reproducible caching:** results are stored as JLD2 files named by a deterministic SHA-256 hash of the parameters, written atomically. Re-running a configuration only computes what is missing.
 - **Statistics pipeline:** register a statistic once (`register_stat!`) with the dimensions it keeps, implement `calc_stat`, and it is evaluated (multithreaded) for every dataset, including errors against an analytical reference. `data.stats[:Solution]` always *is* the solution.

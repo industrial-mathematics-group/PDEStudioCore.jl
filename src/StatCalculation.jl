@@ -170,9 +170,12 @@ end
 Extension point for statistics registered with [`register_stat!`](@ref). Called once per retained
 slice: `fixed_coords` holds the coordinates of the kept dimensions, `u`/`ana` iterate the numerical
 and reference values of the slice (`ana` is `NaN` without a reference function). Must return an
-`SVector{M}`. The fallback returns `NaN`s, which removes the statistic.
+`SVector{M}`; `NaN`s (e.g. an error without a reference) remove the statistic. A registered statistic without a
+method is an error (the statistics of the dataset fail and are tried again on the next run), not a silent `NaN`.
 """
-calc_stat(stat, fixed_coords, u, ana, domain) = zero(eltype(u)) .* NaN
+calc_stat(::Val{name}, fixed_coords, u, ana, domain) where {name} = throw(ArgumentError(
+    "the statistic :$name is registered (`register_stat!`), but has no `calc_stat(::Val{:$name}, fixed_coords, u, ana, " *
+    "domain)` method (a missing `include`, a typo in the name, or a preset loaded later?)"))
 
 """
     is_all_nan(val)

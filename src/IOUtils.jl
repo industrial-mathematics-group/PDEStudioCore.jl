@@ -9,9 +9,9 @@
 #   "stat_keys"  available statistics (incl. :Solution)
 #   "registry"   kept dimensions of every statistic
 #   "shape"      size of `u` (Eulerian), (time steps, particles) (Lagrangian)
-#   "dim_keys", "time_dim"  the axes of the data (fast metadata; files written before Nov 2026 have none)
+#   "dim_keys", "time_dim"  the axes of the data (fast metadata)
 #   "evaluated_stats"  statistics already evaluated for this raw data (incl. dropped all-NaN ones)
-#   "format_version"   the layout of the file (`_FORMAT_VERSION`; files of 0.4 have none: version 1)
+#   "format_version"   the layout of the file (`_FORMAT_VERSION`; checked when files are imported)
 #   "metadata"   the dataset's `metadata` field ("raw" is stored without it): provenance, sources, post-processing
 #                record, the user's entries
 #   "evaluated_with_reference"  whether a reference was available for "evaluated_stats"
@@ -159,11 +159,12 @@ function get_file_name(params::AbstractDict)
     return path
 end
 
-# The store files whose hash starts with `prefix` (or the file of that name), sorted by name
+# The files in the data folder whose hash starts with `prefix` (or the file of that name, not a link), sorted by name
 function _files_matching(prefix::AbstractString)
     clean = lowercase(replace(basename(String(prefix)), r"\.jld2$" => ""))
     isempty(clean) && return String[]
     return filter(_data_files()) do path
+        islink(path) && return false   # (the store keeps no links)
         h = _filename_hash(basename(path))
         return lowercase(replace(basename(path), r"\.jld2$" => "")) == clean || (h !== nothing && startswith(h, clean))
     end
@@ -415,7 +416,7 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
                        metadata::AbstractDict = Dict{Symbol, Any}())
     isempty(metadata) || merge!(sim_data.metadata, _metadata_dict(metadata))
     path = _find_file(sim_data.params)
-    writes = path === nothing || overwrite || !_has_key(path, "raw")
+    writes = path === nothing || overwrite
     (path === nothing || overwrite) && _new_or_same_data!(sim_data, path)
     # saved deliberately, it becomes the data of these parameters: a derived dataset is one no more, but only if it is
     # written (a stored native run is kept without `overwrite`: the dataset stays derived)
@@ -465,17 +466,9 @@ function _carry_metadata!(data::AbstractSimData, path::AbstractString)
     return data
 end
 
-# The metadata of the data in an open file: its "metadata" entry. Files of PDEStudioCore 0.4 (before the metadata
-# field) aren't read: `strict` throws for them, otherwise their data comes without metadata.
+# The metadata of the data in an open file: its "metadata" entry (`strict`: an error if it can't be read, so a writer
+# never replaces what it couldn't read; otherwise the data comes without it)
 function _file_metadata(file; strict::Bool = false)
-    version = _format_version(file)
-    if version < _FORMAT_VERSION
-        msg = "$(basename(file.path)) was written by PDEStudioCore 0.4 (file format $version), which this version doesn't " *
-              "read"
-        strict && throw(ErrorException(msg))
-        @warn msg
-        return Dict{Symbol, Any}()
-    end
     v = try
         file["metadata"]
     catch e   # (e.g. a type whose stored form changed: the data is still readable; writers don't replace it)
@@ -488,7 +481,7 @@ end
 
 # Changes the stored metadata of a file without rewriting its data (`nothing` removes an entry)
 function _update_metadata!(path::AbstractString, changes::Pair...)
-    md = jldopen(f -> _file_metadata(f; strict = true), path, "r")   # (throws for a file of 0.4)
+    md = jldopen(f -> _file_metadata(f; strict = true), path, "r")
     for (k, v) in changes
         v === nothing ? delete!(md, k) : (md[k] = v)
     end
@@ -593,11 +586,12 @@ function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Boo
         _write_sim_file(path, sim_data, metadata, nothing)
         verbose && @info "Saved simulation data to $(basename(path))"
     elseif state === :same
-        if overwrite || !_has_key(path, "raw")
+        if overwrite
             _write_sim_file(path, sim_data, metadata, path)
             verbose && @info "Saved simulation data to $(basename(path)) (replaced; conversion caches cleared)"
         else
-            @debug "'raw' already exists in $(basename(path)); skipping save."
+            verbose && @info "Not saved: data of these parameters is stored already ($(basename(path))); " *
+                             "`overwrite = true` replaces it."
         end
     else   # (never replaced: it isn't the data of these parameters, or it can't be checked)
         throw(_name_taken(path, state))
@@ -645,12 +639,7 @@ _stored_stat_keys(path::AbstractString) =
     jldopen(f -> haskey(f, "stat_keys") ? Symbol[Symbol(k) for k in f["stat_keys"]] : Symbol[], path, "r")
 
 function _native_and_shape(path::AbstractString)
-    return jldopen(path, "r") do file
-        (haskey(file, "native") && haskey(file, "shape")) || throw(ArgumentError(
-            "$(basename(path)) was written by an older PDEStudioCore version (no \"native\"/\"shape\" metadata). " *
-            "Run its configuration again (`run_all_simulations` recomputes outdated files) or delete it."))
-        return file["native"], Tuple(file["shape"])
-    end
+    return jldopen(file -> (file["native"], Tuple(file["shape"])), path, "r")
 end
 
 # Whether `data` is the dataset stored as "raw" in `path`: the same representation and the same solution (its
@@ -669,33 +658,14 @@ end
 Describes the stored dataset of `params` without loading it: `(path, kind, shape, dim_keys, time_dim, n_steps)`,
 where `kind` is `:eulerian` or `:lagrangian` (the native representation), `shape` the size of `u` (Eulerian) or
 `(time steps, particles)` (Lagrangian), `dim_keys`/`time_dim` the axes (`time_dim` is `nothing` for static data)
-and `n_steps` the number of stored time steps (0 for static data). Files written by PDEStudioCore before
-November 2026 lack the axes in their metadata: for them the data is loaded on every call to read them (rewriting the
-data, e.g. `save_sim_data(load_sim_data(params); overwrite = true)`, adds them). Throws a
-[`SimFileNotFoundError`](@ref) if nothing is stored for `params`, and an `ArgumentError` for files of much older
-versions (without `"native"`/`"shape"`).
+and `n_steps` the number of stored time steps (0 for static data). Throws a [`SimFileNotFoundError`](@ref) if nothing
+is stored for `params`.
 """
 function get_sim_data_info(params::AbstractDict)
     path = get_file_name(params)
     # (one opening, so a concurrent overwrite can't pair the shape of one file with the axes of another)
     kind, shape, dim_keys, time_dim = jldopen(path, "r") do file
-        (haskey(file, "native") && haskey(file, "shape")) || throw(ArgumentError(
-            "$(basename(path)) was written by an older PDEStudioCore version (no \"native\"/\"shape\" metadata). " *
-            "Run its configuration again (`run_all_simulations` recomputes outdated files) or delete it."))
-        keys_ = haskey(file, "dim_keys") ? file["dim_keys"] : nothing
-        tdim = haskey(file, "time_dim") ? file["time_dim"] : missing   # (not an axis name: falls back)
-        file["native"], Tuple(file["shape"]), keys_, tdim
-    end
-    # The stored axes, if they are what this version writes: distinct names, the time axis last (older files may
-    # hold user metadata of the same names; Symbols that look exactly like axes can't be told apart without loading)
-    valid = dim_keys isa AbstractVector{Symbol} && allunique(dim_keys) &&
-            (time_dim === nothing || (time_dim isa Symbol && !isempty(dim_keys) && last(dim_keys) === time_dim)) &&
-            (kind !== :eulerian || length(dim_keys) == length(shape))
-    if valid
-        dim_keys = Tuple(dim_keys)
-    else
-        domain = _load_key(path, "raw").domain
-        dim_keys, time_dim = domain.dim_keys, domain.time_dim
+        file["native"], Tuple(file["shape"]), Tuple(file["dim_keys"]), file["time_dim"]
     end
     n_steps = time_dim === nothing ? 0 : kind === :lagrangian ? shape[1] : shape[end]
     return (path = path, kind = kind, shape = shape, dim_keys = dim_keys, time_dim = time_dim, n_steps = n_steps)
@@ -772,16 +742,9 @@ loaded without recomputation, exists on disk.
 does_sim_data_exist(params::AbstractDict) = does_sim_data_exist(params, Val(:raw))
 does_sim_data_exist(params::AbstractDict, kind::Symbol, args...) = does_sim_data_exist(params, Val(kind), args...)
 
-# A file the pipeline can use: data in the current file format (version 3) with its dataset and fast metadata. A file
-# of PDEStudioCore 0.4 counts as missing, so the pipeline recomputes (and replaces) it instead of failing on it.
-function _is_current_file(path::AbstractString)
-    version, complete = jldopen(f -> (_format_version(f), all(k -> haskey(f, k), ("raw", "native", "shape", "params"))), path, "r")
-    version >= _FORMAT_VERSION && complete && return true
-    version >= _FORMAT_VERSION && return false   # (e.g. its dataset was removed: missing, the pipeline recomputes it)
-    @info "$(basename(path)) was written by PDEStudioCore 0.4 (file format $version), which this version doesn't read; " *
-          "it counts as missing and is computed again."
-    return false
-end
+# A file the pipeline can use: its dataset and fast metadata (a file without them counts as missing: the pipeline
+# computes the run again and replaces it)
+_is_current_file(path::AbstractString) = jldopen(f -> all(k -> haskey(f, k), ("raw", "native", "shape", "params")), path, "r")
 
 # The format version of an open data file (see `_FORMAT_VERSION`; a user entry of that name in a file of 0.4, where
 # it wasn't reserved, doesn't count)

@@ -36,8 +36,17 @@ function _axis_from_grid(grid::AbstractArray{<:Real}, d::Int)
 end
 
 # --- Solution packing: SVector arrays, scalar arrays, components-last arrays, arrays of vectors ---
+# Data is real and stored as floating point (see `DomainInfo`): complex values (or other numbers) are refused here, with
+# a message, rather than failing later in a shape check or a comparison
+function _check_real(E)
+    S = E <: AbstractArray ? eltype(E) : E
+    (S <: Real || !(S <: Number)) && return nothing
+    throw(ArgumentError("the solution has values of type $S: data is real (stored as floating point); store e.g. real " *
+                        "and imaginary parts as two components"))
+end
 function _pack_solution(u::AbstractArray, D::Int, lens::Tuple)
     E = eltype(u)
+    _check_real(E)
     if E <: SVector && ndims(u) == D
         return convert(Array{SVector{length(E), float(eltype(E))}, D}, u)
     elseif E <: Real && ndims(u) == D
@@ -178,10 +187,10 @@ function _particle_bounds(x::Vector{Vector{SVector{DS, T}}}) where {DS, T}
     return found ? (lo, hi) : (zero(SVector{DS, T}), zero(SVector{DS, T}))
 end
 
-_particle_scalar(::Type{E}) where {E <: SVector} = eltype(E)
+_particle_scalar(::Type{E}) where {E <: SVector} = (_check_real(E); eltype(E))
 _particle_scalar(::Type{E}) where {E <: Real} = E
-_particle_scalar(::Type{E}) where {E} = throw(ArgumentError(
-    "particle states must be SVectors or numbers, got elements of type $E"))
+_particle_scalar(::Type{E}) where {E} = (_check_real(E); throw(ArgumentError(
+    "particle states must be SVectors or numbers, got elements of type $E")))
 
 _pack_particles(u::AbstractVector, ::Type{E}, ::Type{T}) where {E <: SVector, T} =
     Vector{SVector{length(E), T}}[convert(Vector{SVector{length(E), T}}, step) for step in u]

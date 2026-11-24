@@ -153,9 +153,9 @@ place: it must hold a dataset (`"raw"`) whose parameters, kind and shape are tho
 format of PDEStudioCore 0.5 and later. Files that fail (can't be read, no dataset, written by PDEStudioCore 0.4, …) are
 reported and skipped. Every copy is written atomically, so an interrupted import is simply run again.
 
-A run that is stored already is skipped; a stored file of its parameters that isn't a usable run (e.g. without its
-dataset) is replaced, with a message. Anything else at the destination (a file of other parameters, one whose
-parameters can't be read, a symbolic link) is never replaced. Of several source files of the same parameters the
+A run that is stored already is skipped. Nothing at a destination is ever replaced: a stored file of the parameters
+that isn't a usable run (e.g. without its dataset), a file of other parameters or one whose parameters can't be read,
+and a symbolic link are reported (move or delete them, then import again). Of several source files of the same parameters the
 first (by path) is imported, the others are reported.
 
 # Keywords
@@ -204,10 +204,17 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
             @warn "Not imported: $src. " * sprint(showerror, _name_taken(dest, state))
             push!(failed, src); continue
         end
-        problem = state === :same ? _run_problem(dest) : nothing
-        if state === :same && problem === nothing
-            @info "Already stored: $src (as $(basename(dest)))"
-            push!(skipped, src); continue
+        if state === :same   # (never replaced: only `delete_sim_data` deletes)
+            problem = _run_problem(dest)
+            if problem === nothing
+                @info "Already stored: $src (as $(basename(dest)))"
+                push!(skipped, src)
+            else
+                @warn "Not imported: $src. $dest holds these parameters, but isn't a usable run ($problem); move or " *
+                      "delete it, then import again."
+                push!(failed, src)
+            end
+            continue
         end
         staged = _tmp_path(dest)
         try
@@ -220,7 +227,6 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
                 @warn "Not imported: $src: $checked"
                 push!(failed, src); continue
             end
-            problem === nothing || @info "Replacing $dest, which isn't a usable run ($problem), with $src"
             if _raw_identity(stored) == _identity(params)
                 mv(staged, dest; force = true)   # (stored as it is: the checked copy)
             else   # (keys removed: the same data and records, stored with the remaining parameters)
@@ -314,9 +320,7 @@ recently written first: `file`, `created` (when the data was made, from its prov
 `format_version`, `stats` (the available statistics), `postprocessed` (the names of the post-processors that ran, or `missing`),
 `wall_time` (seconds the solver took, if recorded), `solver`, then one column per parameter (`missing` where a
 run doesn't have it; a parameter named like one of the columns before gets the column `param_<name>`, with more
-`param_` prefixes if that is a parameter, too). Only the
-lightweight entries of each file are read. Files of PDEStudioCore 0.4 show their file format (below 3) and no
-metadata: this version doesn't read them.
+`param_` prefixes if that is a parameter, too). Only the lightweight entries of each file are read.
 """
 function sim_data_table(match_params::AbstractDict = Dict{Symbol, Any}())
     rows = Dict{Symbol, Any}[]

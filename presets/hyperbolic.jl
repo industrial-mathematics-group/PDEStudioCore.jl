@@ -62,17 +62,20 @@ function calc_stat(::Val{:relative_l2error}, fixed_coords, u, ana, domain::Domai
     return _narrow(u, error_norm ./ ana_norm)
 end
 
-function calc_stat(::Val{:relative_mass}, fixed_coords, u, ana, domain::DomainInfo)
-    measure = _wide_measure(:relative_mass, domain)
-    sum_u = _wide_sum(identity, u, measure)
-    sum_ana = _wide_sum(identity, ana, measure)
-    m_ana = abs.(sum_ana)
-
-    M = length(eltype(u))
-    T = eltype(eltype(u)) # Dynamically get T
-    return SVector{M, T}(ntuple(M) do c
-        m_ana[c] < 1e-9 ? T(NaN) : T(sum_u[c] / sum_ana[c])
+# The ratio of the masses per component, `NaN` where the reference's mass is negligible against its L1 norm (a field
+# whose mass cancels, e.g. a sine wave: the ratio would be round-off over round-off). Relative, so small fields (SI units)
+# keep it.
+function _relative_mass(u, ana, measure)
+    sum_u, sum_ana = _wide_sum(identity, u, measure), _wide_sum(identity, ana, measure)
+    l1_ana = _wide_sum(a -> abs.(a), ana, measure)
+    T = eltype(eltype(u))
+    return SVector{length(eltype(u)), T}(ntuple(length(eltype(u))) do c
+        abs(sum_ana[c]) <= 1e-9 * l1_ana[c] ? T(NaN) : T(sum_u[c] / sum_ana[c])
     end)
+end
+
+function calc_stat(::Val{:relative_mass}, fixed_coords, u, ana, domain::DomainInfo)
+    return _relative_mass(u, ana, _wide_measure(:relative_mass, domain))
 end
 
 function calc_stat(::Val{:mass_error}, fixed_coords, u, ana, domain::DomainInfo)
@@ -92,17 +95,6 @@ end
 
 # 2. Add the calc_stat overload
 function calc_stat(::Val{:spacetime_relative_mass}, fixed_coords, u, ana, domain::DomainInfo)
-    # Gets the combined integration measure for dx * dy * dz * dt
-    measure = _wide_measure(:spacetime_relative_mass, domain)
-
-    sum_u = _wide_sum(identity, u, measure)
-    sum_ana = _wide_sum(identity, ana, measure)
-    m_ana = abs.(sum_ana)
-
-    M = length(eltype(u))
-    T = eltype(eltype(u))
-
-    return SVector{M, T}(ntuple(M) do c
-        m_ana[c] < 1e-9 ? T(NaN) : T(sum_u[c] / sum_ana[c])
-    end)
+    # the combined integration measure dx * dy * dz * dt
+    return _relative_mass(u, ana, _wide_measure(:spacetime_relative_mass, domain))
 end

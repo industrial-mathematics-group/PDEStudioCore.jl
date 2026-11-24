@@ -16,6 +16,8 @@ st_solver(p) = create_sim_data([0.0, 1.0], fill(Float64(p[:k]), 2), p)
 st_diag_solver(p) = (d = st_solver(p); add_stat!(d, :iterations, 23.0, Symbol[]); d)   # (a solver diagnostic)
 st_double_reference(p) = _ -> 2 * p[:k]
 st_add_one(data) = (data.u = map(v -> v .+ 1, data.u); true)
+const ST_MARKS = Ref(0)
+st_mark(data) = (ST_MARKS[] += 1; add_stat!(data, :marked, 1.0, Symbol[]); true)   # (adds a statistic, keeps u)
 st_moving_post(data) = (data.params[:k] = 2; true)
 st_popping_reference(p) = (pop!(p, :offset); _ -> 0.0)   # (a reference factory that takes its parameter out)
 
@@ -157,15 +159,18 @@ end
     @test isempty(imported) && isempty(find_sim_data(; verbose = false))
     # a filter excludes a run before its dataset is read
     @test isempty(@test_logs min_level = Base.CoreLogging.Warn import_sim_data(bad; filter_pairs = Dict(:k => "unmatched")))
-    # a stored file of the parameters that isn't a usable run is replaced; a file of other parameters never
+    # nothing at a destination is replaced: neither a stored file of the parameters that isn't a usable run, nor a
+    # file of other parameters
     p = st_params("retry")
     dest = st_save(p, 7)
     complete = joinpath(mktempdir(), "complete.jld2")
     cp(dest, complete)
     PDEStudioCore.JLD2.jldopen(f -> delete!(f, "raw"), dest, "a+")
     @test !does_sim_data_exist(p)
-    @test (@test_logs (:info, r"isn't a usable run") match_mode = :any length(import_sim_data(complete))) == 1
-    @test does_sim_data_exist(p) && st_stored(dest) == ("retry", 7.0)
+    @test isempty(@test_logs (:warn, r"isn't a usable run") match_mode = :any import_sim_data(complete))
+    @test !does_sim_data_exist(p) && !PDEStudioCore.JLD2.jldopen(f -> haskey(f, "raw"), dest, "r")
+    rm(dest)
+    @test length(import_sim_data(complete)) == 1 && does_sim_data_exist(p) && st_stored(dest) == ("retry", 7.0)
     run_c = joinpath(mktempdir(), "run_c.jld2")
     st_fresh(); cp(st_save(st_params("C"), 3), run_c)
     mv(st_save(st_params("B"), 20), st_name(st_params("C")); force = true)   # (B's data under C's name)
@@ -186,18 +191,19 @@ end
     st_fresh()
     a = create_param_dict(:sim_func_name => :st_diag_solver, :k => 1, :obsolete => "x")
     b = create_param_dict(:sim_func_name => :st_diag_solver, :k => 1)
-    cfg(p) = SimulationConfig(p; reference = :st_double_reference, postprocess = :st_add_one)
+    cfg(p) = SimulationConfig(p; reference = :st_double_reference, postprocess = :st_mark)
+    ST_MARKS[] = 0
     run_all_simulations(cfg(a); calculate_stats = true)
     d = load_sim_data(a)
-    @test d.u[1][1] == 2.0 && d.stats[:l1error][1] == 2.0 && haskey(d.metadata, :postprocessed)   # (|1 - 2| twice, before +1)
+    @test d.stats[:l1error][1] == 2.0 && d.stats[:marked][1] == 1.0 && ST_MARKS[] == 1   # (|1 - 2| twice)
     moved = mktempdir()
     mv(get_file_name(a), joinpath(moved, "a.jld2"))
     @test length(import_sim_data(moved; remove_keys = [:obsolete])) == 1
     d = load_sim_data(b)
-    @test d.u[1][1] == 2.0 && d.stats[:l1error][1] == 2.0 && d.stats[:iterations][1] == 23.0 && haskey(d.metadata, :postprocessed)
+    @test d.stats[:l1error][1] == 2.0 && d.stats[:iterations][1] == 23.0 && d.stats[:marked][1] == 1.0 && haskey(d.metadata, :postprocessed)
     @test PDEStudioCore.JLD2.jldopen(f -> haskey(f, "evaluated_stats") && haskey(f, "evaluated_with_reference"), get_file_name(b), "r")
     s = run_all_simulations(cfg(b); calculate_stats = true)   # (nothing to do: not solved, evaluated or post-processed again)
-    @test isempty(s.ran) && get(s.stats, :ran, 0) == 0 && get(s.postprocessing, :ran, 0) == 0 && load_sim_data(b).u[1][1] == 2.0
+    @test isempty(s.ran) && get(s.stats, :ran, 0) == 0 && get(s.postprocessing, :ran, 0) == 0 && ST_MARKS[] == 1
 end
 
 @testset "Rewrites keep every entry, or fail" begin
@@ -301,4 +307,122 @@ end
     st_save(st_params("after"), 1)
     get_file_name(st_params("after"))
     @test length(cache) < 10
+end
+
+# Fixes of the independent review of 0.9.0 (2026-11-24; report in the PR), one case per finding
+module StTags
+struct Limiter{K} end
+struct Wall
+    id::Int
+end
+end
+st_flat(p) = create_sim_data(collect(range(0, 1, length = 5)), fill(Float64(p[:k]), 5), p)
+st_double(data) = (data.u = map(v -> 2 .* v, data.u); true)   # (changes the solution)
+
+@testset "Review fixes (0.9.0)" begin
+    @testset "1. the stored form doesn't depend on what the session loaded with `using`" begin
+        SV = PDEStudioCore.StaticArrays.SVector
+        p = Dict(:sources_at => [SV(0.25, 0.5), SV(0.75, 0.5)])
+        @test get_clean_params(p)[:sources_at] == [SV(0.25, 0.5), SV(0.75, 0.5)]   # (read back as values, not text)
+        code = "using PDEStudioCore; SV = PDEStudioCore.StaticArrays.SVector; " *
+               "print(calculate_hash(Dict(:sources_at => [SV(0.25, 0.5), SV(0.75, 0.5)])))"
+        @test read(`$(Base.julia_cmd()) --project=$(Base.active_project()) -e $code`, String) == calculate_hash(p)
+        @test val2str([StTags.Wall(1)]) == "Wall[Wall(id=1)]"   # (no `Main.StTags.` prefix)
+        @test PDEStudioCore._type_text(Base.OneTo{Int}) == "OneTo{Int64}"
+    end
+
+    @testset "2. values stored alike are refused instead of merged" begin
+        @test_throws r"holds a function" get_clean_params(Dict(:ic => sin))
+        @test_throws r"holds a function" calculate_hash(Dict(:ics => [sin, cos]))
+        @test val2str(StTags.Limiter{:minmod}()) == "Limiter{:minmod}" && val2str(StTags.Limiter{:superbee}()) == "Limiter{:superbee}"
+        @test calculate_hash(Dict(:l => StTags.Limiter{:minmod}())) != calculate_hash(Dict(:l => StTags.Limiter{:superbee}()))
+        cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1, :x => 0.1);
+                               varied = create_varied_dict(:x => Any[0.1f0, 0.1]))   # (Float32 is stored as Float64)
+        @test_throws r"stored alike" generate_tasks(cfg)
+    end
+
+    @testset "3. a changed reference file is handled by on_changed_sources" begin
+        st_fresh()
+        src = joinpath(mktempdir(), "model.jl")
+        write(src, "st_src_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\nst_src_reference(p) = _ -> 2.0\n")
+        cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_src_solver); reference = :st_src_reference, sources = [src])
+        run(; kw...) = run_all_simulations(cfg; calculate_stats = true, kw...)
+        @test run().stats == Dict(:ran => 1) && run().stats == Dict(:cached => 1)
+        open(io -> println(io, "# a comment"), src, "a")
+        s = @test_logs (:warn, r"another version of the reference") match_mode = :any run()
+        @test s.stats == Dict(:outdated => 1)
+        @test run(on_changed_sources = :ignore).stats == Dict(:cached => 1)
+        @test run(on_changed_sources = :recompute).stats == Dict(:ran => 1) && run().stats == Dict(:cached => 1)
+    end
+
+    @testset "4. a save that keeps the stored data says so" begin
+        st_fresh()
+        p = st_params("kept")
+        st_save(p, 1)
+        @test_logs (:info, r"Not saved: data of these parameters is stored already") save_sim_data(st_data(p, 2))
+        @test st_stored(get_file_name(p)) == ("kept", 1.0)
+        PDEStudioCore.JLD2.jldopen(f -> delete!(f, "raw"), get_file_name(p), "a+")   # (and isn't replaced without `overwrite`)
+        save_sim_data(st_data(p, 3); verbose = false)
+        @test !does_sim_data_exist(p)
+        save_sim_data(st_data(p, 3); overwrite = true, verbose = false)
+        @test st_stored(get_file_name(p)) == ("kept", 3.0)
+    end
+
+    @testset "5. a statistic without a method fails instead of counting as evaluated" begin
+        st_fresh()
+        old = PDEStudioCore.get_stat_registry()
+        try
+            register_stat!(:st_umax, :time)
+            cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_solver, :k => 3))
+            s = run_all_simulations(cfg; calculate_stats = true)
+            @test get(s.stats, :failed, 0) == 1 && occursin("has no `calc_stat", last(only(s.stats_failed)))
+            @eval PDEStudioCore.calc_stat(::Val{:st_umax}, fixed, u, ana, domain) = maximum(u)
+            s = run_all_simulations(cfg; calculate_stats = true)
+            @test get(s.stats, :ran, 0) == 1 && haskey(load_sim_data(s.tasks[1]).stats, :st_umax)
+        finally
+            set_stat_registry!(old)
+        end
+    end
+
+    @testset "6. methods named like references are reported" begin
+        empty!(PDEStudioCore._WARNED_REFERENCE_NAMES)
+        cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_solver, :k => 1),
+                               Dict(:baseline => Dict(:k => 1), :weno => Dict(:k => 5)))
+        @test_logs (:info, r"Method :baseline isn't run") match_mode = :any generate_tasks(cfg)
+        @test length(generate_tasks(cfg)) == 1
+    end
+
+    @testset "7. relative_mass is relative" begin
+        T = Float64
+        domain = DomainInfo((:x,), (0.0,), (1.0,), (0.01,), nothing)
+        u = [SVector(1e-10 * (1 + sin(2π * x))) for x in 0:0.01:0.99]
+        @test calc_stat(Val(:relative_mass), (), u, u, domain)[1] ≈ 1.0   # (a small field keeps it)
+        w = [SVector(sin(2π * x)) for x in 0:0.01:0.99]                  # (a reference whose mass cancels)
+        @test isnan(calc_stat(Val(:relative_mass), (), w, w, domain)[1])
+    end
+
+    @testset "8. a post-processor that changes the solution drops the old statistics" begin
+        st_fresh()
+        cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1); postprocess = :st_double)
+        run_all_simulations(cfg; calculate_stats = true)
+        d = load_sim_data(generate_tasks(cfg)[1])
+        @test d.u[1][1] == 2.0 && !haskey(d.stats, :mass)          # (the mass of the old solution is gone)
+        s = run_all_simulations(cfg; calculate_stats = true)
+        @test get(s.stats, :ran, 0) == 1 && load_sim_data(generate_tasks(cfg)[1]).stats[:mass][1] ≈ 2.5   # (5 nodes of 2, spacing 0.25)
+        @test get(s.postprocessing, :skipped, 0) == 1
+    end
+
+    @testset "contract: prefix loads skip links; complex data is refused" begin
+        if Sys.isunix()
+            dir = st_fresh()
+            p = st_params("linked")
+            path = st_save(p, 1)
+            external = joinpath(mktempdir(), "external.jld2")
+            mv(path, external); symlink(external, path)
+            @test_throws SimFileNotFoundError load_sim_data(basename(path)[1:12])
+        end
+        @test_throws r"values of type ComplexF64" create_sim_data([0.0, 1.0], [1.0 + 2im, 2.0 + 0im], ParamDict())
+        @test_throws r"values of type ComplexF64" create_sim_data([SVector(0.0)], [SVector(1.0 + 1im)], ParamDict())
+        st_fresh()
+    end
 end

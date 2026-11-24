@@ -137,7 +137,7 @@ run_all_simulations(config; calculate_stats = true)   # computes only what is mi
 
 The configuration's code (`config.sources`, the post-processor and custom statistics) belongs with it; see [Source Files](#4.-Source-Files).
 
-- Existing data is never recomputed unless `force_overwrite = true`; statistics are only evaluated for datasets that miss them (or whose kept dimensions changed, or that were evaluated without a reference that is now configured). `force_stats = true` recomputes the statistics only.
+- Existing data is never recomputed unless `force_overwrite = true` (or `on_changed_sources = :recompute` for results made with other source code); statistics are only evaluated for datasets that miss them (or whose kept dimensions changed, or that were evaluated without a reference that is now configured, or with another reference). Statistics evaluated with the same reference whose code changed are handled by `on_changed_sources` (`:warn` keeps them as `:outdated`). `force_stats = true` recomputes the statistics only.
 - A failing solver, statistic or post-processing step is logged with its parameters, listed in the summary, and the batch continues.
 - Solvers may return `NoSimData()` (or `nothing`) when there is nothing to store.
 - If a solver modifies its parameters, the result is still stored under the parameters of the task (with a warning), so it can always be found again.
