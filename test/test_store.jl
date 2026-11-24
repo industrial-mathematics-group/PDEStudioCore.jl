@@ -310,8 +310,9 @@ end
 
 # Fixes of the independent review of 0.9.0 (2026-11-24; report in the PR), one case per finding
 module StTags
-struct Limiter{K} end
-struct Wall
+using PDEStudioCore
+@param_struct struct Limiter{K} end
+@param_struct struct Wall
     id::Int
 end
 end
@@ -333,12 +334,9 @@ st_own_error(data) = (add_stat!(data, :l1error, 7.0, :time); true)   # (a post-p
         @test PDEStudioCore._type_text(Base.OneTo{Int}) == "OneTo{Int64}"
     end
 
-    @testset "2. values stored alike are refused instead of merged; functions are skipped" begin
-        @test get_clean_params(Dict(:ic => sin))[:ic] == "Closure" && calculate_hash(Dict(:ic => sin)) == calculate_hash(Dict(:ic => cos))
-        @test calculate_hash(Dict(:ics => [sin, cos])) == calculate_hash(Dict(:ics => [exp, x -> x^2]))
-        swept = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1, :ic => sin);
-                                 varied = create_varied_dict(:ic => Any[sin, cos]))
-        @test_throws r"functions are skipped" generate_tasks(swept)   # (they need an identifier)
+    @testset "2. values stored alike are refused instead of merged; functions are refused" begin
+        @test_throws r"is a function" get_clean_params(Dict(:ic => sin))
+        @test_throws r":ics\[2\] is a function" calculate_hash(Dict(:ics => ["a", cos]))
         @test val2str(StTags.Limiter{:minmod}()) == "Limiter{:minmod}" && val2str(StTags.Limiter{:superbee}()) == "Limiter{:superbee}"
         @test calculate_hash(Dict(:l => StTags.Limiter{:minmod}())) != calculate_hash(Dict(:l => StTags.Limiter{:superbee}()))
         cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1, :x => 0.1);
@@ -490,17 +488,20 @@ end
 # A failure here means normalisation changed: that is a new hash format, never a silent fix (CLAUDE.md).
 const ST_CORPUS_PRELUDE = """
 module StCorpus
+using PDEStudioCore
 abstract type AbstractBC end
-struct Wall <: AbstractBC; id::Int; end
-struct Limiter{K} end
+@param_struct struct Wall <: AbstractBC; id::Int; end
+@param_struct struct Limiter{K} end
 struct Matrix end
-struct Domain{GEO, FI, FT}   # (like a geometric domain: a label, data, and functions)
+struct Domain{GEO, FI, FT}   # (like a geometric domain: a label, data, functions and a derived field)
     label::GEO
     mins::Float64
     is_interior::FI
     get_tag::FT
     bc_map::Dict{Int, AbstractBC}
+    volume::Float64
 end
+PDEStudioCore.param_identity(d::Domain) = (; label = d.label, mins = d.mins, bc_map = d.bc_map)
 end
 """
 const ST_CORPUS = [
@@ -525,8 +526,7 @@ const ST_CORPUS = [
     "StCorpus.Limiter{:minmod}()" => ("Limiter{:minmod}", "5f8d994bff177ebc041f3bc2be8d9f128d7165ed959ae9732586c0213f0cd5e1"),
     "Val{Symbol(\"left.mode\")}()" => ("Val{Symbol(\"left.mode\")}()", "6d289c2679807b60f7764204f4243edf6bb33726f5067334e51a42443b0c5b97"),
     "Val{StCorpus.Matrix}()" => ("Val{Matrix}()", "918036f99fdc9ab0713acef15a59c6562a7e38c502a83ada7e44dec542f53b95"),
-    "StCorpus.Domain(Val(:box), 0.0, x -> true, x -> 0, Dict{Int, StCorpus.AbstractBC}(1 => StCorpus.Wall(1)))" => ("Domain(label=Val{:box}(), mins=0.0, is_interior=Closure, get_tag=Closure, bc_map=Dict{Int64, AbstractBC}(1 => Wall(id=1)))", "d8d98bb25faaa6c88cd91355dfa469a1ba1db2013769f16f703f48245989be1d"),
-    "sin" => ("Closure", "02f2f301232098810c4e9977705897de4fc0d35cca2b92e582ac208df9956204")
+    "StCorpus.Domain(Val(:box), 0.0, x -> true, x -> 0, Dict{Int, StCorpus.AbstractBC}(1 => StCorpus.Wall(1)), 1.0)" => ("Domain(label=Val{:box}(), mins=0.0, bc_map=Dict{Int64, AbstractBC}(1 => Wall(id=1)))", "22188af0891847795bf1cb2e2d1855126237a6e387c24d5f47f062905bd72d58")
 ]
 
 @testset "Parameter identity: the pinned corpus" begin
@@ -545,11 +545,16 @@ const ST_CORPUS = [
     cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1, :tag => Val{Base.Matrix}());
                            varied = create_varied_dict(:tag => Any[Val{Base.Matrix}(), Val{StCorpus.Matrix}()]))
     @test_throws r"stored alike" generate_tasks(cfg)
-    # only data identifies a run: a domain is told apart by its data (label, bounds, conditions), not its functions
+    # a domain is identified by what its `param_identity` names (label, bounds, conditions): not by its functions or its
+    # derived volume
     bcs = Dict{Int, StCorpus.AbstractBC}(1 => StCorpus.Wall(1))
-    box(label, f) = StCorpus.Domain(Val(label), 0.0, f, x -> 0, bcs)
-    @test calculate_hash(Dict(:domain => box(:box, x -> true))) == calculate_hash(Dict(:domain => box(:box, x -> x[1] < 0.5)))
+    box(label, f, vol = 1.0) = StCorpus.Domain(Val(label), 0.0, f, x -> 0, bcs, vol)
+    @test calculate_hash(Dict(:domain => box(:box, x -> true))) == calculate_hash(Dict(:domain => box(:box, x -> x[1] < 0.5, 0.5)))
     @test calculate_hash(Dict(:domain => box(:box, x -> true))) != calculate_hash(Dict(:domain => box(:half, x -> x[1] < 0.5)))
+    # strict: functions and values of types without a declared identity are refused, also nested
+    @test_throws r":v is a function" calculate_hash(Dict(:v => sin))
+    @test_throws r":v\[1\] has the type Matrix, which doesn't declare" calculate_hash(Dict(:v => [StCorpus.Matrix()]))
+    @test_throws r"must return a NamedTuple" (@eval PDEStudioCore.param_identity(::StCorpus.Matrix) = 1; calculate_hash(Dict(:v => StCorpus.Matrix())))
 end
 
 @testset "Review fixes (#50)" begin

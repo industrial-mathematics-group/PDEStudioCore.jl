@@ -34,8 +34,9 @@ _without_modules(ex) =
 Converts a value into a Julia-literal-like string (the basis of parameter normalisation).
 Top-level strings are written unquoted (unless their text could be read as something else, see below),
 strings inside containers are quoted, functions become
-`"Closure"` (they are skipped: no function tells parameters apart), enum values are written as `TypeName.value` and custom structs as
-`TypeName(field=value, ...)` (a struct without fields as its type with its parameters, e.g. `Limiter{:minmod}`).
+`"Closure"` (parameters refuse them), enum values are written as `TypeName.value` and custom structs as
+`TypeName(field=value, ...)` from what identifies them ([`param_identity`](@ref); a struct with an empty identity as
+its type with its parameters, e.g. `Limiter{:minmod}`).
 Type names are written without module prefixes, so the text doesn't depend on what the session loaded with `using`.
 """
 function val2str(v; top_level::Bool = true)
@@ -73,10 +74,11 @@ function val2str(v; top_level::Bool = true)
         elements = join(["$(val2str(k; top_level = false)) => $(val2str(v[k]; top_level = false))" for k in sorted_keys], ", ")
         return "Dict{$(_type_text(K)), $(_type_text(V))}($elements)"
     else
+        # a struct by what identifies it (`param_identity`; for other values, e.g. shown in a frontend, its fields)
         type_name = string(typeof(v).name.name)
-        fields = propertynames(v)
+        fields = _declares_identity(v) ? pairs(_identity_of(v)) : (f => getproperty(v, f) for f in propertynames(v))
         isempty(fields) && return _type_text(typeof(v))   # (a tag such as `Limiter{:minmod}()`: its parameters tell it apart)
-        field_strs = ["$f=$(val2str(getproperty(v, f); top_level = false))" for f in fields]
+        field_strs = ["$f=$(val2str(x; top_level = false))" for (f, x) in fields]
         return "$type_name(" * join(field_strs, ", ") * ")"
     end
 end
@@ -444,15 +446,107 @@ function str2val(val_str::AbstractString)
 end
 
 # Normalisation used before saving and hashing: strings are kept verbatim (they are never
-# re-interpreted as code), other values round-trip through val2str. Only data identifies a run: a function (also a
-# field of a struct, e.g. a domain's `is_interior`) is skipped, written as "Closure" like every other one, since what a
-# function computes can't be read off it reliably; runs that differ only in a function need an identifier (data).
+# re-interpreted as code), other values round-trip through val2str. Only data identifies a run: functions, and values
+# of custom types that don't declare their identity (`param_identity`), are refused (`_check_param`).
 # Known limitation: `nothing`/`missing` *inside* containers come back as the types `Nothing`/`Missing`
 # (or the container as a string); the normalised form is normalised again to itself, so lookups stay consistent.
 _normalize_param(v::AbstractString) = String(v)
 _normalize_param(v::Union{Nothing, Missing}) = v  # would otherwise become the types `Nothing`/`Missing`
 _normalize_param(v) = str2val(val2str(v))
-_normalize_params(params) = ParamDict(Symbol(k) => _normalize_param(v) for (k, v) in params)
+function _normalize_params(params)
+    foreach(((k, v),) -> _check_param(v, ":$k"), params)
+    return ParamDict(Symbol(k) => _normalize_param(v) for (k, v) in params)
+end
+
+# --- What may be a parameter value ----------------------------------------------------------------------------------
+"""
+    param_identity(x) -> NamedTuple
+
+What identifies a value of a custom type when it is part of a run's parameters: a `NamedTuple` of data (numbers,
+strings, symbols, tuples, arrays, dictionaries, types, and values of types that declare their own identity). Only
+this is stored and hashed; the other fields of the value are never looked at. Define it for every type whose values
+appear in parameters; a value of a type without it is refused (as are functions), so nothing that can't be compared
+reliably (functions, caches, derived fields) decides which run is which. For types whose fields are all data,
+[`@param_struct`](@ref) declares all fields at once.
+
+```julia
+# without its functions (is_interior, get_tag) and derived fields (volume)
+PDEStudioCore.param_identity(d::GeometricDomain) =
+    (; label = d.label, mins = d.mins, maxs = d.maxs, is_periodic = d.is_periodic, bc_map = d.bc_map, shape = d.shape)
+```
+
+It is stored as `TypeName(key=value, …)`; see "What identifies a parameter value" in the manual.
+"""
+function param_identity end
+
+"""
+    @param_struct T
+    @param_struct struct T … end
+
+Declares that every field of the struct `T` is part of what identifies its values in parameters (its
+[`param_identity`](@ref) is the `NamedTuple` of all fields): for types whose fields are all data, such as boundary
+conditions or shapes. Written in front of a struct definition, it defines the struct, too.
+
+```julia
+@param_struct struct Wall <: AbstractBC
+    id::Int
+end
+@param_struct Limiter   # an existing type (here a tag without fields: identified by its type parameters)
+```
+"""
+macro param_struct(ex)
+    name = ex isa Expr && ex.head === :struct ? _struct_name(ex.args[2]) : ex
+    definition = :($(@__MODULE__).param_identity(x::$(esc(name))) = $(@__MODULE__)._all_fields(x))
+    return ex isa Expr && ex.head === :struct ? Expr(:block, esc(ex), definition, nothing) : Expr(:block, definition, nothing)
+end
+_struct_name(e) = e isa Symbol ? e : e.head === :(<:) ? _struct_name(e.args[1]) : e.head === :curly ? e.args[1] :
+                  throw(ArgumentError("@param_struct: can't read the struct name from $e"))
+_all_fields(x) = NamedTuple{propertynames(x)}(map(f -> getproperty(x, f), propertynames(x)))
+
+_declares_identity(v) = hasmethod(param_identity, Tuple{typeof(v)})
+function _identity_of(v)
+    id = Base.invokelatest(param_identity, v)   # (declared after the caller started, e.g. in a script)
+    id isa NamedTuple || throw(ArgumentError("param_identity(::$(typeof(v))) must return a NamedTuple, got $(typeof(id))"))
+    return id
+end
+
+# Values that are data as they are, and element types whose arrays need no look at every element
+const _PLAIN = Union{AbstractString, Symbol, AbstractChar, Number, Type, Val, Enum, Nothing, Missing}
+_plain_eltype(T) = T <: _PLAIN || (T <: StaticArray && eltype(T) <: Number)
+
+# Refuses what can't identify a run: functions, and values of custom types that don't declare their identity
+# (`param_identity`); `path` names the place in the parameters for the message
+function _check_param(v, path::AbstractString)
+    v isa Function && throw(ArgumentError(
+        "the parameter $path is a function ($v): what a function computes can't be compared, so a function can't tell " *
+        "runs apart. Give it a name instead (e.g. a String or Symbol the solver looks up), or wrap it in a struct whose " *
+        "`param_identity` names it."))
+    v isa _PLAIN && return nothing
+    if v isa Union{AbstractArray, Tuple, AbstractSet}
+        _plain_eltype(eltype(v)) && return nothing
+        for (i, x) in enumerate(v)
+            _check_param(x, "$path[$i]")
+        end
+    elseif v isa Dict
+        for (k, x) in v
+            _check_param(k, "$path (a key)")
+            _check_param(x, "$path[$(repr(k))]")
+        end
+    elseif v isa Union{NamedTuple, Pair}
+        foreach(f -> _check_param(getfield(v, f), "$path.$f"), fieldnames(typeof(v)))
+    elseif _declares_identity(v)
+        for (k, x) in pairs(_identity_of(v))
+            _check_param(x, "$path.$k")
+        end
+    else
+        throw(ArgumentError(
+            "the parameter $path has the type $(typeof(v).name.name), which doesn't declare what identifies it. Define " *
+            "`PDEStudioCore.param_identity(x::$(typeof(v).name.name))` returning a NamedTuple of the data that tells such " *
+            "values apart (leave out functions and derived fields), or write `@param_struct $(typeof(v).name.name)` if all " *
+            "its fields are data."))
+    end
+    return nothing
+end
 
 """
     calculate_hash(params::AbstractDict)
