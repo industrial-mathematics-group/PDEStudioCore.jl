@@ -15,7 +15,6 @@ st_case(k) = create_param_dict(:sim_func_name => :st_solver, :k => k)
 st_solver(p) = create_sim_data([0.0, 1.0], fill(Float64(p[:k]), 2), p)
 st_diag_solver(p) = (d = st_solver(p); add_stat!(d, :iterations, 23.0, Symbol[]); d)   # (a solver diagnostic)
 st_double_reference(p) = _ -> 2 * p[:k]
-st_add_one(data) = (data.u = map(v -> v .+ 1, data.u); true)
 const ST_MARKS = Ref(0)
 st_mark(data) = (ST_MARKS[] += 1; add_stat!(data, :marked, 1.0, Symbol[]); true)   # (adds a statistic, keeps u)
 st_moving_post(data) = (data.params[:k] = 2; true)
@@ -261,9 +260,9 @@ end
     p = create_param_dict(:sim_func_name => :st_solver, :k => 10, :offset => 5)
     other = create_param_dict(:sim_func_name => :st_solver, :k => 10)
     save_sim_data(create_sim_data([0.0, 1.0], [80.0, 80.0], other); verbose = false)
-    s = run_all_simulations(SimulationConfig(p; reference = :st_popping_reference, postprocess = :st_add_one); calculate_stats = true)
-    @test load_sim_data(p).u[1][1] == 11.0 && load_sim_data(other).u[1][1] == 80.0
-    @test haskey(only(s.tasks), :offset) && get(s.postprocessing, :ran, 0) == 1
+    s = run_all_simulations(SimulationConfig(p; reference = :st_popping_reference, postprocess = :st_mark); calculate_stats = true)
+    @test haskey(load_sim_data(p).stats, :marked) && !haskey(load_sim_data(other).stats, :marked)
+    @test load_sim_data(other).u[1][1] == 80.0 && haskey(only(s.tasks), :offset) && get(s.postprocessing, :ran, 0) == 1
 end
 
 @testset "Data is floating point; Float16 doesn't overflow where the result doesn't" begin
@@ -318,6 +317,9 @@ end
 end
 st_flat(p) = create_sim_data(collect(range(0, 1, length = 5)), fill(Float64(p[:k]), 5), p)
 st_double(data) = (data.u = map(v -> 2 .* v, data.u); true)   # (changes the solution)
+st_large(p) = create_sim_data(collect(range(0.0, 1.0, length = p[:n])), collect(1.0:p[:n]), p)
+st_poke(data) = (data.u[1] = SVector(101.0); true)              # (changes one entry of 50 000)
+st_own_error(data) = (add_stat!(data, :l1error, 7.0, :time); true)   # (a post-processor's own error statistic)
 
 @testset "Review fixes (0.9.0)" begin
     @testset "1. the stored form doesn't depend on what the session loaded with `using`" begin
@@ -401,15 +403,53 @@ st_double(data) = (data.u = map(v -> 2 .* v, data.u); true)   # (changes the sol
         @test isnan(calc_stat(Val(:relative_mass), (), w, w, domain)[1])
     end
 
-    @testset "8. a post-processor that changes the solution drops the old statistics" begin
+    @testset "8. a post-processor that changes the solution fails (review of #46: also one entry of a large field)" begin
         st_fresh()
         cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1); postprocess = :st_double)
-        run_all_simulations(cfg; calculate_stats = true)
-        d = load_sim_data(generate_tasks(cfg)[1])
-        @test d.u[1][1] == 2.0 && !haskey(d.stats, :mass)          # (the mass of the old solution is gone)
         s = run_all_simulations(cfg; calculate_stats = true)
-        @test get(s.stats, :ran, 0) == 1 && load_sim_data(generate_tasks(cfg)[1]).stats[:mass][1] ≈ 2.5   # (5 nodes of 2, spacing 0.25)
-        @test get(s.postprocessing, :skipped, 0) == 1
+        @test get(s.postprocessing, :failed, 0) == 1 && occursin("changed the solution", last(only(s.postprocessing_failed)))
+        d = load_sim_data(generate_tasks(cfg)[1])
+        @test d.u[1][1] == 1.0 && d.stats[:mass][1] ≈ 1.25 && !haskey(d.metadata, :postprocessed)   # (stored as it was)
+        st_fresh()
+        cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_large, :n => 50_000); postprocess = :st_poke)
+        s = run_all_simulations(cfg; calculate_stats = true)
+        @test get(s.postprocessing, :failed, 0) == 1 && load_sim_data(generate_tasks(cfg)[1]).u[1][1] == 1.0
+        # a statistic the post-processor computes itself is kept, also one the statistics pass dropped (all NaN)
+        st_fresh()
+        cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 2); postprocess = :st_own_error)
+        run_all_simulations(cfg; calculate_stats = true)   # (no reference: :l1error is all NaN, dropped)
+        @test load_sim_data(generate_tasks(cfg)[1]).stats[:l1error][1] == 7.0
+        s = run_all_simulations(cfg; calculate_stats = true)
+        @test load_sim_data(generate_tasks(cfg)[1]).stats[:l1error][1] == 7.0 && get(s.postprocessing, :skipped, 0) == 1
+    end
+
+    @testset "review of #46: quoted symbols in type parameters are data" begin
+        l, r = Val{Symbol("left.mode")}(), Val{Symbol("right.mode")}()
+        @test val2str(l) != val2str(r) && calculate_hash(Dict(:mode => l)) != calculate_hash(Dict(:mode => r))
+        @test PDEStudioCore._type_text(Val{(Symbol("a.b"), :c)}) == "Val{(Symbol(\"a.b\"), :c)}"
+    end
+
+    @testset "review of #46: with :warn, a newly registered statistic doesn't refresh outdated ones" begin
+        st_fresh()
+        src = joinpath(mktempdir(), "model.jl")
+        write(src, "st_src2_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\nst_src2_reference(p) = _ -> 2.0\n")
+        cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_src2_solver); reference = :st_src2_reference, sources = [src])
+        old = PDEStudioCore.get_stat_registry()
+        try
+            set_stat_registry!(Dict(:l1error => :time))
+            run_all_simulations(cfg; calculate_stats = true)
+            @test load_sim_data(generate_tasks(cfg)[1]).stats[:l1error][1] == 2.0
+            write(src, "st_src2_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\nst_src2_reference(p) = _ -> 4.0\n")
+            register_stat!(:mass, :time)
+            s = run_all_simulations(cfg; calculate_stats = true)
+            d = load_sim_data(generate_tasks(cfg)[1])
+            @test s.stats == Dict(:outdated => 1) && d.stats[:l1error][1] == 2.0 && d.stats[:mass][1] == 2.0
+            @test run_all_simulations(cfg; calculate_stats = true).stats == Dict(:outdated => 1)
+            run_all_simulations(cfg; calculate_stats = true, on_changed_sources = :recompute)
+            @test load_sim_data(generate_tasks(cfg)[1]).stats[:l1error][1] == 6.0   # (|1 - 4| twice)
+        finally
+            set_stat_registry!(old)
+        end
     end
 
     @testset "contract: prefix loads skip links; complex data is refused" begin

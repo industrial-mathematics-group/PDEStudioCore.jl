@@ -10,8 +10,9 @@ _ambiguous_text(s::AbstractString) = s == "<empty>" || occursin(r", [A-Za-z_]\w*
 
 # The text of a type without module prefixes (`SVector{2, Float64}`, also where `StaticArraysCore.SVector` isn't
 # visible in `Main`, `Wall` for `HyperCloud.Wall`): `string(T)` qualifies the names `Main` doesn't see, so a parameter
-# would be stored and hashed differently depending on what the session loaded with `using`
-_type_text(T) = replace(string(T), r"(?<![\w.:])(?:[A-Za-z_]\w*\.)+(?=[A-Za-z_])" => "")
+# would be stored and hashed differently depending on what the session loaded with `using`. Quoted text (a symbol
+# such as `Symbol("left.mode")` in `Val{…}`, a character) is data and kept as it is.
+_type_text(T) = replace(string(T), r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*')|(?<![\w.:])(?:[A-Za-z_]\w*\.)+(?=[A-Za-z_])" => s"\1")
 
 """
     val2str(v; top_level::Bool = true)
