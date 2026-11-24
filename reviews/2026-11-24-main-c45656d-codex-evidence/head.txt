@@ -1,0 +1,9 @@
+Base.Matrix: text="Val{Matrix}()" stored_tag=Val{Matrix}() hash=8d1d6df2826fb531d3fc6ed01aa5709d834149814a0890201a9ba9162eeee93d ran=1 cached=0 field=10.0
+ParameterTypes.Matrix: text="Val{Matrix}()" stored_tag=Val{Matrix}() hash=8d1d6df2826fb531d3fc6ed01aa5709d834149814a0890201a9ba9162eeee93d ran=0 cached=1 field=10.0
+A with L1: stats=ran L1=2.0 L2=missing record=name=registry_reference; file=8e4b84f1343e60452556bd168741835d9f86f1a7d429ca6b490e59e74da76bb7
+B dry run: stats=refreshed file_unchanged=true claims_completed_refresh=true
+B with L2 active: stats=refreshed L1=2.0 L2=4.242640687119285 record=name=registry_reference; file=c35abc636e0db897fb886f5016e068c3172791f5b02ad343f55be3c08665c5a9
+B with L1 restored: stats=cached L1=2.0 L2=4.242640687119285 record=name=registry_reference; file=c35abc636e0db897fb886f5016e068c3172791f5b02ad343f55be3c08665c5a9
+Expected against B: L1=6.0 L2=4.242640687119285
+Mathematical module identifier: before=("Main.∇GradientTag", "8ac4cba3deeeb06837684f52251ab52665ff0ed364b44c6a1cef634c24306581") after=("GradientTag", "ebfcc9c3accf8c628fba6b3df88a166542c3ee67148dbef3d888cdaff4053067")
+Float64 one-particle scatter: input=1.0e300 output=Inf

@@ -1,0 +1,6 @@
+[ Info: Module save root path set to: /tmp/pdestudio-legacy-c45656d.yGDYdp/results
+First parent A: stats=ran L1=2.0 L2=missing
+First parent B plus L2: stats=outdated L1=2.0 L2=4.242640687119285
+[ Info: Module save root path set to: /tmp/pdestudio-legacy-c45656d.yGDYdp/results
+Head with restored legacy A: stats=cached L1=2.0 L2=4.242640687119285
+Head after force_stats: stats=ran L1=2.0 L2=1.4142135623730951
