@@ -70,8 +70,9 @@ function val2str(v; top_level::Bool = true)
         return length(v) == 1 ? "($elements,)" : "($elements)"
     elseif isa(v, Dict)
         K, V = keytype(v), valtype(v)
-        sorted_keys = sort(collect(keys(v)), by = string)
-        elements = join(["$(val2str(k; top_level = false)) => $(val2str(v[k]; top_level = false))" for k in sorted_keys], ", ")
+        # (keys in the order of their stored text: what a declared identity leaves out of a key doesn't reorder them)
+        entries = sort!([(val2str(k; top_level = false), k) for k in keys(v)], by = first)
+        elements = join(["$kt => $(val2str(v[k]; top_level = false))" for (kt, k) in entries], ", ")
         return "Dict{$(_type_text(K)), $(_type_text(V))}($elements)"
     else
         # a struct by what identifies it (`param_identity`; for other values, e.g. shown in a frontend, its fields)
@@ -462,7 +463,7 @@ end
 """
     param_identity(x) -> NamedTuple
 
-What identifies a value of a custom type when it is part of a run's parameters: a `NamedTuple` of data (numbers,
+What identifies a value of a custom type when it is part of a run's parameters: a `NamedTuple` (plain identifiers as names) of data (numbers,
 strings, symbols, tuples, arrays, dictionaries, types, and values of types that declare their own identity). Only
 this is stored and hashed; the other fields of the value are never looked at. Define it for every type whose values
 appear in parameters; a value of a type without it is refused (as are functions), so nothing that can't be compared
@@ -483,7 +484,7 @@ function param_identity end
     @param_struct T
     @param_struct struct T … end
 
-Declares that every field of the struct `T` is part of what identifies its values in parameters (its
+Declares that every stored field of the struct `T` is part of what identifies its values in parameters (its
 [`param_identity`](@ref) is the `NamedTuple` of all fields): for types whose fields are all data, such as boundary
 conditions or shapes. Written in front of a struct definition, it defines the struct, too.
 
@@ -501,12 +502,17 @@ macro param_struct(ex)
 end
 _struct_name(e) = e isa Symbol ? e : e.head === :(<:) ? _struct_name(e.args[1]) : e.head === :curly ? e.args[1] :
                   throw(ArgumentError("@param_struct: can't read the struct name from $e"))
-_all_fields(x) = NamedTuple{propertynames(x)}(map(f -> getproperty(x, f), propertynames(x)))
+_all_fields(x) = NamedTuple{fieldnames(typeof(x))}(map(f -> getfield(x, f), fieldnames(typeof(x))))   # (stored fields, not properties)
 
-_declares_identity(v) = hasmethod(param_identity, Tuple{typeof(v)})
+# (in the latest world, as `_identity_of` calls it: a declaration included later, e.g. from `config.sources`, counts)
+_declares_identity(v) = hasmethod(param_identity, Tuple{typeof(v)}; world = Base.get_world_counter())
 function _identity_of(v)
     id = Base.invokelatest(param_identity, v)   # (declared after the caller started, e.g. in a script)
     id isa NamedTuple || throw(ArgumentError("param_identity(::$(typeof(v))) must return a NamedTuple, got $(typeof(id))"))
+    for k in keys(id)   # (the stored form is `TypeName(key=value, …)`: other names could forge another identity's text)
+        Base.isidentifier(k) || throw(ArgumentError("param_identity(::$(typeof(v))) returned the field name $(repr(k)), " *
+                                                    "which isn't a plain Julia identifier"))
+    end
     return id
 end
 
@@ -532,6 +538,9 @@ function _check_param(v, path::AbstractString)
             _check_param(k, "$path (a key)")
             _check_param(x, "$path[$(repr(k))]")
         end
+        allunique(val2str(k; top_level = false) for k in keys(v)) || throw(ArgumentError(
+            "the parameter $path has keys that are the same parameter value (they differ only in what their identity " *
+            "leaves out), so its stored form would depend on their order"))
     elseif v isa Union{NamedTuple, Pair}
         foreach(f -> _check_param(getfield(v, f), "$path.$f"), fieldnames(typeof(v)))
     elseif _declares_identity(v)
@@ -621,8 +630,10 @@ _same_value(a, b) = sprint(_encode, a) == sprint(_encode, b)
 
 # Whether normalised parameters contain all `pairs` (keys strings or symbols; values normalised here), compared as values
 # of the hash (`_same_value`)
-_has_pairs(clean::AbstractDict, pairs) =
-    all(((k, v),) -> haskey(clean, Symbol(k)) && _same_value(clean[Symbol(k)], _normalize_param(v)), pairs)
+function _has_pairs(clean::AbstractDict, pairs)
+    foreach(((k, v),) -> _check_param(v, ":$k"), pairs)   # (a filter value is a parameter value: a function is refused)
+    return all(((k, v),) -> haskey(clean, Symbol(k)) && _same_value(clean[Symbol(k)], _normalize_param(v)), pairs)
+end
 
 # The hash format of `calculate_hash` (see there): 4 since PDEStudioCore 0.8 (3: 0.7, 2 was never released)
 const _HASH_FORMAT = 4

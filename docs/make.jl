@@ -20,7 +20,7 @@ makedocs(
         "Data & Storage" => "data.md",
         "Statistics" => "statistics.md",
         "Examples" => "examples.md",
-        "API Reference" => "api.md",
+        "API Reference" => ["Data and Statistics" => "api.md", "Configuration, Storage and Pipeline" => "api_pipeline.md"],
         "AI Signoff Report" => "aisignoff.md",
     ],
 )

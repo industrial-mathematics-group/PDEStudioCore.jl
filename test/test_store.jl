@@ -590,3 +590,41 @@ end
         @test before == (val2str(p[:t]), calculate_hash(p)) && before[1] == "Val{GradientTag}()"
     end
 end
+
+# Fixes of the review of #52 (reviews/2026-11-24-pull52-identity-codex.md)
+module StId
+using PDEStudioCore
+struct Forged; mode::Int; end
+PDEStudioCore.param_identity(x::Forged) = x.mode == 1 ? (; left = 1, right = 2) : NamedTuple{(Symbol("left=1, right"),)}((2,))
+struct Hidden; public_value::Int; hidden_value::Int; end
+Base.propertynames(::Hidden) = (:public_value,)
+@param_struct Hidden
+struct Key; id::Int; work::Int; end
+PDEStudioCore.param_identity(k::Key) = (; id = k.id)
+struct FromSources; a::Int; end   # (its identity is declared in a source file of the configuration)
+end
+st_sources_solver(p) = create_sim_data([0.0, 1.0], [3.0, 3.0], p)
+st_run_from_function(cfg) = run_all_simulations(cfg)   # (the pipeline started from a function: an older world)
+
+@testset "Review fixes (#52)" begin
+    # identity field names are plain identifiers: another name could forge another identity's text
+    @test val2str(StId.Forged(1)) == "Forged(left=1, right=2)"
+    @test_throws r"isn't a plain Julia identifier" calculate_hash(Dict(:v => StId.Forged(2)))
+    # `@param_struct` takes every stored field, also one the property interface hides
+    @test calculate_hash(Dict(:v => StId.Hidden(1, 1))) != calculate_hash(Dict(:v => StId.Hidden(1, 2)))
+    # dictionary keys are ordered by their stored form: what their identity leaves out doesn't reorder them, and two keys
+    # that are the same parameter value are refused
+    a = Dict(StId.Key(1, 9) => "low", StId.Key(2, 0) => "high")
+    b = Dict(StId.Key(1, 0) => "low", StId.Key(2, 9) => "high")
+    @test calculate_hash(Dict(:v => a)) == calculate_hash(Dict(:v => b))
+    @test_throws r"keys that are the same parameter value" calculate_hash(Dict(:v => Dict(StId.Key(1, 1) => 1, StId.Key(1, 2) => 2)))
+    # a declaration in a source file of the configuration counts, also when the pipeline is started from a function
+    st_fresh()
+    src = joinpath(mktempdir(), "identity.jl")
+    write(src, "PDEStudioCore.param_identity(x::StId.FromSources) = (; a = x.a)\n")
+    cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_sources_solver, :v => StId.FromSources(1)); sources = [src])
+    @test length(st_run_from_function(cfg).ran) == 1
+    # a filter value is a parameter value: a function is refused (it would match the text "Closure")
+    save_sim_data(create_sim_data([0.0], [1.0], ParamDict(:value => "Closure")); verbose = false)
+    @test_throws r"is a function" delete_sim_data(ParamDict(:value => sin); dry_run = true)
+end
