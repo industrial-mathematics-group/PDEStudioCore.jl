@@ -89,6 +89,20 @@ function _wide_sum(f, u, ana, measure)
     return sum(map((v, a) -> f(_wide.(v), _wide.(a)) .* measure, u, ana))
 end
 _narrow(u, x) = map(eltype(eltype(u)), x)
+# The L2 norm `sqrt(∑ g(v)² * measure)` per component (`g` gives the magnitudes, e.g. `abs.(v - a)`): as `_wide_sum`,
+# and where that overflows for finite values (squares times the measure beyond `floatmax`), again with the values
+# scaled by their largest magnitude (the result is the same where nothing overflows: computed only then)
+function _wide_l2(g, measure, us...)
+    sq(vs...) = abs2.(g(vs...))
+    s = sqrt.(_wide_sum(sq, us..., measure))
+    (isempty(first(us)) || all(x -> isfinite(x) && !iszero(x), s)) && return s   # (0: maybe squares that underflowed)
+    # (per component, the largest finite magnitude, ignoring NaNs; the measure, a number, factored out)
+    nanmax(x, y) = isnan(x) ? y : isnan(y) ? x : max(x, y)
+    m = reduce((a, b) -> map(nanmax, a, b), map((vs...) -> g(map(v -> _wide.(v), vs)...), us...))
+    m1 = map(x -> isfinite(x) && !iszero(x) ? x : one(x), m)
+    scaled = m1 .* sqrt(measure) .* sqrt.(_wide_sum((vs...) -> abs2.(g(vs...) ./ m1), us..., one(measure)))
+    return map((a, b, c) -> (isfinite(a) && !(iszero(a) && isfinite(c) && c > 0)) || !isfinite(c) ? a : b, s, scaled, m)
+end
 
 # --- add_stat! ---------------------------------------------------------------
 
@@ -152,6 +166,7 @@ function add_stat!(sim_data::AbstractSimData{D, DS, M, T}, name::Symbol, value, 
         "layers (simulation, reference, post-processing): add it under another name"))
     sim_data.domain.stat_registry[name] = reg_val
     _raw_stats(sim_data)[name] = stored
+    _note_write(name)
     @info "Added custom stat '$name' keeping dimensions: $reg_val"
     return stored
 end
@@ -230,8 +245,10 @@ Returns `sim_data`.
 """
 calculate_all_stats!(sim_data::NoSimData, ref_func = nothing; kwargs...) = sim_data
 
-calculate_all_stats!(sim_data::AbstractSimData, ref_func = nothing; force_overwrite::Bool = false, save::Bool = true) =
+function calculate_all_stats!(sim_data::AbstractSimData, ref_func = nothing; force_overwrite::Bool = false, save::Bool = true)
     _calculate_all_stats!(sim_data, ref_func, ref_func === nothing ? nothing : "", force_overwrite, save, false)
+    return sim_data
+end
 
 # `reference`: the record of the reference (`_reference_record`; "" for an unknown one), `nothing` without one: the
 # reference layer is left as it is. `known_native = true`: `sim_data` was just loaded as "raw" from its file (the
@@ -248,6 +265,11 @@ function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, reference::U
     return plan.status
 end
 
+# A reference factory not called yet: `make()` builds the reference function, only if reference statistics are due
+struct _LazyReference{F}
+    make::F
+end
+
 # Carries out a plan on the dataset (statistics and records); whether anything changed
 function _apply_stat_plan!(data::AbstractSimData, plan::_StatPlan, ref_func, reference, registry::AbstractDict)
     _has_work(plan) || return false
@@ -258,6 +280,7 @@ function _apply_stat_plan!(data::AbstractSimData, plan::_StatPlan, ref_func, ref
         foreach(k -> delete!(raw, k), _post_keys(_post_records(md)))
         delete!(md, :postprocessed)
     end
+    _resolve_ref = () -> ref_func isa _LazyReference ? (ref_func = ref_func.make()) : ref_func
     function drop!(layer, names)
         for n in names
             delete!(raw, n)
@@ -290,11 +313,14 @@ function _apply_stat_plan!(data::AbstractSimData, plan::_StatPlan, ref_func, ref
     evaluate!(sim, plan.sim_due, nothing)
     if plan.fresh || !isempty(plan.ref_due)
         plan.fresh && (ref = Dict{Symbol, Any}(:record => String(reference), :evaluated => Symbol[], :empty => Symbol[]))
-        u_ana = isempty(plan.ref_due) ? nothing : Base.invokelatest(generate_pointwise_reference, data, ref_func)
+        u_ana = isempty(plan.ref_due) ? nothing : Base.invokelatest(generate_pointwise_reference, data, _resolve_ref())
         evaluate!(ref, plan.ref_due, u_ana)
     end
     r[:simulation] = sim
     ref === nothing || (r[:reference] = ref)
+    for k in (:legacy, :legacy_derived)   # (evaluated again: taken over; or dropped)
+        r[k] = setdiff(r[k], union(plan.sim_due, plan.ref_due, plan.sim_stale, plan.ref_stale))
+    end
     r[:solution] = _solution_hex(data)
     r[:params] = _params_hash(data)
     md[:stat_records] = r

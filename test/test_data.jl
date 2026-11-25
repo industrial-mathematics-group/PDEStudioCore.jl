@@ -464,7 +464,7 @@ end
         add_stat!(sim, :extra, 1.0, Symbol[])
         save_sim_data(sim; overwrite = true, verbose = false)
         @test (m = meta_of(get_file_name(q)); (m[:provenance], collect(keys(m[:postprocessed])))) == (prov, [:keep_post])
-        @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
+        @test run_all_simulations(cfg).postprocessing == Dict(:ran => 1)   # (a statistic added above it: runs again)
         # ... but the same solution recomputed without the statistics of the file keeps only the provenance (the
         # statistic records describe the statistics of the dataset they are in: it has none, so the post-processor runs)
         save_sim_data(advection_solver_1d(q); overwrite = true, verbose = false)

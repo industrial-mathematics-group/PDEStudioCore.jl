@@ -27,7 +27,7 @@ function calc_stat(::Val{:l1norm}, fixed_coords, u, domain::DomainInfo)
 end
 
 function calc_stat(::Val{:l2norm}, fixed_coords, u, domain::DomainInfo)
-    return _narrow(u, sqrt.(_wide_sum(v -> abs2.(v), u, _wide_measure(:l2norm, domain))))
+    return _narrow(u, _wide_l2(v -> abs.(v), _wide_measure(:l2norm, domain), u))
 end
 
 function calc_stat(::Val{:wave_height}, fixed_coords, u, domain::DomainInfo)
@@ -52,13 +52,13 @@ function calc_stat(::Val{:relative_l1error}, fixed_coords, u, ana, domain::Domai
 end
 
 function calc_stat(::Val{:l2error}, fixed_coords, u, ana, domain::DomainInfo)
-    return _narrow(u, sqrt.(_wide_sum((v, a) -> abs2.(v - a), u, ana, _wide_measure(:l2error, domain))))
+    return _narrow(u, _wide_l2((v, a) -> abs.(v - a), _wide_measure(:l2error, domain), u, ana))
 end
 
 function calc_stat(::Val{:relative_l2error}, fixed_coords, u, ana, domain::DomainInfo)
     measure = _wide_measure(:relative_l2error, domain)
-    error_norm = sqrt.(_wide_sum((v, a) -> abs2.(v - a), u, ana, measure))
-    ana_norm = sqrt.(_wide_sum(a -> abs2.(a), ana, measure))
+    error_norm = _wide_l2((v, a) -> abs.(v - a), measure, u, ana)
+    ana_norm = _wide_l2(a -> abs.(a), measure, ana)
     return _narrow(u, error_norm ./ ana_norm)
 end
 

@@ -17,6 +17,25 @@ const LY_ADDS = Ref(true)
 ly_maybe(d) = LY_ADDS[] ? (add_stat!(d, :ly_maybe, 1.0, Symbol[]); true) : false
 ly_legacy_post(d) = (d.stats[:ly_old_post] = 5.0; true)     # (rewrites the statistic it added in an earlier version)
 ly_val(p, k) = (d = load_sim_data(p); haskey(d.stats, k) ? d.stats[k][1][1] : missing)
+ly_weights_solver(p) = (d = create_sim_data(([0.0, 1.0], [0.0, 1.0]), ones(2, 2), p); add_stat!(d, :ly_weights, [2.0, 3.0], :x); d)
+ly_weights_post(d) = (add_stat!(d, :ly_wsum, haskey(d.stats, :ly_weights) ? sum(first, d.stats[:ly_weights]) : -1.0, Symbol[]); true)
+ly_reaxis(d) = (d.domain.stat_registry[:ly_weights] = :y; true)
+ly_reshape(d) = (d.stats[:ly_weights] = reshape(d.stats[:ly_weights], 2, 1); true)
+ly_failing_ref(p) = error("this reference can't be built")
+# (writes its statistic of an earlier version again, with the same value; on a rerun its own statistic is set aside)
+ly_same_post(d) = (d.stats[:ly_old_post] = haskey(d.stats, :ly_old_post) ? d.stats[:ly_old_post][1][1] : 4.0; true)
+ly_take_total(d) = (d.stats[:ly_total] = 99.0; true)                            # (rewrites a registered legacy statistic)
+struct LyOtherDomain end
+PDEStudioCore.calc_stat(::Val, fixed, u, domain::LyOtherDomain) = 0.0           # (generic, for another domain type)
+PDEStudioCore.calc_stat(::Val{:ly_va}, fixed, u, rest...) = 1.0                 # (vararg: callable as a data statistic)
+# a file as an earlier version wrote it: the "evaluated_*" entries and no statistic records in the metadata
+function ly_write_legacy(path, d, record)
+    PDEStudioCore._write_sim_file(path, d, Dict{String, Any}("evaluated_stats" => [:ly_err, :ly_total],
+                                  "evaluated_with_reference" => true, "evaluated_reference" => record), nothing)
+    md = PDEStudioCore.JLD2.jldopen(f -> f["metadata"], path, "r")
+    delete!(md, :stat_records)
+    PDEStudioCore._set_key!(path, "metadata", md)
+end
 ly_summary(d) = (d.metadata[:ly_summary] = d.stats[:ly_err][1][1]; true)   # (metadata only: records no statistic)
 ly_scaled(d) = (add_stat!(d, :ly_scaled, 10.0 * d.params[:k], Symbol[]); true)   # (computed from the parameters)
 ly_sneaky(d) = (d.stats[:ly_empty] = 0.5; true)              # (writes a registered name)
@@ -76,6 +95,7 @@ PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no r
 
         # names are unique: registering the name of a post-processor's statistic makes the statistics pass fail
         register_stat!(:ly_other, :time)
+        @eval PDEStudioCore.calc_stat(::Val{:ly_other}, fixed, u, domain) = 1.0
         s = run_all_simulations(cfg(:ly_ref_b); calculate_stats = true)
         @test get(s.stats, :failed, 0) == 1 && occursin("from the post-processor", last(only(s.stats_failed)))
         delete_stat!(:ly_other)
@@ -110,8 +130,9 @@ PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no r
         @test !(:ly_moving in d.metadata[:stat_records][:reference][:evaluated])
         delete_stat!(:ly_moving)
 
-        # a file of an earlier version: its records ("evaluated_*" entries) are read as this version's, and a
-        # statistic its post-processor added becomes the post-processor's when it runs again and rewrites it
+        # a file of an earlier version: its statistics are of unknown origin (`:legacy`, counted as the simulation
+        # layer, whatever `calc_stat` methods are loaded): the statistics pass evaluates the registered ones again and
+        # takes them over, and a statistic its post-processor added becomes the post-processor's when it rewrites it
         set_save_path!(mktempdir())
         q = create_param_dict(:sim_func_name => :ly_solver, :k => 2)
         run_all_simulations(SimulationConfig(q; reference = :ly_ref_a); calculate_stats = true)
@@ -122,14 +143,16 @@ PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no r
         d.stats[:ly_old_post] = 4.0                              # (what its post-processor added then)
         delete!(d.metadata, :stat_records)
         d.metadata[:postprocessed] = Dict(:ly_legacy_post => Dict{Symbol, Any}(:sources => String[]))
-        PDEStudioCore._write_sim_file(path, d, Dict{String, Any}("evaluated_stats" => [:ly_err, :ly_total],
-                                      "evaluated_with_reference" => true, "evaluated_reference" => record), nothing)
+        ly_write_legacy(path, d, record)
         d = load_sim_data(q)
-        @test stat_layer(d, :ly_err) === :reference && stat_layer(d, :ly_total) === :simulation
-        @test stat_layer(d, :ly_old_post) === :simulation && :ly_old_post in d.metadata[:stat_records][:legacy]
+        @test all(k -> stat_layer(d, k) === :simulation, (:ly_err, :ly_total, :ly_old_post))
+        @test d.metadata[:stat_records][:legacy] == [:ly_err, :ly_old_post, :ly_runtime, :ly_total]
         lc = SimulationConfig(q; reference = :ly_ref_a, postprocess = :ly_legacy_post)
-        s = run_all_simulations(lc; calculate_stats = true)
-        @test s.stats == Dict(:cached => 1) && s.postprocessing == Dict(:skipped => 1)   # (same reference, same record)
+        s = run_all_simulations(lc; calculate_stats = true)   # (evaluated again once, taken over; the post-processor runs)
+        d = load_sim_data(q)
+        @test s.stats == Dict(:ran => 1) && s.postprocessing == Dict(:ran => 1)
+        @test stat_layer(d, :ly_err) === :reference && stat_layer(d, :ly_total) === :simulation
+        @test run_all_simulations(lc; calculate_stats = true).postprocessing == Dict(:skipped => 1)
         run_all_simulations(lc; force_postprocess = true)
         d = load_sim_data(q)
         @test stat_layer(d, :ly_old_post) === :postprocess && d.stats[:ly_old_post][1][1] == 5.0
@@ -190,14 +213,97 @@ PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no r
         d.stats[:ly_old_post] = 4.0
         delete!(d.metadata, :stat_records)
         d.metadata[:postprocessed] = Dict(:ly_legacy_post => Dict{Symbol, Any}(:sources => String[]))
-        PDEStudioCore._write_sim_file(path, d, Dict{String, Any}("evaluated_stats" => [:ly_err, :ly_total],
-                                      "evaluated_with_reference" => true, "evaluated_reference" => record), nothing)
+        ly_write_legacy(path, d, record)
         d = load_sim_data(q)   # (loaded: its records are stamped with this solution)
         d.u = [SVector(9.0), SVector(9.0)]
-        @test calculate_all_stats!(d; save = false) === :ran && d.stats[:ly_total][1][1] == 18.0
+        @test calculate_all_stats!(d; save = false) === d && d.stats[:ly_total][1][1] == 18.0
         save_sim_data(d; overwrite = true, verbose = false)
         s = run_all_simulations(lc; calculate_stats = true)
         @test isempty(s.postprocessing_failed) && ly_val(q, :ly_old_post) == 5.0 && ly_val(q, :ly_err) == 14.0
+
+        # review of 0.10: a statistic of the solver removed (or replaced by hand) and saved: the post-processor that
+        # computed from it runs again (its record holds the layers above it ran on)
+        set_save_path!(mktempdir())
+        w = create_param_dict(:sim_func_name => :ly_weights_solver)
+        wc = SimulationConfig(w; postprocess = :ly_weights_post)
+        run_all_simulations(wc)
+        @test ly_val(w, :ly_wsum) == 5.0
+        d = load_sim_data(w)
+        delete_stat!(d, :ly_weights)
+        save_sim_data(d; overwrite = true, verbose = false)
+        @test run_all_simulations(wc).postprocessing == Dict(:ran => 1) && ly_val(w, :ly_wsum) == -1.0
+        d = load_sim_data(w)
+        add_stat!(d, :ly_weights, [10.0, 20.0], :x)
+        save_sim_data(d; overwrite = true, verbose = false)
+        @test run_all_simulations(wc).postprocessing == Dict(:ran => 1) && ly_val(w, :ly_wsum) == 30.0
+        # ... and a post-processor can't change the kept dimensions or the shape of a statistic above
+        for bad in (:ly_reaxis, :ly_reshape)
+            s = run_all_simulations(SimulationConfig(w; postprocess = bad))
+            @test get(s.postprocessing, :failed, 0) == 1
+        end
+        d = load_sim_data(w)
+        @test get_kept_dims(:ly_weights, d.domain) == [:x] && size(d.stats[:ly_weights]) == (2,)
+
+        # calculate_all_stats! returns the dataset; a registered name without any calc_stat fails, also without a
+        # reference; a reference factory is only built when reference statistics are due
+        d = load_sim_data(w)
+        @test calculate_all_stats!(d; save = false) === d
+        register_stat!(:ly_typo, :time)
+        s = run_all_simulations(SimulationConfig(w); calculate_stats = true)
+        @test get(s.stats, :failed, 0) == 1 && occursin("has no `calc_stat` method", last(only(s.stats_failed)))
+        delete_stat!(:ly_typo)
+        set_stat_registry!(Dict(:ly_total => :time))
+        s = run_all_simulations(SimulationConfig(w; reference = :ly_failing_ref); calculate_stats = true)
+        @test s.stats == Dict(:ran => 1) && ly_val(w, :ly_total) == 4.0   # (2×2 ones, no time axis)
+
+        # focused hunt on the 0.10 fixes: statistics of unknown origin (legacy) are part of what a post-processor ran
+        # on; a post-processor record without a basis (0.9, 0.10.0) runs once; a post-processor takes over its legacy
+        # statistic also when it writes the same value, but not a registered one
+        set_save_path!(mktempdir())
+        set_stat_registry!(Dict(:ly_total => :time, :ly_err => :time))
+        run_all_simulations(SimulationConfig(q; reference = :ly_ref_a); calculate_stats = true)
+        path = get_file_name(q)
+        d = load_sim_data(q)
+        d.stats[:ly_old_post] = 4.0
+        delete!(d.metadata, :stat_records)
+        d.metadata[:postprocessed] = Dict(:ly_same_post => Dict{Symbol, Any}(:sources => String[]))
+        ly_write_legacy(path, d, record)
+        same = SimulationConfig(q; postprocess = :ly_same_post)
+        @test run_all_simulations(same).postprocessing == Dict(:ran => 1)   # (no basis in the record: runs once)
+        d = load_sim_data(q)
+        @test stat_layer(d, :ly_old_post) === :postprocess && run_all_simulations(same).postprocessing == Dict(:skipped => 1)
+        d = load_sim_data(q)
+        delete!(d.stats, :ly_total)   # (a legacy statistic, removed by hand)
+        save_sim_data(d; overwrite = true, verbose = false)
+        @test run_all_simulations(same).postprocessing == Dict(:ran => 1)
+        s = run_all_simulations(SimulationConfig(q; postprocess = :ly_take_total))
+        @test get(s.postprocessing, :failed, 0) == 1
+
+        # an import with removed keys keeps the run's records valid under its new parameters; a reference factory is
+        # built when the loaded data needs one
+        set_save_path!(mktempdir())
+        a = create_param_dict(:sim_func_name => :ly_solver, :k => 1, :obsolete => "x")
+        run_all_simulations(SimulationConfig(a; reference = :ly_ref_a, postprocess = :ly_weighted); calculate_stats = true)
+        moved = mktempdir()
+        mv(get_file_name(a), joinpath(moved, "a.jld2"))
+        import_sim_data(moved; remove_keys = [:obsolete])
+        ic = SimulationConfig(p; reference = :ly_ref_a, postprocess = :ly_weighted)
+        s = run_all_simulations(ic; calculate_stats = true)
+        @test s.stats == Dict(:cached => 1) && s.postprocessing == Dict(:skipped => 1)
+        d = load_sim_data(p)
+        save_sim_data(d; overwrite = true, verbose = false)
+        @test layer_stats(load_sim_data(p), :reference) == [:ly_err]
+
+        # the kind of a statistic: by the calls the statistics pass makes
+        @test PDEStudioCore._stat_kind(:ly_va) === :data && PDEStudioCore._stat_kind(:ly_err) === :reference
+        @test PDEStudioCore._stat_kind(:ly_unknown_name) === :none
+
+        # L2: rescaled per component where the squares overflow or underflow, the measure factored out
+        l2(u, m) = PDEStudioCore._wide_l2(v -> abs.(v), m, u)
+        @test l2([SVector(1e200, NaN), SVector(1e200, 1.0)], 1.0)[1] ≈ sqrt(2) * 1e200
+        @test l2([SVector(1e-200), SVector(1e-200)], 1.0)[1] ≈ sqrt(2) * 1e-200
+        @test l2([SVector(1.0), SVector(1.0)], 1e308)[1] ≈ sqrt(2.0) * sqrt(1e308)
+        @test l2([SVector(1.0, 2.0), SVector(3.0, 4.0)], 0.5) == sqrt.(SVector(10.0, 20.0) .* 0.5)   # (bit-identical)
     finally
         set_stat_registry!(old)
     end

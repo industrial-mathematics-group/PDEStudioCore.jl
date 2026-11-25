@@ -421,7 +421,8 @@ function _stats_task(params::ParamDict, ref_factory, force_overwrite::Bool, dry_
         plan.error === nothing || return (:failed, plan.error, false)
         (dry_run || !_has_work(plan)) && return (plan.status, nothing, plan.cascade)
         sim_data = _load_key(path, "raw")
-        ref_func = reference === nothing ? nothing : ref_factory(deepcopy(params))   # (a copy, like the solver's: the task stays as it is)
+        # (only built when reference statistics are due; a copy of the parameters, like the solver's: the task stays as it is)
+        ref_func = reference === nothing ? nothing : _LazyReference(() -> ref_factory(deepcopy(params)))
         status = _calculate_all_stats!(sim_data, ref_func, reference, force_overwrite, true, true; on_changed = on_changed)
         return (status, nothing, plan.cascade)
     catch e
@@ -459,9 +460,9 @@ function _postprocess_record(name, post_func, metadata::AbstractDict)
     return Symbol(name) => record
 end
 
-_identity_part(record::AbstractDict) = filter(p -> Symbol(first(p)) !== :keys, record)
+_identity_part(record::AbstractDict) = filter(p -> !(Symbol(first(p)) in (:keys, :basis)), record)
 _without_sources(record::AbstractDict) =
-    filter(p -> !(Symbol(first(p)) in (:sources, :configuration_source, :keys)), record)
+    filter(p -> !(Symbol(first(p)) in (:sources, :configuration_source, :keys, :basis)), record)
 # (a record of an earlier version has no `:configuration_source`: compared without it)
 function _same_record(own::AbstractDict, record::AbstractDict)
     own = _identity_part(own)
@@ -479,11 +480,15 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
     try
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
-        own, present = jldopen(path, "r") do f
+        own, present, basis = jldopen(path, "r") do f
             md = _file_metadata(f; strict = true)
-            get(_post_records(md), name, nothing), Set(haskey(f, "stat_keys") ? _names(f["stat_keys"]) : Symbol[])
+            get(_post_records(md), name, nothing), Set(haskey(f, "stat_keys") ? _names(f["stat_keys"]) : Symbol[]),
+            get(_stat_records(md), :basis, nothing)
         end
-        valid = own !== nothing && all(k -> k in present, get(own, :keys, Symbol[]))   # (a recomputed dataset lacks them)
+        # valid: its statistics are there (a recomputed dataset lacks them) and the layers above are the ones it ran on
+        # (a record of an earlier version has no basis)
+        valid = own !== nothing && all(k -> k in present, get(own, :keys, Symbol[])) &&
+                get(own, :basis, nothing) == basis && basis !== nothing   # (a record without one: runs once)
         if !force && valid
             same = on_changed === :ignore ? isequal(_without_sources(own), _without_sources(identity)) : _same_record(own, identity)
             same && return (:skipped, nothing)
@@ -496,10 +501,16 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
         mine_before = own === nothing ? Symbol[] : get(own, :keys, Symbol[])
         others = Dict{Symbol, Any}(k => raw[k] for (n, rec) in posts if n !== name for k in get(rec, :keys, Symbol[]) if haskey(raw, k))
         foreach(k -> delete!(raw, k), union(mine_before, keys(others)))
-        before = Dict(k => _value_digest(v) for (k, v) in raw)
+        before = Dict(k => _stat_fingerprint(sim_data, k) for k in keys(raw))
         reserved = Dict(k => deepcopy(md[k]) for k in _RESERVED_METADATA if haskey(md, k))
         solution = _solution_digest(sim_data)
-        added = post_func(sim_data) === true
+        written = Set{Symbol}()
+        _STAT_WRITES[] = written
+        added = try
+            post_func(sim_data) === true
+        finally
+            _STAT_WRITES[] = nothing
+        end
         if added
             # A post-processor adds statistics and metadata; it changes neither the parameters (the data would replace
             # another run), nor the solution, nor the statistics of the layers above (a different result belongs into
@@ -510,14 +521,15 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
             _solution_digest(sim_data) == solution ||
                 error("the post-processor $name changed the solution of the data; post-processors add statistics and " *
                       "metadata (a different result belongs into the solver); nothing was saved")
-            changed = sort!([k for (k, d) in before if !haskey(raw, k) || _value_digest(raw[k]) != d])
-            adopted = filter(k -> k in records[:legacy] && haskey(raw, k), changed)
+            changed = sort!([k for (k, d) in before if !haskey(raw, k) || _stat_fingerprint(sim_data, k) != d])
+            adopted = filter(k -> k in records[:legacy] && haskey(raw, k) && (k in changed || k in written), keys(before))
+            adopted = sort!(collect(adopted))
             bad = setdiff(changed, adopted)
             isempty(bad) || error("the post-processor $name changed or removed the statistics $(join(repr.(bad), ", ")) of " *
                                   "the simulation or reference layer; post-processors add statistics of their own " *
                                   "(names are unique); nothing was saved")
             new = setdiff(keys(raw), keys(before))
-            taken = intersect(new, union(keys(get_stat_registry()), records[:simulation][:evaluated],
+            taken = intersect(union(new, adopted), union(keys(get_stat_registry()), records[:simulation][:evaluated],
                                          get(get(records, :reference, Dict{Symbol, Any}()), :evaluated, Symbol[])))
             isempty(taken) || error("the post-processor $name added $(join(repr.(sort!(collect(taken))), ", ")), which " *
                                     "is registered (the statistics pass evaluates it): statistic names are unique; nothing was saved")
@@ -528,8 +540,8 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
         else
             mine = Symbol[]
             # (nothing to save, unless its earlier statistics are stored: they go, they belonged to an earlier run of it)
-            if isempty(intersect(mine_before, present))
-                posts[name] = merge(_identity_part(identity), Dict{Symbol, Any}(:keys => mine))
+            if isempty(intersect(mine_before, present)) && basis !== nothing
+                posts[name] = merge(_identity_part(identity), Dict{Symbol, Any}(:keys => mine, :basis => basis))
                 _update_metadata!(path, :postprocessed => posts)
                 return (:ran, nothing)
             end
@@ -549,6 +561,8 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
         md[:stat_records] = records
         posts = _post_records(md)
         posts[name] = merge(_identity_part(identity), Dict{Symbol, Any}(:keys => mine))
+        md[:postprocessed] = posts
+        posts[name][:basis] = _upstream_basis(sim_data)   # (what it ran on: the layers above, without its statistics)
         md[:postprocessed] = posts
         _save_sim_data(sim_data, true, false, Dict{String, Any}())
         return (:ran, nothing)
