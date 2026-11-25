@@ -848,3 +848,65 @@ PDEStudioCore.calc_stat(::Val{:st_aux}, fixed, u, ana, domain) = first(u)
         set_stat_registry!(old)
     end
 end
+
+st_meta_named_solver(p) = create_sim_data([0.0, 1.0], [2.0, 2.0], p; metadata = Dict(:configuration_source => "calibration record 47"))
+st_ref_a(p) = _ -> 2.0
+st_ref_b(p) = _ -> 4.0
+
+@testset "Review fixes (497a7ab)" begin
+    hash_of(v) = calculate_hash(Dict(:v => v))
+    # `nothing`/`missing` are values on their own only: nested, they'd be stored as the types, which are values too
+    @test hash_of(nothing) != hash_of(Nothing) && hash_of(missing) != hash_of(Missing)
+    for v in (Any[nothing], [1.0, missing], (nothing,), Dict(1 => nothing), :a => missing, StTag{:a}() => nothing)
+        @test_throws r"inside a container or an identity" hash_of(v)
+    end
+    @test hash_of(Any[Nothing]) isa String && hash_of(Union{Nothing, Float64}[1.0]) isa String
+    # NaN as a type parameter (NaNs with other bits are other types, all written `NaN`)
+    nan2 = reinterpret(Float64, reinterpret(UInt64, NaN) | 1)
+    for v in (Val{NaN}(), Val{nan2}(), Val{NaN32}(), StTag{(1, NaN)}())
+        @test_throws r"NaN as a type parameter" hash_of(v)
+    end
+    @test hash_of(Val{Inf}()) isa String
+
+    dir = mktempdir()
+    # a stored `:configuration_source` that isn't one of the stored source digests isn't the pipeline's record
+    st_fresh()
+    own = joinpath(dir, "config.jl")
+    write(own, "# configuration\n")
+    mcfg = SimulationConfig(create_param_dict(:sim_func_name => :st_meta_named_solver); sources = [own])
+    run_all_simulations(mcfg)
+    p = only(generate_tasks(mcfg))
+    path = get_file_name(p)
+    PDEStudioCore._update_metadata!(path, :configuration_source => "calibration record 47")   # (as an earlier solver wrote it)
+    r = run_all_simulations(mcfg; on_changed_sources = :recompute)
+    @test isempty(r.changed) && length(r.cached) == 1 && load_sim_data(p).metadata[:configuration_source] == "calibration record 47"
+    # a file listed under two paths, a hard link and its file, is listed twice
+    if Sys.isunix()
+        twin = joinpath(dir, "twin.jl")
+        run(`ln $own $twin`)
+        @test_throws r"more than once" run_all_simulations(SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1);
+                                                                            sources = [own, twin]))
+    end
+
+    old = PDEStudioCore.get_stat_registry()
+    try
+        # a statistic that isn't registered any more, but is still stored, stays in the record of what was evaluated:
+        # a re-evaluation with another reference drops it, so registered again it is evaluated against that one
+        st_fresh()
+        q = create_param_dict(:sim_func_name => :st_aux_solver)
+        c = SimulationConfig(q; reference = :st_ref_a)
+        set_stat_registry!(Dict(:l1error => :time))
+        run_all_simulations(c; calculate_stats = true)
+        set_stat_registry!(Dict(:l2error => :time))
+        run_all_simulations(c; calculate_stats = true)
+        @test PDEStudioCore.JLD2.jldopen(f -> f["evaluated_stats"], get_file_name(q), "r") == [:l1error, :l2error]
+        c.reference = :st_ref_b
+        run_all_simulations(c; calculate_stats = true)
+        @test !haskey(load_sim_data(q).stats, :l1error)
+        register_stat!(:l1error, :time)
+        @test run_all_simulations(c; calculate_stats = true).stats == Dict(:ran => 1)
+        @test load_sim_data(q).stats[:l1error][1] == 6.0   # (against B: |1 - 4| twice)
+    finally
+        set_stat_registry!(old)
+    end
+end

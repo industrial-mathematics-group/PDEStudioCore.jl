@@ -450,13 +450,13 @@ end
 # Normalisation used before saving and hashing: strings are kept verbatim (they are never
 # re-interpreted as code), other values round-trip through val2str. Only data identifies a run: functions, and values
 # of custom types that don't declare their identity (`param_identity`), are refused (`_check_param`).
-# Known limitation: `nothing`/`missing` *inside* containers come back as the types `Nothing`/`Missing`
-# (or the container as a string); the normalised form is normalised again to itself, so lookups stay consistent.
+# `nothing`/`missing` are parameter values only on their own: inside containers they would come back as the types
+# `Nothing`/`Missing`, so they are refused there (`_check_param`), and the types are the only nested form.
 _normalize_param(v::AbstractString) = String(v)
 _normalize_param(v::Union{Nothing, Missing}) = v  # would otherwise become the types `Nothing`/`Missing`
 _normalize_param(v) = str2val(val2str(v))
 function _normalize_params(params)
-    foreach(((k, v),) -> _check_param(v, ":$k"), params)
+    foreach(((k, v),) -> _check_param(v, ":$k"; top = true), params)
     return ParamDict(Symbol(k) => _normalize_param(v) for (k, v) in params)
 end
 
@@ -542,7 +542,8 @@ function _valid_stored(p)
         return nothing
     end
 end
-_plain_eltype(T) = T <: _PLAIN || (T <: StaticArray && eltype(T) <: _NUMBERS)
+# (`nothing`/`missing` elements are refused, below: their arrays are looked at element by element)
+_plain_eltype(T) = (T <: _PLAIN && !(Nothing <: T) && !(Missing <: T)) || (T <: StaticArray && eltype(T) <: _NUMBERS)
 
 # Refuses a type (written as text: its name and parameters) whose parameters include a value that doesn't print as
 # itself (e.g. `Val{Int32(1)}`, written like `Val{1}`, or a value of a custom type)
@@ -566,6 +567,10 @@ function _check_type_parameter(p, T, path::AbstractString)
         _check_type(p, path)
     elseif p isa Tuple
         foreach(x -> _check_type_parameter(x, T, path), p)
+    elseif p isa AbstractFloat && isnan(p)
+        throw(ArgumentError(
+            "the parameter $path has the type $(_type_text(T)) with NaN as a type parameter: NaNs with other bits are " *
+            "other types but are all written `NaN`; use another value (e.g. a Symbol) to tell such types apart"))
     elseif !(p isa _TYPE_PARAMETERS)
         throw(ArgumentError(
             "the parameter $path has the type $(_type_text(T)) with the type parameter $(repr(p)) of type $(typeof(p)): " *
@@ -575,9 +580,14 @@ function _check_type_parameter(p, T, path::AbstractString)
     return nothing
 end
 
-# Refuses what can't identify a run: functions, and values of custom types that don't declare their identity
-# (`param_identity`); `path` names the place in the parameters for the message
-function _check_param(v, path::AbstractString)
+# Refuses what can't identify a run: functions, values of custom types that don't declare their identity
+# (`param_identity`), and `nothing`/`missing` below the top level (`top = false`: inside a container or an identity they are
+# written as the types `Nothing`/`Missing`, which are values as well); `path` names the place in the parameters for the message
+function _check_param(v, path::AbstractString; top::Bool = false)
+    (v === nothing || v === missing) && !top && throw(ArgumentError(
+        "the parameter $path is `$v` inside a container or an identity, where it would be stored as the type " *
+        "`$(typeof(v))` (and be the same value as that type): leave the entry out, or use a Symbol (e.g. `:none`) or " *
+        "the type `$(typeof(v))` itself; `$v` is a parameter value only on its own"))
     v isa Function && throw(ArgumentError(
         "the parameter $path is a function ($v): what a function computes can't be compared, so a function can't tell " *
         "runs apart. Give it a name instead (e.g. a String or Symbol the solver looks up), or wrap it in a struct whose " *
