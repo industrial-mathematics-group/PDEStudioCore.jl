@@ -407,8 +407,8 @@ replaced (an error). Neither is a symbolic link at that name: the store keeps no
 them nor replaces them.
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 The dataset's `metadata` field is saved with it; `metadata` entries given here are added to it first.
-The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources` or
-`:postprocessed` (the stored metadata is replaced); the data stored for its parameters saved again (e.g. after
+The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources`,
+`:configuration_source` or `:postprocessed` (the stored metadata is replaced); the data stored for its parameters saved again (e.g. after
 [`add_stat!`](@ref), or recomputed) takes the pipeline's entries of the stored metadata it doesn't have
 (`:postprocessed` only if the data still has the stored statistics). An entry removed from `metadata` stays removed.
 `sim_data.params` is replaced by its normalised form (see [`get_clean_params`](@ref)), as stored in the file.
@@ -420,9 +420,13 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
     writes = path === nothing || overwrite
     same = (path === nothing || overwrite) && _new_or_same_data!(sim_data, path)
     # the record of what the statistics pass evaluated goes with the statistics it describes: kept for the same data
-    # (e.g. a metadata edit), dropped with the evaluation records for new data
-    entries = same ? jldopen(f -> haskey(f, "evaluated_stats") ? Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) :
-                                  Dict{String, Any}(), path, "r") : Dict{String, Any}()
+    # (e.g. a metadata edit) without the statistics the file has and the data no longer has (deleted: due again),
+    # dropped with the evaluation records for new data
+    entries = same ? jldopen(path, "r") do f
+        haskey(f, "evaluated_stats") || return Dict{String, Any}()
+        gone = setdiff(haskey(f, "stat_keys") ? Symbol.(f["stat_keys"]) : Symbol[], keys(_raw_stats(sim_data)))
+        return Dict{String, Any}("evaluated_stats" => filter(n -> !(Symbol(n) in gone), f["evaluated_stats"]))
+    end : Dict{String, Any}()
     drop = same ? () : ("evaluated_with_reference", "evaluated_reference")
     # saved deliberately, it becomes the data of these parameters: a derived dataset is one no more, but only if it is
     # written (a stored native run is kept without `overwrite`: the dataset stays derived)
@@ -452,6 +456,7 @@ function _new_or_same_data!(data::AbstractSimData, path)
     else
         md[:provenance] = _provenance()
         delete!(md, :sources)
+        delete!(md, :configuration_source)
         delete!(md, :postprocessed)
     end
     return same
@@ -461,7 +466,7 @@ end
 # stored metadata it doesn't have (its own entries stay as they are: a removed entry stays removed), the
 # post-processing record only if the data still has the stored statistics (a recomputed dataset lacks what a
 # post-processor added)
-const _PIPELINE_METADATA = (:provenance, :sources, :postprocessed)
+const _PIPELINE_METADATA = (:provenance, :sources, :configuration_source, :postprocessed)
 function _carry_metadata!(data::AbstractSimData, path::AbstractString)
     md = data.metadata
     stored = jldopen(f -> _file_metadata(f; strict = true), path, "r")   # (never replace what can't be read)

@@ -77,7 +77,7 @@ Eulerian data: fields on a structured tensor grid (time, if present, is the last
   derived statistics are stored alongside it.
 - `metadata::Dict{Symbol, Any}`: information about the data that isn't data (not plotted, no statistic): your own
   entries (e.g. iteration counts, a convergence flag; a solver may set them), and the entries the pipeline writes
-  (`:provenance`, `:sources`, `:postprocessed`; see the *Data* page). Saved in the data file next to the data.
+  (`:provenance`, `:sources`, `:configuration_source`, `:postprocessed`; see the *Data* page). Saved in the data file next to the data.
 
 Prefer [`create_sim_data`](@ref) for construction; the inner constructor validates that the axes
 match the solution and that `DS` matches the domain.
@@ -123,7 +123,7 @@ Lagrangian data: particle positions and states recorded at discrete times.
 - `stats`: a [`StatsView`](@ref); `:Solution` is always present and *is* `u`.
 - `metadata::Dict{Symbol, Any}`: information about the data that isn't data (not plotted, no statistic): your own
   entries (e.g. iteration counts, a convergence flag; a solver may set them), and the entries the pipeline writes
-  (`:provenance`, `:sources`, `:postprocessed`; see the *Data* page). Saved in the data file next to the data.
+  (`:provenance`, `:sources`, `:configuration_source`, `:postprocessed`; see the *Data* page). Saved in the data file next to the data.
 """
 mutable struct LSimData{D, DS, M, T} <: AbstractSimData{D, DS, M, T}
     params::ParamDict

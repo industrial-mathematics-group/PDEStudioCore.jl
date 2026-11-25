@@ -759,3 +759,92 @@ PDEStudioCore.calc_stat(::Val{:st_fallback}, fixed, u, ana, domain) =   # (the s
         set_stat_registry!(old)
     end
 end
+
+struct StChar <: AbstractChar   # (a character type of its own: two variants print alike)
+    c::Char
+    variant::Symbol
+end
+Base.codepoint(c::StChar) = codepoint(c.c)
+struct StText <: AbstractString   # (a string type that declares an identity it wouldn't be stored by)
+    s::String
+    variant::Symbol
+end
+PDEStudioCore.param_identity(x::StText) = (; s = x.s, variant = x.variant)
+struct StTag{X} end
+@param_struct StTag
+@enum StColor st_red st_blue
+st_aux_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)
+PDEStudioCore.calc_stat(::Val{:st_aux}, fixed, u, ana, domain) = first(u)
+
+@testset "Review fixes (#63)" begin
+    hash_of(v) = calculate_hash(Dict(:v => v))
+    # characters are `Char`s; a string or enum type of one's own that declares an identity is refused
+    @test_throws r"characters in parameters are `Char`s" hash_of(StChar('a', :left))
+    @test_throws r":v\[1\] is a character" hash_of([StChar('a', :left)])
+    @test_throws r"declares `param_identity` but is a string" hash_of(StText("a", :left))
+    @test hash_of('a') isa String && hash_of(SubString("abc", 1, 2)) == hash_of("ab") && hash_of(st_red) != hash_of(st_blue)
+    # a type is written as text: the values among its parameters are ones that print as themselves
+    for v in (Val{Int32(1)}(), Val{0x01}(), Vector{Val{Int32(1)}}, [Val{Int32(1)}()], StTag{Int32(1)}(), Val{(1, Int32(2))}(),
+              Dict{Symbol, Val{UInt8(1)}}(:a => Val{UInt8(1)}()))
+        @test_throws r"type parameter" hash_of(v)
+    end
+    for v in (Val{1}(), Val{:a}(), Val{(1, 'b')}(), StTag{:a}(), Int32, Tuple{Vararg{Int64}}, Vector{<:Real}, Val{nothing}(),
+              PDEStudioCore.StaticArrays.SVector{2, Float64}, [PDEStudioCore.StaticArrays.SVector(1.0, 2.0)])
+        @test hash_of(v) isa String
+    end
+    @test hash_of(Val{1}()) != hash_of(Val{1.0}()) && hash_of(StTag{:a}()) != hash_of(StTag{:b}())
+
+    dir = mktempdir()
+    # the configuration's own file is recorded on its own: a helper that becomes the configuration file is changed code
+    st_fresh()
+    a, b = joinpath(dir, "a.jl"), joinpath(dir, "b.jl")
+    write(a, "st_role_solver(p) = create_sim_data([0.0, 1.0], [10.0, 10.0], p)\n")
+    write(b, "st_role_solver(p) = create_sim_data([0.0, 1.0], [20.0, 20.0], p)\n")
+    role(files) = SimulationConfig(create_param_dict(:sim_func_name => :st_role_solver); sources = files)
+    run_all_simulations(role([a, b]))
+    task = only(generate_tasks(role([a, b])))
+    @test load_sim_data(task).u[1][1] == 20.0 && load_sim_data(task).metadata[:configuration_source] == bytes2hex(open(PDEStudioCore.sha256, b))
+    r = run_all_simulations(role([b, a]); on_changed_sources = :recompute)
+    @test length(r.changed) == 1 && load_sim_data(task).u[1][1] == 10.0
+    @test isempty(run_all_simulations(role([b, a])).changed)
+    # a file listed under two paths (a symbolic link and its file) is listed twice
+    if Sys.isunix()
+        alias = joinpath(dir, "alias.jl")
+        symlink(a, alias)
+        @test_throws r"more than once" run_all_simulations(role([alias, a]))
+    end
+
+    old = PDEStudioCore.get_stat_registry()
+    try
+        # a statistic deleted from the data and saved is due again
+        st_fresh()
+        set_stat_registry!(Dict(:st_aux => Symbol[]))
+        acfg = SimulationConfig(create_param_dict(:sim_func_name => :st_aux_solver))
+        run_all_simulations(acfg; calculate_stats = true)
+        p = only(generate_tasks(acfg))
+        d = load_sim_data(p)
+        delete!(d.stats, :st_aux)
+        d.metadata[:note] = "reviewed"
+        save_sim_data(d; overwrite = true, verbose = false)
+        @test run_all_simulations(acfg; calculate_stats = true).stats == Dict(:ran => 1) && haskey(load_sim_data(p).stats, :st_aux)
+        d = load_sim_data(p)   # (a metadata edit keeps the record)
+        d.metadata[:note] = "again"
+        save_sim_data(d; overwrite = true, verbose = false)
+        @test run_all_simulations(acfg; calculate_stats = true).stats == Dict(:cached => 1)
+
+        # statistics evaluated without a reference beside ones evaluated with A: back with A, all are evaluated again
+        st_fresh()
+        set_stat_registry!(Dict(:st_aux => Symbol[]))
+        fcfg(ref) = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1); reference = ref)
+        run_all_simulations(fcfg(:st_fallback_reference); calculate_stats = true)
+        register_stat!(:st_fallback, :time)
+        run_all_simulations(fcfg(nothing); calculate_stats = true)
+        q = only(generate_tasks(fcfg(nothing)))
+        @test load_sim_data(q).stats[:st_fallback][1] == 1.0
+        @test run_all_simulations(fcfg(:st_fallback_reference); calculate_stats = true).stats == Dict(:ran => 1)
+        @test load_sim_data(q).stats[:st_fallback][1] == 3.0
+        @test run_all_simulations(fcfg(:st_fallback_reference); calculate_stats = true).stats == Dict(:cached => 1)
+    finally
+        set_stat_registry!(old)
+    end
+end
