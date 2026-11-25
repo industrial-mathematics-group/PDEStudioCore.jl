@@ -146,10 +146,12 @@ end
     params = create_param_dict(:N => 12, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :advection_solver_1d,
                                :stale_test => true)
     native = advection_solver_1d(params)
-    conv = convert_to_lagrangian(native)
     register_stat!(:stale_profile, :x)       # a profile over x: not defined for particles
-    conv.stats[:stale_profile] = [SVector(1.0)]
-    calculate_all_stats!(conv; force_overwrite = true, save = false)
+    @eval PDEStudioCore.calc_stat(::Val{:stale_profile}, fixed, u, ana, domain) = first(u)
+    calculate_all_stats!(native, x -> 0.0; save = false)
+    conv = convert_to_lagrangian(native)     # (carries the statistic and its record)
+    @test haskey(conv.stats, :stale_profile) && stat_layer(conv, :stale_profile) === :reference
+    calculate_all_stats!(conv, x -> 0.0; force_overwrite = true, save = false)
     @test !haskey(conv.stats, :stale_profile)
     delete_stat!(:stale_profile)
 end

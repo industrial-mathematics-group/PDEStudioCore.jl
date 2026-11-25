@@ -98,4 +98,4 @@ end
 
 # A statistic returning a plain number (instead of an SVector) for every time slice.
 PDEStudioCore.register_stat!(:slice_count, :time)
-PDEStudioCore.calc_stat(::Val{:slice_count}, fixed_coords, u, ana, domain::DomainInfo) = length(u)
+PDEStudioCore.calc_stat(::Val{:slice_count}, fixed_coords, u, domain::DomainInfo) = length(u)   # (of the data alone)

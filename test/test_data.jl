@@ -83,18 +83,19 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         sim = advection_solver_1d(p)
         calculate_all_stats!(sim, exact_advection)
         file = get_file_name(p)
-        flag() = load_sim_data(calculate_hash(get_clean_params(p))[1:12]; key = "evaluated_with_reference")
+        PDEStudioCore._set_key!(file, "bookkeeping_flag", true)
+        flag() = load_sim_data(calculate_hash(get_clean_params(p))[1:12]; key = "bookkeeping_flag")
         @test flag() == true
         # Nothing to compute, only the flag changes: the file is replaced (new inode), not modified in place
         inode, size0 = stat(file).inode, filesize(file)
-        calculate_all_stats!(sim)   # (nothing to compute: the record of the reference stays, the file isn't touched)
+        calculate_all_stats!(sim)   # (nothing to compute without a reference: the file isn't touched)
         @test flag() == true && stat(file).inode == inode
-        PDEStudioCore._set_key!(file, "evaluated_with_reference", false)   # (a changed entry: the file is replaced)
+        PDEStudioCore._set_key!(file, "bookkeeping_flag", false)   # (a changed entry: the file is replaced)
         @test flag() == false && stat(file).inode != inode
         @test load_sim_data(p).u == sim.u && haskey(load_sim_data(p).stats, :l1error)
         # Flag updates don't rewrite the data (the file grows by little), and leave no temporary files behind
         for v in (true, false, true, false)
-            PDEStudioCore._set_key!(file, "evaluated_with_reference", v)
+            PDEStudioCore._set_key!(file, "bookkeeping_flag", v)
         end
         @test filesize(file) <= size0 + 4096 && load_sim_data(p).u == sim.u
         @test !any(f -> endswith(f, ".tmp"), readdir(dirname(file)))
@@ -105,7 +106,7 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         foo_file = joinpath(mktempdir(), "foreign.jld2")
         def = "using PDEStudioCore; using PDEStudioCore.JLD2; struct ForeignEntry; a::Int; end"
         run(`$jl --project=$proj -e "$def; jldsave($(repr(foo_file)); foo = ForeignEntry(7))"`)
-        PDEStudioCore._set_key!(foo_file, "evaluated_with_reference", true)
+        PDEStudioCore._set_key!(foo_file, "bookkeeping_flag", true)
         @test success(`$jl --project=$proj -e "$def; x = load($(repr(foo_file)), \"foo\"); exit(x isa ForeignEntry && x.a == 7 ? 0 : 1)"`)
         # Here the type is unknown, so rewriting the data warns about the entry; also when the unknown type is
         # only an element type (a type defined in an anonymous module can't be found again by JLD2)
@@ -159,8 +160,8 @@ PARAMS_CONV = create_param_dict(:N => 40, :scheme => "upwind", :cfl => 0.5, :tes
         # The store keeps no links: a writer refuses one, the link and its target stay as they are
         link = foo_file * ".link.jld2"
         symlink(foo_file, link)
-        @test_throws r"symbolic link" PDEStudioCore._set_key!(link, "evaluated_with_reference", false)
-        @test islink(link) && PDEStudioCore.JLD2.load(foo_file, "evaluated_with_reference") == true
+        @test_throws r"symbolic link" PDEStudioCore._set_key!(link, "bookkeeping_flag", false)
+        @test islink(link) && PDEStudioCore.JLD2.load(foo_file, "bookkeeping_flag") == true
 
         # Unchanged entries don't touch the file at all
         inode = stat(file).inode
@@ -464,8 +465,8 @@ end
         save_sim_data(sim; overwrite = true, verbose = false)
         @test (m = meta_of(get_file_name(q)); (m[:provenance], collect(keys(m[:postprocessed])))) == (prov, [:keep_post])
         @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
-        # ... but the same solution recomputed without the statistics of the file keeps only the provenance (what a
-        # post-processor added is gone)
+        # ... but the same solution recomputed without the statistics of the file keeps only the provenance (the
+        # statistic records describe the statistics of the dataset they are in: it has none, so the post-processor runs)
         save_sim_data(advection_solver_1d(q); overwrite = true, verbose = false)
         @test (m = meta_of(get_file_name(q)); (m[:provenance], haskey(m, :postprocessed))) == (prov, false)
         @test run_all_simulations(cfg).postprocessing == Dict(:ran => 1)

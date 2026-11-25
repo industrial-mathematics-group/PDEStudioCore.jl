@@ -207,8 +207,7 @@ end
     p = only(generate_tasks(cfg_noref))
     @test SOLVER_CALLS[] == 1
     @test haskey(load_sim_data(p).stats, :mass) && !haskey(load_sim_data(p).stats, :l1error)
-    entries = load_sim_data(calculate_hash(get_clean_params(p))[1:12])
-    @test entries["evaluated_with_reference"] == false
+    @test stat_layer(load_sim_data(p), :mass) === :simulation   # (the reference layer: not evaluated without a reference)
 
     # Without a reference nothing is recomputed ...
     file = get_file_name(p)
@@ -237,14 +236,12 @@ end
     shared = create_param_dict(:N => 10, :scheme => "upwind", :cfl => 0.5, :sim_func_name => :advection_solver_1d,
                                :test_mode => "post-keep")
     cfg = SimulationConfig(shared; postprocess = :keep_post)
-    run_all_simulations(cfg; calculate_stats = true)   # no reference: the error statistics are dropped
+    run_all_simulations(cfg; calculate_stats = true)   # no reference: the statistics of the data alone
     p = only(generate_tasks(cfg))
-    file = get_file_name(p)
-    entries = load_sim_data(calculate_hash(get_clean_params(p))[1:12])
-    @test haskey(entries, "evaluated_stats") && entries["evaluated_with_reference"] == false
+    records = load_sim_data(p).metadata[:stat_records]
+    @test :mass in records[:simulation][:evaluated] && !haskey(records, :reference)
     # so a rerun doesn't reload the data for statistics that were evaluated already
-    required = sort!(Symbol[k for k in keys(get_stat_registry()) if k !== :Solution])
-    @test !PDEStudioCore._needs_stats(file, required, false)
+    @test run_all_simulations(cfg; calculate_stats = true).stats == Dict(:cached => 1)
 end
 
 @testset "Pipeline: source files" begin

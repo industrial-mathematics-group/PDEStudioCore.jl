@@ -62,16 +62,17 @@ save_sim_data(data; overwrite = true)
 load_sim_data(params).metadata[:iterations]   # 412
 ```
 
-The pipeline writes four entries itself. Their names are reserved: a value of the same name that a solver or you set is replaced, and isn't read as the pipeline's record (a stored `:configuration_source` that isn't one of the stored source digests counts as unknown).
+The pipeline writes these entries itself. Their names are reserved: a value of the same name that a solver or you set is replaced, and isn't read as the pipeline's record (a stored `:configuration_source` that isn't one of the stored source digests counts as unknown).
 
 | Entry | Content |
 | :--- | :--- |
 | `:provenance` | how the data was made: versions of PDEStudioCore and Julia, host, time, number of threads, git commit of the active project (the repository its folder is in, read from `.git`; uncommitted changes are not recorded), and for pipeline runs the solver (`:solver`, `:solver_module`, `:solver_version`) and the seconds it took (`:wall_time`) |
 | `:sources` | SHA-256 digests of the source files of the run (pipeline runs with `sources`) |
 | `:configuration_source` | the digest of the configuration's own file, the last of the `sources` (`""` without sources) |
-| `:postprocessed` | the post-processors that ran on this data (name => the digests of the source files and the package's version), so the pipeline doesn't run them again |
+| `:stat_records` | the records of the statistic layers (see [Statistic layers](statistics.md#Statistic-layers)): the digest of the solution and the hash of the parameters they describe, the registered statistics of the data that were evaluated (`:simulation`), the reference the reference layer was evaluated with and its statistics (`:reference`; `""` for an unknown reference, e.g. from `calculate_all_stats!`), each with those that came out without a result (all `NaN`), and for files of earlier versions the statistics a post-processor may have added (`:legacy`) |
+| `:postprocessed` | the post-processors that ran on this data (name => the digests of the source files and the package's version, and the statistics it added, `:keys`), so the pipeline doesn't run them again while they are valid |
 
-The metadata saved is the dataset's own: new data replaces the stored metadata (with a new provenance, without `:sources`, `:configuration_source` and `:postprocessed`), and an entry of your own that you remove from `data.metadata` stays removed when you save (the pipeline's entries `:provenance`, `:sources`, `:configuration_source` and `:postprocessed` don't, see next). Writing the same data again (statistics, post-processing, `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref), or a recomputed dataset) takes the pipeline's entries of the stored metadata it doesn't have; `:postprocessed` only if the data still has the stored statistics (a recomputed dataset lacks what a post-processor added). Conversions carry the metadata of their source. Metadata is read with every dataset, so keep it small (large results belong into statistics or files of their own).
+The metadata saved is the dataset's own: new data replaces the stored metadata (with a new provenance, without `:sources` and `:configuration_source`), and an entry of your own that you remove from `data.metadata` stays removed when you save (the pipeline's entries don't, see next). The statistic records travel with the statistics they describe and are the dataset's own: a dataset without them has none (e.g. a recomputed one: its statistics are evaluated again), and a dataset saved with records of another solution (its data was changed after they were evaluated) or of other parameters (saved under new ones) loses the statistics they describe (for other parameters those of the reference and post-processing layers, which were computed with them), with the records. Writing the same data again (statistics, post-processing, `save_sim_data` of the stored data, e.g. after [`add_stat!`](@ref), or a recomputed dataset) takes the provenance and sources of the stored metadata it doesn't have. Conversions carry the metadata of their source. Metadata is read with every dataset, so keep it small (large results belong into statistics or files of their own).
 
 ## 2. The Statistics View
 
@@ -97,7 +98,7 @@ Every run is one file, `<save path>/data/<sha256>.jld2`, named by the hash of it
 - data is only ever written to its own name, atomically (see below);
 - nothing moves, renames or deletes data on its own: only [`delete_sim_data`](@ref) deletes, and only what you ask for ([`tidy_sim_data`](@ref) removes leftover temporary files);
 - there are no duplicates of a run, so nothing has to choose between copies or clean them up;
-- a rewrite of a file keeps every entry in it (apart from the cached conversions and the statistics records, which belong to the data and go when the data is replaced), or fails and leaves the file as it was.
+- a rewrite of a file keeps every entry in it (apart from the cached conversions, which belong to the data and go when the data is replaced, and the statistic records of earlier versions, which are written as `:stat_records`), or fails and leaves the file as it was.
 
 In return it assumes:
 
@@ -105,7 +106,8 @@ In return it assumes:
 - the data folder holds no symbolic links: a link at a run's name is never read as the run, written through or replaced;
 - no two processes write the same run at the same time (the last rename wins);
 - the helper files in a configuration's `sources` are a set: each defines its own names (solvers, references, post-processors, statistics), so the order in which they are included doesn't matter; the file that builds the configuration is the last entry and is included after them (a run records the digests of the files and which one is the configuration's, not the order of the helpers; a file listed twice is refused, also under another path such as a symbolic or hard link). Runs stored before 0.9 don't record which file is the configuration's: for them, a helper that became the configuration file (with the same contents) isn't recognised as changed code; recompute them (`force_overwrite = true`) if that happened;
-- callbacks (solvers, references, post-processors) don't change a run's parameters: they get copies, and a post-processor that changes them fails; a post-processor adds statistics and metadata and doesn't change the solution either (it fails, nothing is saved);
+- callbacks (solvers, references, post-processors) don't change a run's parameters: they get copies, and a post-processor that changes them fails; a post-processor adds statistics and metadata and doesn't change the solution or the statistics of the layers above either (it fails, nothing is saved);
+- statistic names are unique across the layers (simulation, reference, post-processing): a registered name that the solver, `add_stat!` or a post-processor produced is an error; statistic values you change by hand are yours (the records don't track them);
 - only data identifies a run: parameter values are data, or values of custom types that declare what identifies them ([`param_identity`](@ref), or [`@param_struct`](@ref) for types whose fields are all data); functions and undeclared structs are refused. So a struct with functions or derived fields (e.g. a geometric domain's `is_interior` or `volume`) is identified by the data its `param_identity` names, such as its label, bounds and boundary conditions.
 
 Anything outside these assumptions isn't repaired automatically: lookups ignore it, [`tidy_sim_data`](@ref) lists it, and saves refuse to replace it.
@@ -120,9 +122,7 @@ Each file contains:
 | `"native"`, `"params"`, `"stat_keys"`, `"registry"`, `"shape"`, `"dim_keys"`, `"time_dim"` | fast metadata, read without loading the data (`"shape"` is `size(u)`, or time steps and total particle count for Lagrangian data; see [`get_sim_data_info`](@ref)) |
 | `"format_version"` | the layout of the file (see below) |
 | `"metadata"` | the dataset's `metadata` (stored once, here: `"raw"` holds the dataset without it), read and updated without loading the data |
-| `"evaluated_stats"` | statistics a pass evaluated for this data (stored, or registered and without a result); not the ones the solver attached or that were computed without being saved. Saving the data without one of the statistics it had drops it (due again) |
-| `"evaluated_with_reference"` | whether a reference function was available when they were last evaluated |
-| `"evaluated_reference"` | which reference the values evaluated with one were evaluated with (its name, package version and the digest of the file defining it; `""` if unknown, e.g. from `calculate_all_stats!`, or after statistics were evaluated without a reference, or the data was saved with statistic values other than the stored ones): with another or an unknown one the pipeline evaluates them again, all of them. An evaluation with nothing to evaluate keeps it |
+| `"evaluated_stats"`, `"evaluated_with_reference"`, `"evaluated_reference"` | the statistic records of earlier versions: read as `:stat_records` (the registered statistics in their layers, see [Statistic layers](statistics.md#Statistic-layers)), and dropped when the file is written again |
 | `"conv_L"`, `"conv_E_<n1>x<n2>…"` | cached conversions |
 
 Other entries (e.g. written with JLD2 directly) are kept when the data is rewritten; if one of them can't be copied, the rewrite fails and the file stays as it was.

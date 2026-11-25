@@ -12,6 +12,20 @@ copy(data.stats)                    # a plain Dict snapshot
 
 The global statistics registry starts empty, so the backend makes no assumptions about your model.
 
+### Statistic layers
+
+Every statistic belongs to one of three layers, by what produced it. Each layer is computed from the ones above it:
+
+| Layer | What it holds | Evaluated again when |
+| :--- | :--- | :--- |
+| `:simulation` | the solution, what the solver attached (run time, volumes, time steps, …), statistics added by hand, and the registered statistics of the data alone (a `calc_stat` without the reference argument: mass, norms) | the solution changes (data statistics: also when the registry changes) |
+| `:reference` | the registered statistics that use the reference (`calc_stat` with `ana`: errors) | another reference is configured, its code changed (see `on_changed_sources`), statistics are missing, or with `force_stats` |
+| `:postprocess` | what post-processors added | the layers above change (a statistic evaluated, replaced or removed, or another reference); or the post-processor changed |
+
+[`stat_layer`](@ref)`(data, name)` tells the layer of a statistic and [`layer_stats`](@ref)`(data, layer)` lists a layer; `data.stats` stays one dictionary with all of them. Statistic names are unique across the layers: a registered name that the solver, `add_stat!` or a post-processor produced is an error. The records of the layers are reserved entries of the dataset's metadata (`:stat_records`, `:postprocessed`), saved and loaded with it, so a dataset object always carries the records of the statistics it holds.
+
+Without a reference, the reference layer is left as it is: its statistics are neither evaluated (a statistic that uses the reference has no value without one) nor removed. A statistic that isn't registered any more stays in its layer until the layer is evaluated afresh (another reference, or `force_stats`), so a run with a smaller registry doesn't remove what others evaluated.
+
 ## 1. Loading Presets
 
 Predefined suites of statistics live in the `presets/` directory. For hyperbolic PDEs (mass, L1/L2 errors, …):
@@ -35,10 +49,22 @@ Valid kept dimensions are the aliases `:all` (pointwise field), `:space` (integr
 
 ### Step B: Overload `calc_stat`
 
+A statistic of the data alone takes no reference (the simulation layer: evaluated also without a reference, kept when
+the reference changes):
+
 ```julia
-function PDEStudioCore.calc_stat(::Val{:custom_energy}, fixed_coords, u, ana, domain::DomainInfo)
+function PDEStudioCore.calc_stat(::Val{:custom_energy}, fixed_coords, u, domain::DomainInfo)
     measure = get_integration_measure(:custom_energy, domain)   # e.g. dx * dy
     return sum(map(v -> abs2.(v), u) .* measure)   # (per component: u holds one SVector per point)
+end
+```
+
+A statistic that uses the reference takes its values `ana` (the reference layer: evaluated only with a reference):
+
+```julia
+function PDEStudioCore.calc_stat(::Val{:custom_error}, fixed_coords, u, ana, domain::DomainInfo)
+    measure = get_integration_measure(:custom_error, domain)
+    return sum(map((v, a) -> abs.(v - a), u, ana) .* measure)
 end
 ```
 
@@ -46,7 +72,7 @@ end
 *   `::Val{:name}`: the dispatch token of your statistic.
 *   `fixed_coords`: the coordinates of the kept dimensions for the current slice (an `SVector`).
 *   `u`: the numerical values of the slice (a flat vector of `SVector`s).
-*   `ana`: the reference values of the slice (`NaN`s if no reference is available).
+*   `ana`: the reference values of the slice (only in the form with the reference).
 *   `domain`: the [`DomainInfo`](@ref), giving access to the spacing, bounds and registry.
 
 The function must return an `SVector` with one entry per field component.
@@ -56,10 +82,11 @@ The integration measure is the product of the mean node spacings of the integrat
 ### Step C: Evaluate
 
 ```julia
-calculate_all_stats!(data, ref_func)     # ref_func(x::SVector{D}) -> exact value, or nothing
+calculate_all_stats!(data, ref_func)     # ref_func(x::SVector{D}) -> exact value
+calculate_all_stats!(data)               # the statistics of the data alone
 ```
 
-[`calculate_all_stats!`](@ref) evaluates every statistic of the global registry that the dataset does not have yet (all of them with `force_overwrite = true`) and saves the dataset (`save = false` keeps it in memory only). Statistics registered *after* a dataset was created are picked up, and a statistic whose kept dimensions changed is recomputed. Results that are entirely `NaN` (typically errors without a reference) are dropped and remembered as evaluated, so the pipeline does not reload the data for them again. The pipeline also remembers whether a reference was available, so these statistics are evaluated again automatically once `config.reference` is set; `run_all_simulations(config; calculate_stats = true, force_stats = true)` recomputes every registered statistic without rerunning the solvers.
+[`calculate_all_stats!`](@ref) evaluates the registered statistics of the data alone that the dataset does not have yet (all of them with `force_overwrite = true`), and with `ref_func` all statistics that use the reference (it can't tell whether `ref_func` is the reference they were evaluated with), and saves the dataset (`save = false` keeps it in memory only). Statistics registered *after* a dataset was created are picked up, and a statistic whose kept dimensions changed is recomputed. Results that are entirely `NaN` are dropped and remembered as evaluated, so the pipeline does not reload the data for them again. The pipeline records which reference the reference layer was evaluated with and evaluates it again when another one is configured; `run_all_simulations(config; calculate_stats = true, force_stats = true)` recomputes every registered statistic without rerunning the solvers.
 
 Converted and reference datasets (from `load_sim_data(p, :lagrangian)`, `resample_eulerian`, `generate_reference_simdata`, …) share the parameters of the native run. Their statistics are computed as usual, but they are never saved over the native data: `calculate_all_stats!` warns and keeps them in memory. Pass `save = false` for such datasets to skip the check.
 
@@ -81,13 +108,13 @@ add_stat!(data, :runtime, elapsed_seconds, Symbol[])          # scalar
 add_stat!(data, :energy_history, energy_vector, :time)        # one value per time step
 ```
 
-Numbers and arrays of numbers are converted to `SVector`s with the dataset's component count. Shapes are checked: against the kept axes for Eulerian data, and against the time steps and particle counts for Lagrangian data. `calculate_all_stats!` leaves statistics added this way alone, unless the same name is also registered globally (you get a warning if the kept dimensions differ). `delete_stat!(data, :runtime)` removes one again, and `delete_stat!(:name)` removes a statistic from the global registry.
+Numbers and arrays of numbers are converted to `SVector`s with the dataset's component count. Shapes are checked: against the kept axes for Eulerian data, and against the time steps and particle counts for Lagrangian data. Statistics added this way belong to the simulation layer (to the post-processing layer when a post-processor adds them) and are left alone by `calculate_all_stats!`; a registered name is refused (names are unique across the layers). `delete_stat!(data, :runtime)` removes one again, and `delete_stat!(:name)` removes a statistic from the global registry.
 
 Assigning `data.stats[:name] = value` also works, but it does not record kept dimensions; prefer `add_stat!`.
 
 ### Using `add_stat!` in Post-Processing
 
-A natural place for custom metrics is the post-processing function of a [`SimulationConfig`](@ref), which runs after the statistics pass:
+A natural place for custom metrics is the post-processing function of a [`SimulationConfig`](@ref), which runs after the statistics pass. It sees the simulation and reference layers (e.g. volumes and errors, to compute volume-weighted errors) and adds statistics of its own; when those layers change, its statistics are dropped and it runs again:
 
 ```julia
 function my_post_process(data)

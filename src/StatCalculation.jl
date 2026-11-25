@@ -133,8 +133,9 @@ Numbers and arrays of numbers are converted to `SVector`s with the dataset's com
 shapes are checked against the kept axes (Eulerian) or time steps and particles (Lagrangian); a single value needs
 `kept_dims = Symbol[]`.
 
-[`calculate_all_stats!`](@ref) leaves such statistics alone, unless the same name is registered
-globally (then it is recomputed with `force_overwrite = true` or when the kept dimensions differ).
+Statistic names are unique: a registered name is refused (the statistics pass evaluates it). Added by a solver, by
+hand or by a post-processor, the statistic belongs to the simulation layer, or to the post-processing layer when a
+post-processor added it (see [`stat_layer`](@ref)).
 """
 function add_stat!(sim_data::AbstractSimData{D, DS, M, T}, name::Symbol, value, kept_dims) where {D, DS, M, T}
     name === :Solution && throw(ArgumentError("use `data.u = ...` (or `data.stats[:Solution] = ...`) to replace the solution"))
@@ -146,11 +147,9 @@ function add_stat!(sim_data::AbstractSimData{D, DS, M, T}, name::Symbol, value, 
         "statistic :$name keeps the dimensions $(Tuple(kept)), so it needs one value per coordinate of them (an " *
         "array, or one vector per time step for particle fields), got a single value; use `Symbol[]` (or `:none`) for a scalar"))
     _check_stat_shape(sim_data, name, stored, kept)
-    global_dims = get(get_stat_registry(), name, nothing)
-    if global_dims !== nothing && global_dims != reg_val
-        @warn "Statistic :$name is registered globally with kept dimensions $global_dims; " *
-              "`calculate_all_stats!` will replace the value added here."
-    end
+    haskey(get_stat_registry(), name) && throw(ArgumentError(
+        "the statistic :$name is registered (the statistics pass evaluates it); statistic names are unique across the " *
+        "layers (simulation, reference, post-processing): add it under another name"))
     sim_data.domain.stat_registry[name] = reg_val
     _raw_stats(sim_data)[name] = stored
     @info "Added custom stat '$name' keeping dimensions: $reg_val"
@@ -165,12 +164,15 @@ function delete_stat!(data::AbstractSimData, name::Symbol)
 end
 
 """
+    calc_stat(::Val{name}, fixed_coords, u, domain)
     calc_stat(::Val{name}, fixed_coords, u, ana, domain)
 
 Extension point for statistics registered with [`register_stat!`](@ref). Called once per retained
 slice: `fixed_coords` holds the coordinates of the kept dimensions, `u`/`ana` iterate the numerical
-and reference values of the slice (`ana` is `NaN` without a reference function). Must return an
-`SVector{M}`; `NaN`s (e.g. an error without a reference) remove the statistic. A registered statistic without a
+and reference values of the slice. A statistic of the data alone (mass, norms) defines the method without `ana`: it
+belongs to the simulation layer, is evaluated also without a reference and is kept when the reference changes. A
+statistic with `ana` uses the reference: it belongs to the reference layer and is only evaluated with a reference
+(see [`stat_layer`](@ref)). Must return an `SVector{M}` (or a number); `NaN`s remove the statistic. A registered statistic without a
 method is an error (the statistics of the dataset fail and are tried again on the next run), not a silent `NaN`.
 """
 calc_stat(::Val{name}, fixed_coords, u, ana, domain) where {name} = throw(ArgumentError(
@@ -208,119 +210,116 @@ function remove_nan_stats!(stats::AbstractDict)
     return stats
 end
 
-# Brings the dataset registry in line with the global one. Values computed for different kept
-# dimensions are dropped as stale. Returns the (sorted) global statistic names and whether anything changed.
-function _sync_registry!(sim_data::AbstractSimData)
-    reg = sim_data.domain.stat_registry
-    raw = _raw_stats(sim_data)
-    changed = false
-    for (name, dims) in get_stat_registry()
-        name === :Solution && continue
-        old = get(reg, name, nothing)
-        if old === nothing || old != dims
-            old === nothing || delete!(raw, name)
-            reg[name] = dims isa Vector ? copy(dims) : dims
-            changed = true
-        end
-    end
-    names = sort!(Symbol[k for k in keys(get_stat_registry()) if k !== :Solution])
-    return names, changed
-end
-
 """
     calculate_all_stats!(sim_data::AbstractSimData, ref_func = nothing; force_overwrite = false, save = true)
 
-Evaluates every statistic of the global registry (see [`register_stat!`](@ref)) that is missing
-from the dataset (or all of them with `force_overwrite = true`). `ref_func(x)` is the exact solution
-at the spacetime point `x::SVector{D}`; it is evaluated once per node/particle. Statistics that come
-out all-`NaN` (e.g. errors without a reference) are dropped. Statistics added with
-[`add_stat!`](@ref) are kept unless the global registry has a statistic of the same name (see there).
-With `save = true` the dataset is saved when a registered statistic changed (values attached with
-[`add_stat!`](@ref) alone don't trigger a save: use [`save_sim_data`](@ref) with `overwrite = true`), unless the
-dataset is derived (a conversion, a resampled grid or a reference dataset; `data.metadata[:derived]`) or the
-file for its parameters holds a different solution: such a dataset shares the parameters (and hash) of the native
-run, so saving it would replace, or pass for, the native data. Then nothing is saved and a warning is logged. Like [`save_sim_data`](@ref), saving normalises `sim_data.params`.
+Evaluates the registered statistics (see [`register_stat!`](@ref)) that the dataset doesn't have yet (all of them with
+`force_overwrite = true`), in their layers (see [`stat_layer`](@ref)): the statistics of the data alone (a `calc_stat`
+without the reference argument) always; the statistics that use the reference only with `ref_func`, the exact solution
+(`ref_func(x)` at the spacetime point `x::SVector{D}`, evaluated once per node/particle): this function can't tell
+whether `ref_func` is the reference they were evaluated with, so it evaluates all of them again. Statistics that come out
+all-`NaN` are dropped (and remembered as evaluated). When the statistics change (one evaluated, replaced or removed),
+the statistics of the post-processing layer are dropped (they were computed from them; the pipeline runs the
+post-processors again). A registered name that the dataset has from the solver, from [`add_stat!`](@ref) or from a post-processor is an
+error: statistic names are unique.
+With `save = true` the dataset is saved when anything changed, unless the dataset is derived (a conversion, a resampled
+grid or a reference dataset; `data.metadata[:derived]`) or the file for its parameters holds a different solution: such
+a dataset shares the parameters (and hash) of the native run, so saving it would replace, or pass for, the native data.
+Then nothing is saved and a warning is logged. Like [`save_sim_data`](@ref), saving normalises `sim_data.params`.
 Returns `sim_data`.
 """
 calculate_all_stats!(sim_data::NoSimData, ref_func = nothing; kwargs...) = sim_data
 
 calculate_all_stats!(sim_data::AbstractSimData, ref_func = nothing; force_overwrite::Bool = false, save::Bool = true) =
-    _calculate_all_stats!(sim_data, ref_func, force_overwrite, save, false)
+    _calculate_all_stats!(sim_data, ref_func, ref_func === nothing ? nothing : "", force_overwrite, save, false)
 
-# `known_native = true`: `sim_data` was just loaded as "raw" from its file (the pipeline), so the comparison
-# with the stored solution can be skipped.
-function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwrite::Bool, save::Bool, known_native::Bool;
-                               reference::AbstractString = "", drop = Symbol[])
-    names, changed = _sync_registry!(sim_data)
-    raw = _raw_stats(sim_data)
-    for name in drop   # (statistics of an earlier evaluation that aren't evaluated again: they'd pass for current ones)
-        haskey(raw, name) && (delete!(raw, name); changed = true)
+# `reference`: the record of the reference (`_reference_record`; "" for an unknown one), `nothing` without one: the
+# reference layer is left as it is. `known_native = true`: `sim_data` was just loaded as "raw" from its file (the
+# pipeline), so the comparison with the stored solution can be skipped. Returns the outcome (`_StatPlan.status`).
+function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, reference::Union{Nothing, AbstractString},
+                               force_overwrite::Bool, save::Bool, known_native::Bool; on_changed::Symbol = :recompute)
+    _drop_stale_layers!(sim_data)
+    md = sim_data.metadata
+    registry = get_stat_registry()
+    plan = _plan_stats(_stat_records(md), _post_records(md), keys(_raw_stats(sim_data)), sim_data.domain.stat_registry,
+                       registry, reference; force = force_overwrite, on_changed = on_changed)
+    plan.error === nothing || throw(ArgumentError(plan.error))
+    _apply_stat_plan!(sim_data, plan, ref_func, reference, registry) && save && _save_stats(sim_data, known_native)
+    return plan.status
+end
+
+# Carries out a plan on the dataset (statistics and records); whether anything changed
+function _apply_stat_plan!(data::AbstractSimData, plan::_StatPlan, ref_func, reference, registry::AbstractDict)
+    _has_work(plan) || return false
+    md, raw, reg = data.metadata, _raw_stats(data), data.domain.stat_registry
+    r = _stat_records(md)
+    sim, ref = r[:simulation], get(r, :reference, nothing)
+    if plan.cascade   # (computed from what changes now: the post-processors run again)
+        foreach(k -> delete!(raw, k), _post_keys(_post_records(md)))
+        delete!(md, :postprocessed)
     end
-    pending = force_overwrite ? names : filter(n -> !haskey(raw, n), names)
-    if !isempty(pending)
-        # `invokelatest` makes `calc_stat` methods and reference functions that were defined after the
-        # caller started (e.g. by `set_stat_preset!` inside a function) visible.
-        u_ana = ref_func === nothing ? generate_pointwise_nan(sim_data) :
-                Base.invokelatest(generate_pointwise_reference, sim_data, ref_func)
-        for name in pending
-            result = Base.invokelatest(_calc_stat!, sim_data, u_ana, name)
-            if result === nothing
-                # not defined for this kind of data (e.g. a profile over `x` on particles): a value left from another
-                # representation is stale
-                haskey(raw, name) && (delete!(raw, name); changed = true)
-                continue
-            end
-            if is_all_nan(result)
-                haskey(raw, name) && (delete!(raw, name); changed = true)
+    function drop!(layer, names)
+        for n in names
+            delete!(raw, n)
+            haskey(registry, n) || delete!(reg, n)
+        end
+        layer[:evaluated] = setdiff(layer[:evaluated], names)
+        layer[:empty] = setdiff(layer[:empty], names)
+    end
+    drop!(sim, plan.sim_stale)
+    ref === nothing || drop!(ref, plan.ref_stale)
+    for n in union(plan.sim_due, plan.ref_due)
+        reg[n] = registry[n] isa Vector ? copy(registry[n]) : registry[n]
+    end
+    # `invokelatest`: `calc_stat` methods and references defined after the caller started (e.g. by `set_stat_preset!`
+    # inside a function) are visible
+    function evaluate!(layer, names, u_ana)
+        for n in names
+            result = Base.invokelatest(_calc_stat!, data, u_ana, n)
+            if result === nothing || is_all_nan(result)   # (no result: not defined for this kind of data, or all NaN)
+                delete!(raw, n)
+                push!(layer[:empty], n)
             else
-                raw[name] = result
-                changed = true
+                raw[n] = result
+                layer[:empty] = setdiff(layer[:empty], [n])
             end
         end
+        layer[:evaluated] = _names(union(layer[:evaluated], names))
+        layer[:empty] = _names(layer[:empty])
     end
-    if save
-        path = _find_file(sim_data.params)
-        derived = get(sim_data.metadata, :derived, nothing)
-        if !known_native && derived !== nothing
-            # (also without a file: stored, it would pass for the solver's result and the run would be "cached")
-            @warn "Statistics were not saved: this is a $derived dataset (it shares the parameters of a native run " *
-                  "without being one). Pass `save = false` for derived datasets, or use " *
-                  "`save_sim_data(data; overwrite = true)` to store it as the data of these parameters."
-        elseif path !== nothing && !known_native && !_is_native_representation(path, sim_data)
-            @warn "Statistics were not saved: the file for these parameters holds a different solution " *
-                  "(a converted or reference dataset, or data changed after loading). Pass `save = false` for " *
-                  "derived datasets, or use `save_sim_data(data; overwrite = true)` to replace the stored data."
-        else
-            # Remember what was evaluated (and whether a reference was available), so the pipeline does
-            # not reload data for stats that came out NaN, but retries them once a reference exists.
-            # Written together with the data if that is (re)written; otherwise only if the entries differ.
-            # Which reference the statistics were evaluated with (`_reference_record`; "" from `calculate_all_stats!`,
-            # which doesn't know it, and for an evaluation without a reference: due again in the pipeline once it has
-            # one) is recorded whenever statistics were evaluated: the statistics of a file then belong to one
-            # reference, or to none known (some evaluated without one, beside values kept from an earlier one).
-            # An evaluation with nothing to evaluate leaves it; rewritten data carries it over.
-            # The record names what a pass evaluated: the statistics evaluated now, and the ones of earlier passes that
-            # are still stored (also when they aren't registered any more: they belong to the stored reference record,
-            # and a re-evaluation with another reference drops them) or that are registered and came out without a
-            # result. A statistic that is present but was never evaluated (computed earlier without being saved, or
-            # attached by the solver) isn't in it.
-            previous, stored_before = path === nothing ? (Symbol[], Symbol[]) : jldopen(path, "r") do f
-                (haskey(f, "evaluated_stats") ? Symbol.(f["evaluated_stats"]) : Symbol[],
-                 haskey(f, "stat_keys") ? Symbol.(f["stat_keys"]) : Symbol[])
-            end
-            kept = filter(n -> haskey(raw, n) || (!(n in stored_before) && n in names), previous)
-            evaluated = Dict{String, Any}("evaluated_stats" => sort!(union(kept, pending)))
-            if !isempty(pending)
-                evaluated["evaluated_with_reference"] = ref_func !== nothing
-                evaluated["evaluated_reference"] = ref_func === nothing ? "" : String(reference)
-            end
-            # (the same data rewritten: it keeps the pipeline's entries of the stored metadata, see `_carry_metadata!`)
-            changed && path !== nothing && _carry_metadata!(sim_data, path)
-            path = _save_sim_data(sim_data, changed, false, evaluated)
-            _update_entries!(path, evaluated)
-        end
+    evaluate!(sim, plan.sim_due, nothing)
+    if plan.fresh || !isempty(plan.ref_due)
+        plan.fresh && (ref = Dict{Symbol, Any}(:record => String(reference), :evaluated => Symbol[], :empty => Symbol[]))
+        u_ana = isempty(plan.ref_due) ? nothing : Base.invokelatest(generate_pointwise_reference, data, ref_func)
+        evaluate!(ref, plan.ref_due, u_ana)
     end
-    return sim_data
+    r[:simulation] = sim
+    ref === nothing || (r[:reference] = ref)
+    r[:solution] = _solution_hex(data)
+    r[:params] = _params_hash(data)
+    md[:stat_records] = r
+    return true
+end
+
+# Saves a dataset whose statistics changed, unless it isn't the native data of its parameters
+function _save_stats(sim_data::AbstractSimData, known_native::Bool)
+    path = _find_file(sim_data.params)
+    derived = get(sim_data.metadata, :derived, nothing)
+    if !known_native && derived !== nothing
+        # (also without a file: stored, it would pass for the solver's result and the run would be "cached")
+        @warn "Statistics were not saved: this is a $derived dataset (it shares the parameters of a native run " *
+              "without being one). Pass `save = false` for derived datasets, or use " *
+              "`save_sim_data(data; overwrite = true)` to store it as the data of these parameters."
+    elseif path !== nothing && !known_native && !_is_native_representation(path, sim_data)
+        @warn "Statistics were not saved: the file for these parameters holds a different solution " *
+              "(a converted or reference dataset, or data changed after loading). Pass `save = false` for " *
+              "derived datasets, or use `save_sim_data(data; overwrite = true)` to replace the stored data."
+    else
+        # (the same data rewritten: it keeps the pipeline's entries of the stored metadata, see `_carry_metadata!`)
+        path !== nothing && _carry_metadata!(sim_data, path)
+        _save_sim_data(sim_data, true, false, Dict{String, Any}())
+    end
+    return nothing
 end
 
 # ==============================================================================
@@ -331,6 +330,12 @@ end
     return SVector{L, T}(ntuple(d -> axes[kept_idx[d]][I[d]], Val(L)))
 end
 
+# A statistic of the data alone (no reference: `u_ana === nothing`) has a `calc_stat` without the reference argument
+@inline _call_stat(stat, fixed, u, ::Nothing, domain) = calc_stat(stat, fixed, u, domain)
+@inline _call_stat(stat, fixed, u, ana, domain) = calc_stat(stat, fixed, u, ana, domain)
+@inline _slice_at(::Nothing, i) = nothing
+@inline _slice_at(slices, i) = vec(slices[i])
+
 # The statistic is passed as `Val{S}` so that the loop body is compiled once per statistic and the
 # user's `calc_stat` method is dispatched statically instead of once per slice.
 function _batch_stat_calc!(res, u_slices, ana_slices, axes, kept_idx, domain, stat::Val, ::Val{L}, ::Val{M},
@@ -339,7 +344,7 @@ function _batch_stat_calc!(res, u_slices, ana_slices, axes, kept_idx, domain, st
     @batch for i in eachindex(u_slices)
         I = cart[i]
         fixed_coords = _extract_coords(axes, kept_idx, I, Val(L), T)
-        res[i] = _as_svector(calc_stat(stat, fixed_coords, vec(u_slices[i]), vec(ana_slices[i]), domain), Val(M), T)
+        res[i] = _as_svector(_call_stat(stat, fixed_coords, vec(u_slices[i]), _slice_at(ana_slices, i), domain), Val(M), T)
     end
     return res
 end
@@ -358,13 +363,13 @@ end
 
 function _calc_stat_eulerian(sim_data::ESimData{D, DS, M, T}, u_ana, stat::Val, kept_idx::Vector{Int}) where {D, DS, M, T}
     if isempty(kept_idx)  # scalar
-        value = calc_stat(stat, SVector{0, T}(), vec(sim_data.u), vec(u_ana), sim_data.domain)
+        value = _call_stat(stat, SVector{0, T}(), vec(sim_data.u), u_ana === nothing ? nothing : vec(u_ana), sim_data.domain)
         return _as_svector(value, Val(M), T)
     end
     L = length(kept_idx)
     res = Array{SVector{M, T}, L}(undef, ntuple(d -> length(sim_data.axes[kept_idx[d]]), L)...)
     u_slices = eachslice(sim_data.u, dims = Tuple(kept_idx))
-    ana_slices = eachslice(u_ana, dims = Tuple(kept_idx))
+    ana_slices = u_ana === nothing ? nothing : eachslice(u_ana, dims = Tuple(kept_idx))
     _batch_stat_calc!(res, u_slices, ana_slices, sim_data.axes, kept_idx, sim_data.domain, stat, Val(L), Val(M), T)
     return res
 end
@@ -384,12 +389,12 @@ function _calc_stat_lagrangian(sim_data::LSimData{D, DS, M, T}, u_ana, stat::Val
     Nt = length(t)
 
     if isempty(kept)  # scalar over all particles (and time steps)
-        value = calc_stat(stat, SVector{0, T}(), reduce(vcat, u), reduce(vcat, u_ana), domain)
+        value = _call_stat(stat, SVector{0, T}(), reduce(vcat, u), u_ana === nothing ? nothing : reduce(vcat, u_ana), domain)
         return _as_svector(value, Val(M), T)
     elseif D > DS && kept == [domain.time_dim]  # time series
         series = Vector{SVector{M, T}}(undef, Nt)
         @batch for n in 1:Nt
-            series[n] = _as_svector(calc_stat(stat, SVector{1, T}(t[n]), u[n], u_ana[n], domain), Val(M), T)
+            series[n] = _as_svector(_call_stat(stat, SVector{1, T}(t[n]), u[n], u_ana === nothing ? nothing : u_ana[n], domain), Val(M), T)
         end
         return series
     elseif length(kept) == D  # per-particle field
@@ -400,7 +405,7 @@ function _calc_stat_lagrangian(sim_data::LSimData{D, DS, M, T}, u_ana, stat::Val
             values = Vector{SVector{M, T}}(undef, length(x_n))
             for p in eachindex(x_n)
                 fixed = D > DS ? SVector{D, T}(x_n[p]..., t[n]) : SVector{D, T}(x_n[p]...)
-                values[p] = _as_svector(calc_stat(stat, fixed, (u[n][p],), (u_ana[n][p],), domain), Val(M), T)
+                values[p] = _as_svector(_call_stat(stat, fixed, (u[n][p],), u_ana === nothing ? nothing : (u_ana[n][p],), domain), Val(M), T)
             end
             field[n] = values
         end

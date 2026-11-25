@@ -79,7 +79,7 @@ String keys are accepted everywhere and converted to `Symbol`s.
 *   **[`run_all_simulations`](@ref)`(config; kwargs...)`:** runs every task of the sweep that is not on disk yet, then (optionally) computes statistics and runs your post-processing on the datasets it hasn't processed yet. Failures of single tasks are logged and do not abort the batch; the returned [`RunSummary`](@ref) lists what ran, what was cached and what failed (`dry_run = true` only reports what would run).
 *   **[`generate_tasks`](@ref)`(config)`:** the parameter sets of a sweep, e.g. to load its results: `[load_sim_data(p) for p in generate_tasks(config)]`.
 *   **[`load_sim_data`](@ref)`(params[, kind, res])`:** loads the native data, or an Eulerian/Lagrangian representation that is converted (and optionally cached) on demand.
-*   **[`calculate_all_stats!`](@ref)`(data, ref_func)`:** evaluates all registered statistics (mass, L1/L2 errors, …) against an exact reference, on grids and on particles.
+*   **[`calculate_all_stats!`](@ref)`(data, ref_func)`:** evaluates the registered statistics (mass and norms of the data, L1/L2 errors against an exact reference, …), on grids and on particles, in their layers (simulation → reference → post-processing).
 
 ---
 

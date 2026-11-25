@@ -10,18 +10,17 @@
 #   "registry"   kept dimensions of every statistic
 #   "shape"      size of `u` (Eulerian), (time steps, particles) (Lagrangian)
 #   "dim_keys", "time_dim"  the axes of the data (fast metadata)
-#   "evaluated_stats"  statistics already evaluated for this raw data (incl. dropped all-NaN ones)
 #   "format_version"   the layout of the file (`_FORMAT_VERSION`; checked when files are imported)
-#   "metadata"   the dataset's `metadata` field ("raw" is stored without it): provenance, sources, post-processing
-#                record, the user's entries
-#   "evaluated_with_reference"  whether a reference was available for "evaluated_stats"
-#   "evaluated_reference"       which reference that was (`_reference_record`; "" for none or an unknown one)
+#   "metadata"   the dataset's `metadata` field ("raw" is stored without it): provenance, sources, the statistic records
+#                (`:stat_records`, `:postprocessed`, see StatLayers.jl), the user's entries
+#   ("evaluated_stats", "evaluated_with_reference", "evaluated_reference": the statistic records of earlier versions,
+#    read as `:stat_records` by `_file_metadata` and dropped when the file is written again)
 #   "conv_*"     cached conversions ("conv_L", "conv_E_<n1>x<n2>...")
 
 const _ENABLE_CONV_CACHE = Ref{Bool}(false)
 # Entries tied to the content of "raw": never carried over when the raw data is rewritten.
 const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shape", "dim_keys", "time_dim",
-                       "evaluated_stats", "format_version", "metadata")
+                       "evaluated_stats", "evaluated_with_reference", "evaluated_reference", "format_version", "metadata")
 
 # The layout of the data files: 3 = datasets with the `metadata` field, stored as "metadata" (PDEStudioCore 0.5 and
 # later). Files of earlier layouts (0.4: 0 without the fast metadata, 1, 2) aren't read since 0.7.
@@ -178,6 +177,7 @@ function _load_key(path::AbstractString, key::AbstractString)
         haskey(file, key) || throw(SimFileNotFoundError("Key '$key' not found in $(basename(path))."))
         value = file[key]
         value isa AbstractSimData && (value.metadata = _entry_metadata(_file_metadata(file), key))   # (stored once, next to the data)
+        value isa AbstractSimData && key == "raw" && _stamp_records!(value)   # (records of an earlier version: of this data)
         return value
     end
 end
@@ -407,10 +407,12 @@ replaced (an error). Neither is a symbolic link at that name: the store keeps no
 them nor replaces them.
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 The dataset's `metadata` field is saved with it; `metadata` entries given here are added to it first.
-The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources`,
-`:configuration_source` or `:postprocessed` (the stored metadata is replaced); the data stored for its parameters saved again (e.g. after
-[`add_stat!`](@ref), or recomputed) takes the pipeline's entries of the stored metadata it doesn't have
-(`:postprocessed` only if the data still has the stored statistics). An entry removed from `metadata` stays removed.
+The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources` or
+`:configuration_source` (the stored metadata is replaced); the data stored for its parameters saved again (e.g. after
+[`add_stat!`](@ref), or recomputed) takes the pipeline's provenance and sources of the stored metadata it doesn't have.
+The statistic records (`:stat_records`, `:postprocessed`) are the dataset's own: a dataset without them has none (its
+statistics are evaluated again), and records of another solution or other parameters go with the statistics they
+describe (see [`stat_layer`](@ref)). An entry removed from `metadata` stays removed.
 `sim_data.params` is replaced by its normalised form (see [`get_clean_params`](@ref)), as stored in the file.
 """
 function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbose::Bool = true,
@@ -419,37 +421,23 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
     path = _find_file(sim_data.params)
     writes = path === nothing || overwrite
     same = (path === nothing || overwrite) && _new_or_same_data!(sim_data, path)
-    # the record of what the statistics pass evaluated goes with the statistics it describes: kept for the same data
-    # (e.g. a metadata edit) without the statistics the file has and the data no longer has (deleted: due again),
-    # dropped with the evaluation records for new data
-    # A dataset whose statistics have other values than the stored ones (e.g. an object loaded before a later pass
-    # re-evaluated them, or evaluated with another reference without saving) keeps the record of what was evaluated,
-    # but not of the reference: unknown (""), so the next pass with a reference evaluates them all again.
-    entries = same ? jldopen(path, "r") do f
-        haskey(f, "evaluated_stats") || return Dict{String, Any}()
-        gone = setdiff(haskey(f, "stat_keys") ? Symbol.(f["stat_keys"]) : Symbol[], keys(_raw_stats(sim_data)))
-        e = Dict{String, Any}("evaluated_stats" => filter(n -> !(Symbol(n) in gone), f["evaluated_stats"]))
-        stored = _raw_stats(f["raw"])
-        all(k -> !haskey(stored, k) || isequal(stored[k], _raw_stats(sim_data)[k]), keys(_raw_stats(sim_data))) ||
-            (e["evaluated_reference"] = "")
-        return e
-    end : Dict{String, Any}()
-    drop = same ? () : ("evaluated_with_reference", "evaluated_reference")
+    # the statistic records travel with the statistics they describe (in the metadata); records of another solution go,
+    # with the statistics they describe (the data was changed after they were evaluated)
+    writes && _drop_stale_layers!(sim_data; same = same)
     # saved deliberately, it becomes the data of these parameters: a derived dataset is one no more, but only if it is
     # written (a stored native run is kept without `overwrite`: the dataset stays derived)
     derived = writes ? pop!(sim_data.metadata, :derived, nothing) : nothing
     try
-        return _save_sim_data(sim_data, overwrite, verbose, entries; drop)
+        return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}())
     catch
         isnothing(derived) || (sim_data.metadata[:derived] = derived)
         rethrow()
     end
 end
 
-# The metadata of data about to replace the file at `path` (or `nothing`: a new file): the same data keeps the
-# stored metadata (missing entries are taken from the file; the post-processing record only if the data still has
-# the statistics of the file: a recomputed dataset lacks what a post-processor added); new data gets a provenance
-# and loses the entries of the run that made the stored data.
+# The metadata of data about to replace the file at `path` (or `nothing`: a new file): the same data takes the stored
+# provenance and sources it doesn't have; new data gets a provenance and loses the entries of the run that made the
+# stored data. (The statistic records are the dataset's own: `_drop_stale_layers!`.)
 function _new_or_same_data!(data::AbstractSimData, path)
     same = path !== nothing && try
         _is_native_representation(path, data)
@@ -464,28 +452,20 @@ function _new_or_same_data!(data::AbstractSimData, path)
         md[:provenance] = _provenance()
         delete!(md, :sources)
         delete!(md, :configuration_source)
-        delete!(md, :postprocessed)
     end
     return same
 end
 
 # The same data rewritten (e.g. recomputed, or loaded and saved again): it takes the pipeline's entries of the
-# stored metadata it doesn't have (its own entries stay as they are: a removed entry stays removed), the
-# post-processing record only if the data still has the stored statistics (a recomputed dataset lacks what a
-# post-processor added)
-const _PIPELINE_METADATA = (:provenance, :sources, :configuration_source, :postprocessed)
+# stored metadata it doesn't have (its own entries stay as they are: a removed entry stays removed)
+# (not the statistic records: they describe the statistics of the dataset they are in; a dataset without them has none)
+const _PIPELINE_METADATA = (:provenance, :sources, :configuration_source)
 function _carry_metadata!(data::AbstractSimData, path::AbstractString)
     md = data.metadata
     stored = jldopen(f -> _file_metadata(f; strict = true), path, "r")   # (never replace what can't be read)
     for k in _PIPELINE_METADATA
         haskey(md, k) || !haskey(stored, k) || (md[k] = stored[k])
     end
-    # (statistics the pipeline evaluated don't count: a statistics pass drops and re-evaluates those)
-    missing_stats, evaluated = jldopen(path, "r") do f
-        (setdiff(haskey(f, "stat_keys") ? Symbol.(f["stat_keys"]) : Symbol[], keys(data.stats)),
-         haskey(f, "evaluated_stats") ? Symbol.(f["evaluated_stats"]) : Symbol[])
-    end
-    issubset(missing_stats, evaluated) || delete!(md, :postprocessed)
     return data
 end
 
@@ -499,7 +479,8 @@ function _file_metadata(file; strict::Bool = false)
         @warn "The metadata of $(basename(file.path)) can't be read; the data is loaded without it" exception = e
         return Dict{Symbol, Any}()
     end
-    return v isa AbstractDict ? _metadata_dict(v) : Dict{Symbol, Any}(:metadata => v)
+    md = v isa AbstractDict ? _metadata_dict(v) : Dict{Symbol, Any}(:metadata => v)
+    return _migrate_records!(md, file)   # (a file of an earlier version: its records as this version's)
 end
 
 # Changes the stored metadata of a file without rewriting its data (`nothing` removes an entry)
@@ -595,7 +576,7 @@ function _head_commit(dotgit::AbstractString)
 end
 
 # `save_sim_data` without the check of the metadata keys, so internal callers can write managed entries
-# (e.g. "evaluated_stats") in the same atomic write as the data.
+# in the same atomic write as the data.
 function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Bool, metadata::AbstractDict; drop = ())
     normalized = _normalize_params(sim_data.params)
     empty!(sim_data.params)
@@ -789,10 +770,8 @@ function _rewrite_file!(path::AbstractString, changes::Pair...)
     for (k, v) in changes   # (metadata changes, written in the same rewrite)
         v === nothing ? delete!(raw.metadata, k) : (raw.metadata[k] = v)
     end
-    # the same data again: what was evaluated for it stays valid (conversion caches are dropped)
-    entries = jldopen(f -> haskey(f, "evaluated_stats") ? Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) :
-                           Dict{String, Any}(), path, "r")
-    _write_sim_file(path, raw, entries, path)
+    # the same data again, with its records (in the metadata; conversion caches are dropped)
+    _write_sim_file(path, raw, Dict{String, Any}(), path)
     return :rewritten
 end
 
