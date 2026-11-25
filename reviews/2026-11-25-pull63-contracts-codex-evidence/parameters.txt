@@ -1,0 +1,18 @@
+Int64 endpoints: accepted, stored type Tuple{Int64, Int64}, lookup true
+Float32 and Float16: accepted, stored type Tuple{Float64, Float64}, lookup true
+Other scalar width: ArgumentError: the parameter :x has the type UInt64: numbers in parameters are Int64, Float64 (Float32 and Float16 are stored as Float64) or Bool; convert it for the parameters (e.g. Int64(x)), also if the solver uses another type
+Declared custom integer: ArgumentError: the parameter :x has the type NumericChoice: numbers in parameters are Int64, Float64 (Float32 and Float16 are stored as Float64) or Bool; convert it for the parameters (e.g. Int64(x)), also if the solver uses another type
+Tuple nested BigInt: ArgumentError: the parameter :x[2][1] has the type BigInt: numbers in parameters are Int64, Float64 (Float32 and Float16 are stored as Float64) or Bool; convert it for the parameters (e.g. Int64(x)), also if the solver uses another type
+Static array Int32: ArgumentError: the parameter :x[1][1] has the type Int32: numbers in parameters are Int64, Float64 (Float32 and Float16 are stored as Float64) or Bool; convert it for the parameters (e.g. Int64(x)), also if the solver uses another type
+Int32 range as a value: ArgumentError: the parameter :x[1] has the type Int32: numbers in parameters are Int64, Float64 (Float32 and Float16 are stored as Float64) or Bool; convert it for the parameters (e.g. Int64(x)), also if the solver uses another type
+Set behind a pair: ArgumentError: the parameter :x.second is a set: its order would depend on how it was built; use a sorted Vector or a Tuple
+Int64 map: accepted, stored type Dict{Int64, Int64}, lookup true
+Int32 map: ArgumentError: the parameter :x is a Dict with keys of type Int32: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Int64, all of one type
+Sweep Any[1.5f0, 1.5]: ArgumentError: two runs of this configuration have parameters that are stored alike (the same hash), so they would be one run: x: 1.5f0 and 1.5. Only data identifies a run: add data that tells them apart (e.g. a name or number, or a label field of the object).
+Sweep Any[1.5f0, 1.5f0]: 1
+Sweep Any[Float32[1.5], [1.5]]: 2
+Character declared identity (variant = :left,) normalizes to 'a'
+Character left: cached=0 field=10.0
+Character declared identity (variant = :right,) normalizes to 'a'
+Character right: cached=1 field=10.0
+Character right forced: field=20.0

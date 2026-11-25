@@ -1,0 +1,42 @@
+# An independent AI review, recorded by 'aisignoff attest'. The review folder keeps it as it is:
+# a later review goes into a new file.
+
+[[attestations]]
+path = "src/Serialization.jl"
+blob = "8116cf8eedd59f99510cc8d763826a73a84c479d"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-25-pull63-contracts-codex.md"]
+AI-Review-Findings = "critical"
+
+[[attestations]]
+path = "src/IOUtils.jl"
+blob = "478c23643094da6b5d5740323dd6a9169116eeaa"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-25-pull63-contracts-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+path = "docs/src/data.md"
+blob = "6577a76215d23ff93da2f6c54d70543590e98c4b"
+AI-Review = "A1"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-25-pull63-contracts-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+path = "src/Simulations.jl"
+blob = "fd7e6478e38b380ffe9346c1d42779319b9f7b0e"
+AI-Review = "A3"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-25-pull63-contracts-codex.md"]
+AI-Review-Findings = "major"
+
+[[attestations]]
+commit = "c4800b4f3bafe9ff544fb7d5e60d4412a8e9b4d0"
+AI-Review = "A3"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-25-pull63-contracts-codex.md"]
+AI-Review-Findings = "none"
+
+[[attestations]]
+commit = "5222e2c2d80770ecbf7e2f8a5c32b86587350d41"
+AI-Review = "A3"
+AI-Reviewed-by = ["GPT Sol (OpenAI), new session without the generating conversation, reviews/2026-11-25-pull63-contracts-codex.md"]
+AI-Review-Findings = "major"

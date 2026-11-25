@@ -1,0 +1,18 @@
+Int64 endpoints: accepted, stored type Tuple{Int64, Int64}, lookup true
+Float32 and Float16: accepted, stored type Tuple{Float64, Float64}, lookup true
+Other scalar width: accepted, stored type Int64, lookup true
+Declared custom integer: accepted, stored type Int64, lookup true
+Tuple nested BigInt: accepted, stored type Tuple{Symbol, Vector{BigInt}}, lookup true
+Static array Int32: accepted, stored type Vector{StaticArraysCore.SVector{1, Int32}}, lookup true
+Int32 range as a value: accepted, stored type Vector{Int32}, lookup true
+Set behind a pair: accepted, stored type String, lookup true
+Int64 map: accepted, stored type Dict{Int64, Int64}, lookup true
+Int32 map: accepted, stored type Dict{Int32, Int64}, lookup true
+Sweep Any[1.5f0, 1.5]: 1
+Sweep Any[1.5f0, 1.5f0]: 1
+Sweep Any[Float32[1.5], [1.5]]: 2
+Character declared identity (variant = :left,) normalizes to 'a'
+Character left: cached=0 field=10.0
+Character declared identity (variant = :right,) normalizes to 'a'
+Character right: cached=1 field=10.0
+Character right forced: field=20.0

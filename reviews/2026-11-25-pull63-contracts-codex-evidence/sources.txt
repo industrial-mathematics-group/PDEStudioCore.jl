@@ -1,0 +1,5 @@
+Root b with helper a: ran=1 field=20.0
+Root a with helper b: ran=0 cached=1 changed=0 field=20.0
+Root a forced: field=10.0
+Duplicate ["source.jl", "source.jl"]: rejected; includes=0
+Duplicate ["source.jl", "alias.jl"]: ran=1 includes=2

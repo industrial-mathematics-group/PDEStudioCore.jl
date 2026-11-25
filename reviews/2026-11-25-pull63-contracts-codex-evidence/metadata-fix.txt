@@ -1,0 +1,11 @@
+Metadata edit=false
+L1 under reference A: 2.0
+Switch to B with only L2 registered: Dict(:ran => 1) L1 kept=false L2=4.242640687119285
+Re-register L1: Dict(:ran => 1) L1=6.0
+Forced L1 under reference B: 6.0
+Metadata edit=true
+L1 under reference A: 2.0
+After metadata edit: (has evaluated stats, has evaluated reference)=(true, true)
+Switch to B with only L2 registered: Dict(:ran => 1) L1 kept=false L2=4.242640687119285
+Re-register L1: Dict(:ran => 1) L1=6.0
+Forced L1 under reference B: 6.0
