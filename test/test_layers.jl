@@ -17,6 +17,10 @@ const LY_ADDS = Ref(true)
 ly_maybe(d) = LY_ADDS[] ? (add_stat!(d, :ly_maybe, 1.0, Symbol[]); true) : false
 ly_legacy_post(d) = (d.stats[:ly_old_post] = 5.0; true)     # (rewrites the statistic it added in an earlier version)
 ly_val(p, k) = (d = load_sim_data(p); haskey(d.stats, k) ? d.stats[k][1][1] : missing)
+ly_summary(d) = (d.metadata[:ly_summary] = d.stats[:ly_err][1][1]; true)   # (metadata only: records no statistic)
+ly_scaled(d) = (add_stat!(d, :ly_scaled, 10.0 * d.params[:k], Symbol[]); true)   # (computed from the parameters)
+ly_sneaky(d) = (d.stats[:ly_empty] = 0.5; true)              # (writes a registered name)
+PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no result for this data)
 
 @testset "Statistic layers" begin
     old = PDEStudioCore.get_stat_registry()
@@ -88,7 +92,8 @@ ly_val(p, k) = (d = load_sim_data(p); haskey(d.stats, k) ? d.stats[k][1][1] : mi
         d.u = [SVector(5.0), SVector(5.0)]
         save_sim_data(d; overwrite = true, verbose = false)
         d = load_sim_data(p)
-        @test sort!(collect(keys(d.stats))) == [:Solution, :ly_runtime] && !haskey(d.metadata, :stat_records)
+        @test sort!(collect(keys(d.stats))) == [:Solution, :ly_runtime] && !haskey(d.metadata, :postprocessed)
+        @test isempty(d.metadata[:stat_records][:simulation][:evaluated]) && !haskey(d.metadata[:stat_records], :reference)
         run_all_simulations(cfg(:ly_ref_a, nothing); calculate_stats = true)
         @test ly_val(p, :ly_total) == 10.0 && ly_val(p, :ly_err) == 6.0
 
@@ -140,6 +145,59 @@ ly_val(p, k) = (d = load_sim_data(p); haskey(d.stats, k) ? d.stats[k][1][1] : mi
         @test run_all_simulations(sc).postprocessing == Dict(:outdated => 1)
         @test run_all_simulations(sc; on_changed_sources = :recompute).postprocessing == Dict(:ran => 1)
         @test ly_val(only(generate_tasks(sc)), :ly_src) == 2.0
+
+        # hunt on the layers (2026-11-25): a post-processor that records no statistics (metadata only) runs again when
+        # the reference changes (its record isn't brought back from the file), also in a dry run
+        set_save_path!(mktempdir())
+        r = create_param_dict(:sim_func_name => :ly_solver, :k => 1)
+        mc(ref) = SimulationConfig(r; reference = ref, postprocess = :ly_summary)
+        run_all_simulations(mc(:ly_ref_a); calculate_stats = true)
+        @test load_sim_data(r).metadata[:ly_summary] == 2.0
+        @test run_all_simulations(mc(:ly_ref_b); calculate_stats = true, dry_run = true).postprocessing == Dict(:ran => 1)
+        @test run_all_simulations(mc(:ly_ref_b); calculate_stats = true).postprocessing == Dict(:ran => 1)
+        @test load_sim_data(r).metadata[:ly_summary] == 6.0
+        # statistics added to the layers above are a new state for the post-processors too
+        set_save_path!(mktempdir())
+        run_all_simulations(mc(:ly_ref_a, ))   # (post-processed before any statistics: fails, no :ly_err yet)
+        s = run_all_simulations(mc(:ly_ref_a); calculate_stats = true)
+        @test s.postprocessing == Dict(:ran => 1) && load_sim_data(r).metadata[:ly_summary] == 2.0
+
+        # saved under other parameters, the reference and post-processing layers go (they were computed with the
+        # parameters); the statistics of the data alone stay
+        set_save_path!(mktempdir())
+        sc2 = SimulationConfig(r; reference = :ly_ref_a, postprocess = :ly_scaled)
+        run_all_simulations(sc2; calculate_stats = true)
+        d = load_sim_data(r)
+        d.params[:k] = 7
+        save_sim_data(d; verbose = false)
+        r7 = create_param_dict(:sim_func_name => :ly_solver, :k => 7)
+        @test sort!(collect(keys(load_sim_data(r7).stats))) == [:Solution, :ly_runtime, :ly_total]
+        @test run_all_simulations(SimulationConfig(r7; reference = :ly_ref_a, postprocess = :ly_scaled); calculate_stats = true).postprocessing == Dict(:ran => 1)
+        @test ly_val(r7, :ly_scaled) == 70.0
+
+        # a post-processor can't write a registered name, also one without a value (all NaN)
+        register_stat!(:ly_empty, :time)
+        s = run_all_simulations(SimulationConfig(r; reference = :ly_ref_a, postprocess = :ly_sneaky); calculate_stats = true)
+        @test get(s.postprocessing, :failed, 0) == 1 && occursin("is registered", last(only(s.postprocessing_failed)))
+        delete_stat!(:ly_empty)
+
+        # a file of an earlier version whose solution was changed: its post-processor's statistic (legacy) stays
+        # listed, so the post-processor takes it over when it runs again
+        set_save_path!(mktempdir())
+        run_all_simulations(SimulationConfig(q; reference = :ly_ref_a); calculate_stats = true)
+        path = get_file_name(q)
+        d = load_sim_data(q)
+        d.stats[:ly_old_post] = 4.0
+        delete!(d.metadata, :stat_records)
+        d.metadata[:postprocessed] = Dict(:ly_legacy_post => Dict{Symbol, Any}(:sources => String[]))
+        PDEStudioCore._write_sim_file(path, d, Dict{String, Any}("evaluated_stats" => [:ly_err, :ly_total],
+                                      "evaluated_with_reference" => true, "evaluated_reference" => record), nothing)
+        d = load_sim_data(q)   # (loaded: its records are stamped with this solution)
+        d.u = [SVector(9.0), SVector(9.0)]
+        @test calculate_all_stats!(d; save = false) === :ran && d.stats[:ly_total][1][1] == 18.0
+        save_sim_data(d; overwrite = true, verbose = false)
+        s = run_all_simulations(lc; calculate_stats = true)
+        @test isempty(s.postprocessing_failed) && ly_val(q, :ly_old_post) == 5.0 && ly_val(q, :ly_err) == 14.0
     finally
         set_stat_registry!(old)
     end

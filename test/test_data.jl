@@ -465,11 +465,11 @@ end
         save_sim_data(sim; overwrite = true, verbose = false)
         @test (m = meta_of(get_file_name(q)); (m[:provenance], collect(keys(m[:postprocessed])))) == (prov, [:keep_post])
         @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
-        # ... and when the same solution is recomputed without the statistics of the file: it keeps the records (the
-        # statistics it lacks are due again; this post-processor added none, so its record stays valid)
+        # ... but the same solution recomputed without the statistics of the file keeps only the provenance (the
+        # statistic records describe the statistics of the dataset they are in: it has none, so the post-processor runs)
         save_sim_data(advection_solver_1d(q); overwrite = true, verbose = false)
-        @test (m = meta_of(get_file_name(q)); (m[:provenance], haskey(m, :postprocessed))) == (prov, true)
-        @test run_all_simulations(cfg).postprocessing == Dict(:skipped => 1)
+        @test (m = meta_of(get_file_name(q)); (m[:provenance], haskey(m, :postprocessed))) == (prov, false)
+        @test run_all_simulations(cfg).postprocessing == Dict(:ran => 1)
         # (functions, callable objects and types are named in the provenance)
         @test PDEStudioCore._func_name.((advection_solver_1d, scaled_solver, ScaledSolver)) ==
               ("advection_solver_1d", "ScaledSolver", "ScaledSolver")

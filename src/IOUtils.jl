@@ -177,6 +177,7 @@ function _load_key(path::AbstractString, key::AbstractString)
         haskey(file, key) || throw(SimFileNotFoundError("Key '$key' not found in $(basename(path))."))
         value = file[key]
         value isa AbstractSimData && (value.metadata = _entry_metadata(_file_metadata(file), key))   # (stored once, next to the data)
+        value isa AbstractSimData && key == "raw" && _stamp_records!(value)   # (records of an earlier version: of this data)
         return value
     end
 end
@@ -406,10 +407,12 @@ replaced (an error). Neither is a symbolic link at that name: the store keeps no
 them nor replaces them.
 Writes are atomic: data is written to a temporary file that is then renamed into place.
 The dataset's `metadata` field is saved with it; `metadata` entries given here are added to it first.
-The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources`,
-`:configuration_source` or `:postprocessed` (the stored metadata is replaced); the data stored for its parameters saved again (e.g. after
-[`add_stat!`](@ref), or recomputed) takes the pipeline's entries of the stored metadata it doesn't have
-(`:postprocessed` only if the data still has the stored statistics). An entry removed from `metadata` stays removed.
+The metadata saved is the dataset's: new data gets a new provenance (`:provenance`) and has no `:sources` or
+`:configuration_source` (the stored metadata is replaced); the data stored for its parameters saved again (e.g. after
+[`add_stat!`](@ref), or recomputed) takes the pipeline's provenance and sources of the stored metadata it doesn't have.
+The statistic records (`:stat_records`, `:postprocessed`) are the dataset's own: a dataset without them has none (its
+statistics are evaluated again), and records of another solution or other parameters go with the statistics they
+describe (see [`stat_layer`](@ref)). An entry removed from `metadata` stays removed.
 `sim_data.params` is replaced by its normalised form (see [`get_clean_params`](@ref)), as stored in the file.
 """
 function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbose::Bool = true,
@@ -432,10 +435,9 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
     end
 end
 
-# The metadata of data about to replace the file at `path` (or `nothing`: a new file): the same data keeps the
-# stored metadata (missing entries are taken from the file; the post-processing record only if the data still has
-# the statistics of the file: a recomputed dataset lacks what a post-processor added); new data gets a provenance
-# and loses the entries of the run that made the stored data.
+# The metadata of data about to replace the file at `path` (or `nothing`: a new file): the same data takes the stored
+# provenance and sources it doesn't have; new data gets a provenance and loses the entries of the run that made the
+# stored data. (The statistic records are the dataset's own: `_drop_stale_layers!`.)
 function _new_or_same_data!(data::AbstractSimData, path)
     same = path !== nothing && try
         _is_native_representation(path, data)
@@ -455,10 +457,9 @@ function _new_or_same_data!(data::AbstractSimData, path)
 end
 
 # The same data rewritten (e.g. recomputed, or loaded and saved again): it takes the pipeline's entries of the
-# stored metadata it doesn't have (its own entries stay as they are: a removed entry stays removed), the
-# post-processing record only if the data still has the stored statistics (a recomputed dataset lacks what a
-# post-processor added)
-const _PIPELINE_METADATA = (:provenance, :sources, :configuration_source, :stat_records, :postprocessed)
+# stored metadata it doesn't have (its own entries stay as they are: a removed entry stays removed)
+# (not the statistic records: they describe the statistics of the dataset they are in; a dataset without them has none)
+const _PIPELINE_METADATA = (:provenance, :sources, :configuration_source)
 function _carry_metadata!(data::AbstractSimData, path::AbstractString)
     md = data.metadata
     stored = jldopen(f -> _file_metadata(f; strict = true), path, "r")   # (never replace what can't be read)

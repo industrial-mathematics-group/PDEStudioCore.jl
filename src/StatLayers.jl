@@ -6,13 +6,14 @@
 #                 by hand, and the registered statistics of the data alone (`calc_stat` without the reference argument)
 #   :reference    the registered statistics that use the reference (`calc_stat(::Val{name}, coords, u, ana, domain)`)
 #   :postprocess  what post-processors added
-# A layer is computed from the ones above it: when a statistic of the simulation or reference layer is replaced or
-# removed, or the statistics are evaluated with another reference, the post-processing layer is dropped (and the
-# post-processors run again). Names are unique across the layers.
+# A layer is computed from the ones above it: when the simulation or reference layer changes (a statistic evaluated,
+# replaced or removed, or another reference), the post-processing layer is dropped (and the post-processors run
+# again). Names are unique across the layers.
 #
 # The records are reserved entries of the dataset's metadata, saved with the data and carried with it:
 #   :stat_records => Dict(
 #       :solution   => SHA-256 (hex) of the solution the records describe,
+#       :params     => the hash of the parameters they were evaluated with (references and post-processors get them),
 #       :simulation => Dict(:evaluated => names, :empty => names),       # the registered statistics of the data
 #       :reference  => Dict(:record => the reference (`_reference_record`), :evaluated => names, :empty => names),
 #       :legacy     => names)   # (a file of an earlier version: statistics a post-processor may have added)
@@ -41,6 +42,8 @@ function _stat_records(md::AbstractDict)
                             :legacy => _names(get(r, :legacy, nothing)))
     s = get(r, :solution, nothing)
     s isa AbstractString && (out[:solution] = String(s))
+    h = get(r, :params, nothing)
+    h isa AbstractString && (out[:params] = String(h))
     ref = _layer_record(get(r, :reference, nothing))
     if ref !== nothing
         rec = get(ref, :record, "")
@@ -154,20 +157,40 @@ function _migrate_records!(md::Dict{Symbol, Any}, file)
     return md
 end
 
-# Drops the statistics of the reference and post-processing layers and the registered statistics of the simulation
-# layer, with their records, if they describe another solution than the dataset's (`same`: whether the data is the one
-# the records were read with, for records of an earlier version, which have no digest). Returns whether it dropped.
+_params_hash(data::AbstractSimData) = calculate_hash(data.params)
+
+# Stamps the solution digest and the parameter hash into records that lack them (records of an earlier version, read
+# with the data they describe: `_load_key`), so a change made to the data afterwards is recognised
+function _stamp_records!(data::AbstractSimData)
+    md = data.metadata
+    haskey(md, :stat_records) || return data
+    r = _stat_records(md)
+    haskey(r, :solution) && haskey(r, :params) && return data
+    haskey(r, :solution) || (r[:solution] = _solution_hex(data))
+    haskey(r, :params) || (r[:params] = _params_hash(data))
+    md[:stat_records] = r
+    return data
+end
+
+# Drops the statistics whose records describe other data than the dataset's, with their records: for another solution
+# the registered statistics of the simulation layer and the reference and post-processing layers, for other parameters
+# (the reference and the post-processors get them) the reference and post-processing layers. `same`: whether the data is
+# the one the records were read with, for records without a digest. The statistics of an earlier version's
+# post-processor (`:legacy`, unknown which) stay listed. Returns whether it dropped.
 function _drop_stale_layers!(data::AbstractSimData; same::Bool = true)
     md = data.metadata
     (haskey(md, :stat_records) || haskey(md, :postprocessed)) || return false
     r = _stat_records(md)
-    digest = get(r, :solution, nothing)
-    (digest === nothing ? same : digest == _solution_hex(data)) && return false
+    digest, params = get(r, :solution, nothing), get(r, :params, nothing)
+    solution_ok = digest === nothing ? same : digest == _solution_hex(data)
+    params_ok = params === nothing ? same : params == _params_hash(data)
+    solution_ok && params_ok && return false
     raw = _raw_stats(data)
-    derived = union(r[:simulation][:evaluated], haskey(r, :reference) ? r[:reference][:evaluated] : Symbol[],
-                    _post_keys(_post_records(md)))
+    derived = union(haskey(r, :reference) ? r[:reference][:evaluated] : Symbol[], _post_keys(_post_records(md)))
+    solution_ok || (derived = union(derived, r[:simulation][:evaluated]))
     foreach(k -> delete!(raw, k), derived)
-    delete!(md, :stat_records)
+    kept = Dict{Symbol, Any}(:simulation => solution_ok ? r[:simulation] : _empty_layer(), :legacy => r[:legacy])
+    md[:stat_records] = kept
     delete!(md, :postprocessed)
     return true
 end
@@ -177,7 +200,7 @@ end
 # What the statistics pass does for a dataset: the registered statistics of each layer to evaluate (`due`) and the
 # recorded ones to drop (`stale`: moved to the other layer, or no longer registered when the layer is evaluated afresh), whether the reference layer is
 # evaluated afresh (`fresh`: another reference, or all of it again), whether the post-processing layer goes
-# (`cascade`: an existing statistic of the layers above is replaced or removed), the outcome to report and an error
+# (`cascade`: the layers above change: a statistic evaluated, replaced or removed), the outcome to report and an error
 # (a registered name taken by a statistic of another layer).
 Base.@kwdef struct _StatPlan
     sim_due::Vector{Symbol} = Symbol[]
@@ -261,9 +284,9 @@ function _plan_stats(records::AbstractDict, posts::AbstractDict, present, dims::
             "unique across the layers (simulation, reference, post-processing): rename one of them")
     end
 
-    replaced = any(n -> n in present, union(sim_due, ref_due, sim_stale, ref_stale))
-    cascade = replaced || (fresh && ref !== nothing)
-    work = !isempty(sim_due) || !isempty(sim_stale) || !isempty(ref_due) || !isempty(ref_stale)
+    # (any change of the layers above, also an added statistic, is a new state for the post-processors)
+    work = !isempty(sim_due) || !isempty(sim_stale) || !isempty(ref_due) || !isempty(ref_stale) || fresh
+    cascade = work
     work || status === :outdated || (status = :cached)
     return _StatPlan(; sim_due, sim_stale, ref_due, ref_stale, fresh, cascade, status)
 end

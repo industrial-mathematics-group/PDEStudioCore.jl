@@ -218,9 +218,9 @@ Evaluates the registered statistics (see [`register_stat!`](@ref)) that the data
 without the reference argument) always; the statistics that use the reference only with `ref_func`, the exact solution
 (`ref_func(x)` at the spacetime point `x::SVector{D}`, evaluated once per node/particle): this function can't tell
 whether `ref_func` is the reference they were evaluated with, so it evaluates all of them again. Statistics that come out
-all-`NaN` are dropped (and remembered as evaluated). When a statistic the dataset had is replaced or removed, the
-statistics of the post-processing layer are dropped (they were computed from it; the pipeline runs the post-processors
-again). A registered name that the dataset has from the solver, from [`add_stat!`](@ref) or from a post-processor is an
+all-`NaN` are dropped (and remembered as evaluated). When the statistics change (one evaluated, replaced or removed),
+the statistics of the post-processing layer are dropped (they were computed from them; the pipeline runs the
+post-processors again). A registered name that the dataset has from the solver, from [`add_stat!`](@ref) or from a post-processor is an
 error: statistic names are unique.
 With `save = true` the dataset is saved when anything changed, unless the dataset is derived (a conversion, a resampled
 grid or a reference dataset; `data.metadata[:derived]`) or the file for its parameters holds a different solution: such
@@ -296,6 +296,7 @@ function _apply_stat_plan!(data::AbstractSimData, plan::_StatPlan, ref_func, ref
     r[:simulation] = sim
     ref === nothing || (r[:reference] = ref)
     r[:solution] = _solution_hex(data)
+    r[:params] = _params_hash(data)
     md[:stat_records] = r
     return true
 end

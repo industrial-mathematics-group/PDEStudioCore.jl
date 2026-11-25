@@ -20,7 +20,7 @@ Every statistic belongs to one of three layers, by what produced it. Each layer 
 | :--- | :--- | :--- |
 | `:simulation` | the solution, what the solver attached (run time, volumes, time steps, …), statistics added by hand, and the registered statistics of the data alone (a `calc_stat` without the reference argument: mass, norms) | the solution changes (data statistics: also when the registry changes) |
 | `:reference` | the registered statistics that use the reference (`calc_stat` with `ana`: errors) | another reference is configured, its code changed (see `on_changed_sources`), statistics are missing, or with `force_stats` |
-| `:postprocess` | what post-processors added | a statistic of the layers above is replaced or removed, or the reference changes; or the post-processor changed |
+| `:postprocess` | what post-processors added | the layers above change (a statistic evaluated, replaced or removed, or another reference); or the post-processor changed |
 
 [`stat_layer`](@ref)`(data, name)` tells the layer of a statistic and [`layer_stats`](@ref)`(data, layer)` lists a layer; `data.stats` stays one dictionary with all of them. Statistic names are unique across the layers: a registered name that the solver, `add_stat!` or a post-processor produced is an error. The records of the layers are reserved entries of the dataset's metadata (`:stat_records`, `:postprocessed`), saved and loaded with it, so a dataset object always carries the records of the statistics it holds.
 

@@ -409,7 +409,7 @@ function _stats_task(params::ParamDict, ref_factory, force_overwrite::Bool, dry_
                      on_changed::Symbol = :warn)
     try
         path = _find_file(params)
-        path === nothing && return (:missing, nothing)
+        path === nothing && return (:missing, nothing, false)
         reference = ref_factory === nothing ? nothing : ref_record
         plan = jldopen(path, "r") do f
             md = _file_metadata(f; strict = true)
@@ -418,16 +418,16 @@ function _stats_task(params::ParamDict, ref_factory, force_overwrite::Bool, dry_
             _plan_stats(_stat_records(md), _post_records(md), present, dims, get_stat_registry(), reference;
                         force = force_overwrite, on_changed = on_changed)
         end
-        plan.error === nothing || return (:failed, plan.error)
-        (dry_run || !_has_work(plan)) && return (plan.status, nothing)
+        plan.error === nothing || return (:failed, plan.error, false)
+        (dry_run || !_has_work(plan)) && return (plan.status, nothing, plan.cascade)
         sim_data = _load_key(path, "raw")
         ref_func = reference === nothing ? nothing : ref_factory(deepcopy(params))   # (a copy, like the solver's: the task stays as it is)
         status = _calculate_all_stats!(sim_data, ref_func, reference, force_overwrite, true, true; on_changed = on_changed)
-        return (status, nothing)
+        return (status, nothing, plan.cascade)
     catch e
         e isa InterruptException && rethrow()
         @error "Statistics failed for parameters $params" exception = (e, catch_backtrace())
-        return (:failed, _error_text(e))
+        return (:failed, _error_text(e), false)
     end
 end
 
@@ -517,6 +517,10 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
                                   "the simulation or reference layer; post-processors add statistics of their own " *
                                   "(names are unique); nothing was saved")
             new = setdiff(keys(raw), keys(before))
+            taken = intersect(new, union(keys(get_stat_registry()), records[:simulation][:evaluated],
+                                         get(get(records, :reference, Dict{Symbol, Any}()), :evaluated, Symbol[])))
+            isempty(taken) || error("the post-processor $name added $(join(repr.(sort!(collect(taken))), ", ")), which " *
+                                    "is registered (the statistics pass evaluates it): statistic names are unique; nothing was saved")
             clash = intersect(new, keys(others))
             isempty(clash) || error("the post-processor $name added $(join(repr.(sort!(collect(clash))), ", ")), which " *
                                     "another post-processor added already: statistic names are unique; nothing was saved")
@@ -541,6 +545,7 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
         records = _stat_records(md)
         records[:legacy] = setdiff(records[:legacy], mine)
         records[:solution] = bytes2hex(solution)
+        records[:params] = _params_hash(sim_data)
         md[:stat_records] = records
         posts = _post_records(md)
         posts[name] = merge(_identity_part(identity), Dict{Symbol, Any}(:keys => mine))
@@ -638,8 +643,9 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
    its package's version) is handled by `on_changed_sources` like solver results: `:warn` keeps the reference layer
    and reports it as `:outdated`, `:recompute` evaluates it again, `:ignore` only looks at the package version. The
    reference layer belongs to one reference: if statistics are missing (e.g. newly registered ones), all of them are
-   evaluated with the current reference and reported as `:refreshed`. When a statistic of the simulation or
-   reference layer is replaced or removed, the post-processing layer is dropped (the post-processors run again).
+   evaluated with the current reference and reported as `:refreshed`. When the simulation or reference layer
+   changes (a statistic evaluated, replaced or removed), the post-processing layer is dropped (the post-processors run
+   again).
    `force_stats = true` recomputes every registered statistic without rerunning the simulations,
 3. with `post_process = true`, calls `config.postprocess(data)` for every dataset without a valid record of it and
    saves the data again when it returns `true`. It sees the simulation and reference layers (without its own earlier
@@ -719,14 +725,15 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
 
     # --- Pass 2: statistics ---
     stats, stats_failed = Dict{Symbol, Int}(), Pair{ParamDict, String}[]
+    cascades = falses(n)   # (the post-processing layer of these datasets goes in pass 2: a dry run's pass 3 counts them)
     if calculate_stats
         @info "Pass 2: $(dry_run ? "checking" : "calculating") statistics..."
         required = sort!(Symbol[k for k in keys(get_stat_registry()) if k !== :Solution])
         progress = Progress(n; desc = "Calculating stats...", enabled = !dry_run)
         for (i, params) in enumerate(tasks)
             # (in a dry run, the tasks that would run would get their statistics and post-processing, too)
-            st, err = not_run[i] ? (:not_run, nothing) :
-                      dry_run && would_run[i] ? (isempty(required) ? :cached : :ran, nothing) :
+            st, err, cascades[i] = not_run[i] ? (:not_run, nothing, false) :
+                      dry_run && would_run[i] ? (isempty(required) ? :cached : :ran, nothing, false) :
                       Base.invokelatest(_stats_task, params, ref_factory, force_overwrite || force_stats, dry_run,
                                         ref_record, on_changed_sources)
             stats[st] = get(stats, st, 0) + 1
@@ -755,7 +762,7 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
         progress = Progress(n; desc = "Post-processing...", enabled = !dry_run)
         for (i, params) in enumerate(tasks)
             st, err = not_run[i] ? (:not_run, nothing) :
-                      dry_run && would_run[i] ? (:ran, nothing) :
+                      dry_run && (would_run[i] || cascades[i]) ? (:ran, nothing) :
                       Base.invokelatest(_post_task, params, post_func, record, force_postprocess, dry_run,
                                         on_changed_sources)
             post[st] = get(post, st, 0) + 1
