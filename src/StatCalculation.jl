@@ -299,7 +299,17 @@ function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwr
             # one) is recorded whenever statistics were evaluated: the statistics of a file then belong to one
             # reference, or to none known (some evaluated without one, beside values kept from an earlier one).
             # An evaluation with nothing to evaluate leaves it; rewritten data carries it over.
-            evaluated = Dict{String, Any}("evaluated_stats" => names)
+            # The record names what a pass evaluated: the statistics evaluated now, and the ones of earlier passes that
+            # are still stored (also when they aren't registered any more: they belong to the stored reference record,
+            # and a re-evaluation with another reference drops them) or that are registered and came out without a
+            # result. A statistic that is present but was never evaluated (computed earlier without being saved, or
+            # attached by the solver) isn't in it.
+            previous, stored_before = path === nothing ? (Symbol[], Symbol[]) : jldopen(path, "r") do f
+                (haskey(f, "evaluated_stats") ? Symbol.(f["evaluated_stats"]) : Symbol[],
+                 haskey(f, "stat_keys") ? Symbol.(f["stat_keys"]) : Symbol[])
+            end
+            kept = filter(n -> haskey(raw, n) || (!(n in stored_before) && n in names), previous)
+            evaluated = Dict{String, Any}("evaluated_stats" => sort!(union(kept, pending)))
             if !isempty(pending)
                 evaluated["evaluated_with_reference"] = ref_func !== nothing
                 evaluated["evaluated_reference"] = ref_func === nothing ? "" : String(reference)

@@ -344,7 +344,9 @@ _error_text(e) = (msg = e isa LoadError ? sprint(showerror, e.error) : sprint(sh
 # Whether the stored result of `params` was made with other source code than the current run: other contents of
 # the source files (compared as a set of digests, so moved files don't count; only if both runs list sources), another
 # configuration file (the last source, which may override the helpers: its digest is recorded on its own; only if both
-# runs recorded it), or another version of the solver's package (only if both are known).
+# runs recorded it: a stored value that isn't one of the stored source digests isn't the pipeline's record, e.g. an
+# entry of that name a solver of an earlier version wrote), or another version of the solver's package (only if both
+# are known).
 function _code_changed(path::AbstractString, params::AbstractDict, metadata::AbstractDict)
     stored = jldopen(_file_metadata, path, "r")
     stored_sources = get(stored, :sources, nothing)
@@ -354,7 +356,8 @@ function _code_changed(path::AbstractString, params::AbstractDict, metadata::Abs
     if stored_sources isa AbstractDict && current isa AbstractDict && !isempty(stored_sources) && !isempty(current)
         Set(values(stored_sources)) == Set(values(current)) || return true
         stored_last, last = get(stored, :configuration_source, nothing), get(metadata, "configuration_source", nothing)
-        stored_last isa AbstractString && last isa AbstractString && stored_last != last && return true
+        recorded = stored_last isa AbstractString && stored_last in values(stored_sources)
+        recorded && last isa AbstractString && stored_last != last && return true
     end
     if stored_version !== nothing
         solver = try _resolve_solver(params) catch; nothing end
@@ -367,11 +370,15 @@ end
 # The sources are helper files, a set (each defines its own names: solvers, references, post-processors, statistics), and
 # as the last entry the configuration's own file, which is included after them and may build on or override them. A run
 # records the digests of all files and which one is the configuration's, not the order of the helpers (see "Source files"
-# in the manual). A file listed twice is refused, also under two paths (a symbolic link: compared by the file it names).
+# in the manual). A file listed twice is refused, also under two paths (a symbolic link or a hard link: compared by the
+# file itself, its device and inode).
 function _check_sources(sources::AbstractVector{<:AbstractString})
-    paths = [ispath(f) ? realpath(f) : abspath(f) for f in sources]
-    allunique(paths) || throw(ArgumentError(
-        "`sources` lists $(first(p for p in paths if count(==(p), paths) > 1)) more than once; each source file is listed once (the configuration's own file last)"))
+    file_id(f) = (st = stat(f); ispath(st) ? (st.device, st.inode) : abspath(f))
+    ids = map(file_id, sources)
+    i = findfirst(j -> count(==(ids[j]), ids) > 1, eachindex(ids))
+    i === nothing || throw(ArgumentError(
+        "`sources` lists $(abspath(sources[i])) more than once (also under another path, a link to it); each source " *
+        "file is listed once (the configuration's own file last)"))
     return nothing
 end
 
@@ -500,7 +507,11 @@ function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::B
         records[name] = record
         sim_data = _load_key(path, "raw")   # (with its metadata)
         solution = _solution_digest(sim_data)
+        reserved = Dict(k => sim_data.metadata[k] for k in (:provenance, :sources, :configuration_source) if haskey(sim_data.metadata, k))
         if post_func(sim_data) === true
+            # (the pipeline's metadata entries are reserved: what the post-processor did to them is undone)
+            foreach(k -> delete!(sim_data.metadata, k), (:provenance, :sources, :configuration_source))
+            merge!(sim_data.metadata, reserved)
             # A post-processor adds statistics and metadata; it changes neither the parameters (the data would replace
             # another run) nor the solution (the statistics would describe another one; a different result belongs
             # into the solver). Either fails, and nothing is saved.
@@ -672,6 +683,9 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
     t_start = time()
     @info dry_run ? "Planning the simulation pipeline (dry run)." : "Started simulation pipeline."
     load_sources && _load_sources(config.sources)
+    # (the reference the statistics are evaluated with is recorded as it was included, not as its file is later)
+    ref_factory = calculate_stats ? resolve_dynamic_function(config.reference) : nothing
+    ref_record = calculate_stats ? _reference_record(config.reference, ref_factory) : ""
     tasks = generate_tasks(config)
     n = length(tasks)
     if n == 0
@@ -726,8 +740,6 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
     stats, stats_failed = Dict{Symbol, Int}(), Pair{ParamDict, String}[]
     if calculate_stats
         @info "Pass 2: $(dry_run ? "checking" : "calculating") statistics..."
-        ref_factory = resolve_dynamic_function(config.reference)
-        ref_record = _reference_record(config.reference, ref_factory)
         required = sort!(Symbol[k for k in keys(get_stat_registry()) if k !== :Solution])
         progress = Progress(n; desc = "Calculating stats...", enabled = !dry_run)
         for (i, params) in enumerate(tasks)

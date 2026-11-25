@@ -422,10 +422,17 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
     # the record of what the statistics pass evaluated goes with the statistics it describes: kept for the same data
     # (e.g. a metadata edit) without the statistics the file has and the data no longer has (deleted: due again),
     # dropped with the evaluation records for new data
+    # A dataset whose statistics have other values than the stored ones (e.g. an object loaded before a later pass
+    # re-evaluated them, or evaluated with another reference without saving) keeps the record of what was evaluated,
+    # but not of the reference: unknown (""), so the next pass with a reference evaluates them all again.
     entries = same ? jldopen(path, "r") do f
         haskey(f, "evaluated_stats") || return Dict{String, Any}()
         gone = setdiff(haskey(f, "stat_keys") ? Symbol.(f["stat_keys"]) : Symbol[], keys(_raw_stats(sim_data)))
-        return Dict{String, Any}("evaluated_stats" => filter(n -> !(Symbol(n) in gone), f["evaluated_stats"]))
+        e = Dict{String, Any}("evaluated_stats" => filter(n -> !(Symbol(n) in gone), f["evaluated_stats"]))
+        stored = _raw_stats(f["raw"])
+        all(k -> !haskey(stored, k) || isequal(stored[k], _raw_stats(sim_data)[k]), keys(_raw_stats(sim_data))) ||
+            (e["evaluated_reference"] = "")
+        return e
     end : Dict{String, Any}()
     drop = same ? () : ("evaluated_with_reference", "evaluated_reference")
     # saved deliberately, it becomes the data of these parameters: a derived dataset is one no more, but only if it is
@@ -473,7 +480,12 @@ function _carry_metadata!(data::AbstractSimData, path::AbstractString)
     for k in _PIPELINE_METADATA
         haskey(md, k) || !haskey(stored, k) || (md[k] = stored[k])
     end
-    issubset(_stored_stat_keys(path), keys(data.stats)) || delete!(md, :postprocessed)
+    # (statistics the pipeline evaluated don't count: a statistics pass drops and re-evaluates those)
+    missing_stats, evaluated = jldopen(path, "r") do f
+        (setdiff(haskey(f, "stat_keys") ? Symbol.(f["stat_keys"]) : Symbol[], keys(data.stats)),
+         haskey(f, "evaluated_stats") ? Symbol.(f["evaluated_stats"]) : Symbol[])
+    end
+    issubset(missing_stats, evaluated) || delete!(md, :postprocessed)
     return data
 end
 
