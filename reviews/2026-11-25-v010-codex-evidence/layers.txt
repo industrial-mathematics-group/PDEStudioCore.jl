@@ -1,0 +1,7 @@
+Initially: weights=[2.0, 3.0] post=5.0
+After changing simulation statistic: Dict(:cached => 1) Dict(:skipped => 1) weights=[10.0, 20.0] post=5.0
+Forced post: Dict(:ran => 1) post=30.0
+Change kept axes from callback: Dict(:ran => 1) kept=[:y] layer=simulation
+Reshape upstream statistic from callback: Dict(:ran => 1) size=(2, 1) kept=[:y]
+Only a simulation statistic registered, configured reference factory fails: Dict(:failed => 1) mass present=false
+Same dataset without reference: Dict(:ran => 1) mass=4.0

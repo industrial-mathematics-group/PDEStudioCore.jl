@@ -1,0 +1,6 @@
+replace initial post=5.0
+replace after save: Dict(:skipped => 1) post=5.0
+replace forced: Dict(:ran => 1) post=30.0
+remove initial post=5.0
+remove after save: Dict(:skipped => 1) post=5.0
+remove forced: Dict(:ran => 1) post=-1.0

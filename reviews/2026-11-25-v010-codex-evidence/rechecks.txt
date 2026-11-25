@@ -1,0 +1,5 @@
+Refused Any[nothing]: ArgumentError: the parameter :v[1] is `nothing` inside a container or an identity, where it would be stored as the type `Nothing` (and be the same value as that type): leave the entry out, or use a Symbol (e.g. `:none`) or the type `Nothing` itself; `nothing` is a parameter value only on its own
+Refused Any[missing]: ArgumentError: the parameter :v[1] is `missing` inside a container or an identity, where it would be stored as the type `Missing` (and be the same value as that type): leave the entry out, or use a Symbol (e.g. `:none`) or the type `Missing` itself; `missing` is a parameter value only on its own
+Refused Val{NaN}(): ArgumentError: the parameter :v has the type Val{NaN} with NaN as a type parameter: NaNs with other bits are other types but are all written `NaN`; use another value (e.g. a Symbol) to tell such types apart
+Re-registering L1 under B: Dict(:ran => 1) L1=6.0
+Finite L2 with 1e149 values and 1e100 spacing: reported=Inf expected=1.414213562373095e199

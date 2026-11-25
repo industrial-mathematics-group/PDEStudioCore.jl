@@ -1,0 +1,3 @@
+Prepared B ran=1 cache=0 changed=0 field=20.0 tracked=false
+Changed to A ran=0 cache=1 changed=0 field=20.0 tracked=false
+Forced A ran=1 cache=0 changed=0 field=10.0 tracked=true

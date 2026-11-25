@@ -1,0 +1,4 @@
+sym.jl: paths name same file=true
+sym.jl: rejected, includes=0
+hard.jl: paths name same file=true
+hard.jl: rejected, includes=0
