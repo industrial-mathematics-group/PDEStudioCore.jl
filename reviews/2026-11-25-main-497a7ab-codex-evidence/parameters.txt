@@ -1,0 +1,11 @@
+Top level nothing/Nothing: same hash=false
+Nested nothing/Nothing: same hash=true
+Top level missing/Missing: same hash=false
+Nested missing/Missing: same hash=true
+Nested nothing: normalized Any[Nothing] / Any[Nothing]; hash equal=true
+Nested nothing: second cached=1 field=10.0
+Nested nothing: second forced field=20.0
+Val NaN types distinct=true
+Val NaN payload: normalized Val{NaN}() / Val{NaN}(); hash equal=true
+Val NaN payload: second cached=1 field=10.0
+Val NaN payload: second forced field=20.0

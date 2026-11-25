@@ -1,0 +1,2 @@
+Float64 finite constant field=8.988465674311579e307 max=8.988465674311579e307 reported mean=Inf expected mean=8.988465674311579e307
+Scaled Float64 L2 reported=Inf expected=1.414213562373095e100
