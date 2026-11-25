@@ -1,0 +1,22 @@
+Vector of declared structs as key: ArgumentError: the parameter :value is a Dict with keys of type Vector{KeyWithWork}: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type
+Mixed String/Symbol keys: ArgumentError: the parameter :value is a Dict with keys of type Any: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type
+Declared struct as key: ArgumentError: the parameter :value is a Dict with keys of type KeyWithWork: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type
+Nonconcrete Integer key type: ArgumentError: the parameter :value is a Dict with keys of type Integer: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type
+Float64 key type: ArgumentError: the parameter :value is a Dict with keys of type Float64: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type
+Int8 endpoints: keys_preserved=true hashes_match=true
+Int16 endpoints: keys_preserved=true hashes_match=true
+Int32 endpoints: keys_preserved=true hashes_match=true
+Int64 endpoints: keys_preserved=true hashes_match=true
+Int128 endpoints: keys_preserved=true hashes_match=true
+UInt8 endpoints: keys_preserved=true hashes_match=true
+UInt16 endpoints: keys_preserved=true hashes_match=true
+UInt32 endpoints: keys_preserved=true hashes_match=true
+UInt64 endpoints: keys_preserved=true hashes_match=true
+UInt128 endpoints: keys_preserved=true hashes_match=true
+Symbol control: hashes_match=true hash=f24f583a14d6306df4d279bf81b9f54c3f633fe92a80ed98844991450521b712
+escaped String control: hashes_match=true hash=2373d6767735cb447070a94de8385a4b6a742cc1ba7d2f21a18274b23d43f23e
+Bool keys: ArgumentError: the parameter :value is a Dict with keys of type Bool: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type
+BigInt keys: ArgumentError: the parameter :value is a Dict with keys of type BigInt: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type
+Custom integer: concrete=true count=2 identical text=true equal mappings=false
+Custom integer mapping: ArgumentError: the parameter :mapping is a Dict with keys of type TaggedIndex: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type
+Custom integer mapping: ArgumentError: the parameter :mapping is a Dict with keys of type TaggedIndex: the keys of a Dict in parameters are Symbols (a ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type

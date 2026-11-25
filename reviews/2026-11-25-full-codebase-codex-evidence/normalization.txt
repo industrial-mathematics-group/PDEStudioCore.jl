@@ -1,0 +1,18 @@
+Julia 1.13.4
+Equal mixed sets: true same hash=true
+Small mixed set A: Set(dict=Dict{Any, Nothing}("abel" => Nothing, :abel => Nothing))
+Small mixed set B: Set(dict=Dict{Any, Nothing}("abel" => Nothing, :abel => Nothing))
+Equal mixed sets of 100 values: true same hash=false
+Mixed set hash A: 772d11dc005aec219d1806d9d62e645940768a1221c7050782446164206af50d
+Mixed set hash B: 844d198126cec5e1f1f56f6d63cde72c6c17f69720e996453f89013ea02fdeed
+large floating value: Float64 -> Float64 1.5 same hash as Int64(1)=false
+small BigInt: BigInt -> Int64 1 same hash as Int64(1)=true
+small UInt64: UInt64 -> Int64 1 same hash as Int64(1)=true
+small Int128: Int128 -> Int64 1 same hash as Int64(1)=true
+plain Int64: Int64 -> Int64 1 same hash as Int64(1)=true
+one Float64: Float64 -> Float64 1.0 same hash as Int64(1)=false
+Equal set, original order: ran=1 cached=0 files=1
+Equal set, reverse order: ran=1 cached=0 files=2
+Int64: cached=0 field=10.0
+UInt64: cached=1 field=10.0
+UInt64 forced result: 20.0
