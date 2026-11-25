@@ -90,7 +90,7 @@ The third positional argument (`defaults`, the methods to run) is optional and d
 | `varied` | keyword `varied` | The sweep (`VariedDict`). |
 | `reference` | keyword `reference` | Name of the reference factory, see [Advanced Config](advanced_config.md). |
 | `postprocess` | keyword `postprocess` | Name of the post-processing function. |
-| `sources` | keyword `sources` | Files included into the target module before running. |
+| `sources` | keyword `sources` | Files included into the target module before running: helper files, then the configuration's own file last. |
 
 All dictionaries may use `String` or `Symbol` keys, and assigning a field (e.g. `config.reference = "exact_factory"`) accepts the same loose input as the constructor.
 

@@ -717,6 +717,15 @@ PDEStudioCore.calc_stat(::Val{:st_fallback}, fixed, u, ana, domain) =   # (the s
     write(src, "st_twice_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\n")
     twice = SimulationConfig(create_param_dict(:sim_func_name => :st_twice_solver); sources = [src, src])
     @test_throws r"more than once" run_all_simulations(twice)
+    # the sources are included in their order: the configuration's own file, the last entry, may override a helper
+    st_fresh()
+    dir = mktempdir()
+    helper, own = joinpath(dir, "helper.jl"), joinpath(dir, "config.jl")
+    write(helper, "st_last_value() = 1.0\nst_last_solver(p) = create_sim_data([0.0, 1.0], fill(st_last_value(), 2), p)\n")
+    write(own, "st_last_value() = 2.0\n")
+    last_cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_last_solver); sources = [helper, own])
+    @test length(run_all_simulations(last_cfg).ran) == 1
+    @test [u[1] for u in load_sim_data(only(generate_tasks(last_cfg))).u] == [2.0, 2.0]
 
     old = PDEStudioCore.get_stat_registry()
     try

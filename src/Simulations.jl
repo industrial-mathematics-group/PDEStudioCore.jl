@@ -361,12 +361,13 @@ function _code_changed(path::AbstractString, params::AbstractDict, metadata::Abs
     return false
 end
 
-# The sources are a set of files, each defining its own names (solvers, references, post-processors, statistics): a run
-# records their digests, not their order (see "Source files" in the manual). A file listed twice is refused.
+# The sources are helper files, a set (each defines its own names: solvers, references, post-processors, statistics), and
+# as the last entry the configuration's own file, which is included after them and may build on or override them. A run
+# records the digests of all files, not their order (see "Source files" in the manual). A file listed twice is refused.
 function _check_sources(sources::AbstractVector{<:AbstractString})
     paths = abspath.(sources)
     allunique(paths) || throw(ArgumentError(
-        "`sources` lists $(first(p for p in paths if count(==(p), paths) > 1)) more than once; the sources are a set of files"))
+        "`sources` lists $(first(p for p in paths if count(==(p), paths) > 1)) more than once; each source file is listed once (the configuration's own file last)"))
     return nothing
 end
 
