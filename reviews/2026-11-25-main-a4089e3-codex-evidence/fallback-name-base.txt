@@ -1,0 +1,2 @@
+A registered reference statistic implemented under the allowed name: Dict(:ran => 1) failures=String[]
+A different registered name with no implementation: Dict(:cached => 1) failures=String[]

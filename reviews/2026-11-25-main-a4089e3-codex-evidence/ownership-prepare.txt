@@ -1,0 +1,1 @@
+0.9 store: calibration=47.0 quality=2.0

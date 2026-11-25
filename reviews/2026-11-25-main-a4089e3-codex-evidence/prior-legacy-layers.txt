@@ -1,0 +1,6 @@
+Stored 0.9: Dict(:ran => 1) stats=[:Solution, :l1error, :mass]
+Fresh 0.10 before loading preset: mass layer=simulation
+After loading preset: mass layer=simulation
+After changing reference with preset installed: Dict(:ran => 1) keys=[:Solution, :l1error, :mass]
+Before reference change, no preset: mass layer=simulation
+After changing reference without preset: Dict(:ran => 1) keys=[:Solution, :l1error, :mass]

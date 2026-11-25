@@ -1,0 +1,2 @@
+After first callback: [:Solution, :calibration, :first_post]
+After whole-dictionary assignment: Dict(:ran => 1) stats=[:Solution, :calibration, :second_post] second layer=simulation owned=Symbol[]

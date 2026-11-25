@@ -1,0 +1,3 @@
+Julia 1.13.4 threads=8
+Affine spatial and nearest-time interpolation max error: 0.0
+Reduced heat example tasks=3 final L2 errors=[0.016085000052069132, 0.036289351920565094, 0.013334934095420983]

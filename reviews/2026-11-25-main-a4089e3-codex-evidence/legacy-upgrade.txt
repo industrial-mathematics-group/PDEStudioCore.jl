@@ -1,0 +1,5 @@
+Stored 0.9: Dict(:ran => 1) stats=[:Solution, :l1error, :mass]
+Initial 0.10, no preset: mass layer=reference
+Initial 0.10 resave kept mass=true
+Before refresh: mass layer=reference
+After refresh: Dict(:ran => 1) mass present=false

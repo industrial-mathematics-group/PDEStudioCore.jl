@@ -1,0 +1,4 @@
+Earlier square times measure case: spacing=[1.0e100] reported=1.4142135623730953e199 expected=1.414213562373095e199 ratio=1.0000000000000002
+Measure overflow in two dimensions: spacing=[1.0e200, 1.0e200] reported=Inf expected=2.0e50 ratio=Inf
+Measure underflow in two dimensions: spacing=[1.0e-200, 1.0e-200] reported=0.0 expected=2.0e-50 ratio=0.0
+Nonzero subnormal intermediate: spacing=[1.0] reported=2.2227587494850775e-162 expected=1.5873672523365087e-162 ratio=1.4002800840280099
