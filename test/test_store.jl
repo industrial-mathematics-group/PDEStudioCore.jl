@@ -910,3 +910,94 @@ st_ref_b(p) = _ -> 4.0
         set_stat_registry!(old)
     end
 end
+
+const ST_PP_RUNS = Ref(0)
+st_pp_count(d) = (ST_PP_RUNS[] += 1; add_stat!(d, :pp_mark, 1.0, Symbol[]); true)
+st_pp_wipe(d) = (empty!(d.metadata); d.metadata[:note] = "mine"; true)   # (also takes the pipeline's entries out)
+st_solver_mass(p) = (d = st_aux_solver(p); add_stat!(d, :mass, 123.0, :time); d)   # (a solver statistic of a registered name)
+const ST_REF_FILE = Ref("")
+st_editing_solver(p) = (write(ST_REF_FILE[], "st_timed_ref(p) = _ -> 4.0\n"); st_aux_solver(p))   # (the file edited during the run)
+st_val(p, k) = (d = load_sim_data(p); haskey(d.stats, k) ? d.stats[k][1][1] : missing)
+
+@testset "Self-review (0.9.0)" begin
+    JLD2 = PDEStudioCore.JLD2
+    record(p, k) = JLD2.jldopen(f -> haskey(f, k) ? f[k] : missing, get_file_name(p), "r")
+    old = PDEStudioCore.get_stat_registry()
+    try
+        # statistics computed without being saved aren't recorded as evaluated by a later call that saves nothing
+        st_fresh()
+        set_stat_registry!(Dict(:mass => :time))
+        p = create_param_dict(:sim_func_name => :st_aux_solver)
+        run_all_simulations(SimulationConfig(p))
+        d = load_sim_data(p)
+        calculate_all_stats!(d; save = false)
+        calculate_all_stats!(d)
+        @test isempty(record(p, "evaluated_stats"))
+        @test run_all_simulations(SimulationConfig(p); calculate_stats = true).stats == Dict(:ran => 1) && st_val(p, :mass) == 2.0
+
+        # an object loaded before a later pass, saved again: its statistics differ from the stored ones, so the
+        # reference becomes unknown and the next pass evaluates them again
+        st_fresh()
+        set_stat_registry!(Dict(:l1error => :time))
+        c = SimulationConfig(p; reference = :st_ref_a)
+        run_all_simulations(c; calculate_stats = true)
+        early = load_sim_data(p)
+        c.reference = :st_ref_b
+        run_all_simulations(c; calculate_stats = true)
+        early.metadata[:note] = "edited"
+        save_sim_data(early; overwrite = true, verbose = false)
+        @test record(p, "evaluated_reference") == ""
+        @test run_all_simulations(c; calculate_stats = true).stats == Dict(:ran => 1) && st_val(p, :l1error) == 6.0
+        same = load_sim_data(p)   # (the same values: the record is kept)
+        same.metadata[:note] = "again"
+        save_sim_data(same; overwrite = true, verbose = false)
+        @test run_all_simulations(c; calculate_stats = true).stats == Dict(:cached => 1)
+
+        # a statistics pass that drops a pipeline statistic doesn't make a post-processor run again
+        st_fresh()
+        ST_PP_RUNS[] = 0
+        set_stat_registry!(Dict(:l1error => :time, :l2error => :time))
+        pc(ref) = SimulationConfig(p; reference = ref, postprocess = :st_pp_count)
+        run_all_simulations(pc(:st_ref_a); calculate_stats = true)
+        set_stat_registry!(Dict(:l2error => :time))
+        run_all_simulations(pc(:st_ref_b); calculate_stats = true)   # (drops the unregistered L1)
+        run_all_simulations(pc(nothing); calculate_stats = true, force_stats = true)   # (L2 without a reference: dropped)
+        @test ST_PP_RUNS[] == 1 && st_val(p, :pp_mark) == 1.0
+
+        # the pipeline's metadata entries are reserved: a post-processor can't take them out
+        st_fresh()
+        dir = mktempdir()
+        helper = joinpath(dir, "helper.jl")
+        write(helper, "st_helper_value() = 1.0\n")
+        wc = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1); sources = [helper], postprocess = :st_pp_wipe)
+        run_all_simulations(wc)
+        md = load_sim_data(only(generate_tasks(wc))).metadata
+        @test md[:note] == "mine" && haskey(md, :sources) && haskey(md, :configuration_source) && haskey(md, :provenance)
+        write(helper, "st_helper_value() = 2.0\n")
+        @test length(run_all_simulations(wc; on_changed_sources = :recompute).changed) == 1
+
+        # a statistic the solver attached (under a registered name) isn't recorded as evaluated, so it isn't dropped
+        st_fresh()
+        set_stat_registry!(Dict(:l1error => :time, :mass => :time))
+        q = create_param_dict(:sim_func_name => :st_solver_mass)
+        run_all_simulations(SimulationConfig(q; reference = :st_ref_a); calculate_stats = true)
+        @test record(q, "evaluated_stats") == [:l1error]
+        set_stat_registry!(Dict(:l1error => :time))
+        run_all_simulations(SimulationConfig(q; reference = :st_ref_b); calculate_stats = true)
+        @test st_val(q, :mass) == 123.0 && st_val(q, :l1error) == 6.0
+
+        # the reference is recorded as it was included: a file edited while the solvers run is a changed reference
+        st_fresh()
+        ST_REF_FILE[] = joinpath(dir, "ref.jl")
+        write(ST_REF_FILE[], "st_timed_ref(p) = _ -> 2.0\n")
+        tc = SimulationConfig(create_param_dict(:sim_func_name => :st_editing_solver); reference = :st_timed_ref, sources = [ST_REF_FILE[]])
+        run_all_simulations(tc; calculate_stats = true)
+        tp = only(generate_tasks(tc))
+        @test st_val(tp, :l1error) == 2.0
+        @test run_all_simulations(tc; calculate_stats = true).stats == Dict(:outdated => 1)   # (was :cached with 2.0)
+        run_all_simulations(tc; calculate_stats = true, force_stats = true)
+        @test st_val(tp, :l1error) == 6.0
+    finally
+        set_stat_registry!(old)
+    end
+end

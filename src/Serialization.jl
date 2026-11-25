@@ -468,13 +468,15 @@ What identifies a value of a custom type when it is part of a run's parameters: 
 strings, symbols, tuples, arrays, dictionaries, types, and values of types that declare their own identity). Only
 this is stored and hashed; the other fields of the value are never looked at. Define it for every type whose values
 appear in parameters; a value of a type without it is refused (as are functions), so nothing that can't be compared
-reliably (functions, caches, derived fields) decides which run is which. For types whose fields are all data,
-[`@param_struct`](@ref) declares all fields at once.
+reliably (functions, caches, derived fields) decides which run is which. It must be a pure function of the value (the
+same value gives the same identity in every session), and an unset field is listed as the type `Nothing` (`nothing`
+inside an identity is refused). For types whose fields are all data, [`@param_struct`](@ref) declares all fields at once.
 
 ```julia
 # without its functions (is_interior, get_tag) and derived fields (volume)
 PDEStudioCore.param_identity(d::GeometricDomain) =
-    (; label = d.label, mins = d.mins, maxs = d.maxs, is_periodic = d.is_periodic, bc_map = d.bc_map, shape = d.shape)
+    (; label = d.label, mins = d.mins, maxs = d.maxs, is_periodic = d.is_periodic, bc_map = d.bc_map,
+       shape = d.shape === nothing ? Nothing : d.shape)
 ```
 
 It is stored as `TypeName(key=value, …)`; see "What identifies a parameter value" in the manual.

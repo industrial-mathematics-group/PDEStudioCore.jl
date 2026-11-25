@@ -507,7 +507,11 @@ function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::B
         records[name] = record
         sim_data = _load_key(path, "raw")   # (with its metadata)
         solution = _solution_digest(sim_data)
+        reserved = Dict(k => sim_data.metadata[k] for k in (:provenance, :sources, :configuration_source) if haskey(sim_data.metadata, k))
         if post_func(sim_data) === true
+            # (the pipeline's metadata entries are reserved: what the post-processor did to them is undone)
+            foreach(k -> delete!(sim_data.metadata, k), (:provenance, :sources, :configuration_source))
+            merge!(sim_data.metadata, reserved)
             # A post-processor adds statistics and metadata; it changes neither the parameters (the data would replace
             # another run) nor the solution (the statistics would describe another one; a different result belongs
             # into the solver). Either fails, and nothing is saved.
@@ -679,6 +683,9 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
     t_start = time()
     @info dry_run ? "Planning the simulation pipeline (dry run)." : "Started simulation pipeline."
     load_sources && _load_sources(config.sources)
+    # (the reference the statistics are evaluated with is recorded as it was included, not as its file is later)
+    ref_factory = calculate_stats ? resolve_dynamic_function(config.reference) : nothing
+    ref_record = calculate_stats ? _reference_record(config.reference, ref_factory) : ""
     tasks = generate_tasks(config)
     n = length(tasks)
     if n == 0
@@ -733,8 +740,6 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
     stats, stats_failed = Dict{Symbol, Int}(), Pair{ParamDict, String}[]
     if calculate_stats
         @info "Pass 2: $(dry_run ? "checking" : "calculating") statistics..."
-        ref_factory = resolve_dynamic_function(config.reference)
-        ref_record = _reference_record(config.reference, ref_factory)
         required = sort!(Symbol[k for k in keys(get_stat_registry()) if k !== :Solution])
         progress = Progress(n; desc = "Calculating stats...", enabled = !dry_run)
         for (i, params) in enumerate(tasks)
