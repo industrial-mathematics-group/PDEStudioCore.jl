@@ -517,11 +517,15 @@ function _identity_of(v)
     return id
 end
 
+# The numbers of parameters: explicit types, each written in one way (`Float32`/`Float16` are stored as `Float64`, by
+# design). Other numbers (other integer widths, BigInt, rationals, complex, user-defined Number types) would be read
+# back as another type or print two values alike: convert them for the parameters (e.g. `Int64(x)`)
+const _NUMBERS = Union{Bool, Int64, Float64, Float32, Float16}
 # Values that are data as they are, and element types whose arrays need no look at every element
-const _PLAIN = Union{AbstractString, Symbol, AbstractChar, Number, Type, Val, Enum, Nothing, Missing}   # (named tuples: refused)
-# The key types of a Dict in parameters: explicit types whose distinct values have distinct texts (a user-defined
-# Integer could print two keys alike), so the order by text is canonical
-const _KEY_TYPES = Union{Symbol, String, Base.BitInteger}
+const _PLAIN = Union{AbstractString, Symbol, AbstractChar, _NUMBERS, Type, Val, Enum, Nothing, Missing}   # (named tuples: refused)
+# The key types of a Dict in parameters: explicit types whose distinct values have distinct texts, so the order by
+# text is canonical
+const _KEY_TYPES = Union{Symbol, String, Int64}
 
 # Parameters read from a file, normalised, or `nothing` if they aren't valid parameters of this version (e.g. a Dict
 # with keys of another type, written by an earlier one): such a file isn't part of the store, and scans go on without it
@@ -534,7 +538,7 @@ function _valid_stored(p)
         return nothing
     end
 end
-_plain_eltype(T) = T <: _PLAIN || (T <: StaticArray && eltype(T) <: Number)
+_plain_eltype(T) = T <: _PLAIN || (T <: StaticArray && eltype(T) <: _NUMBERS)
 
 # Refuses what can't identify a run: functions, and values of custom types that don't declare their identity
 # (`param_identity`); `path` names the place in the parameters for the message
@@ -544,7 +548,12 @@ function _check_param(v, path::AbstractString)
         "runs apart. Give it a name instead (e.g. a String or Symbol the solver looks up), or wrap it in a struct whose " *
         "`param_identity` names it."))
     v isa _PLAIN && return nothing
-    if v isa Union{AbstractArray, Tuple, AbstractSet}
+    v isa Number && throw(ArgumentError(
+        "the parameter $path has the type $(typeof(v)): numbers in parameters are Int64, Float64 (Float32 and Float16 are stored " *
+        "as Float64) or Bool; convert it for the parameters (e.g. Int64(x)), also if the solver uses another type"))
+    v isa AbstractSet && throw(ArgumentError(
+        "the parameter $path is a set: its order would depend on how it was built; use a sorted Vector or a Tuple"))
+    if v isa Union{AbstractArray, Tuple}
         _plain_eltype(eltype(v)) && return nothing
         for (i, x) in enumerate(v)
             _check_param(x, "$path[$i]")
@@ -553,7 +562,7 @@ function _check_param(v, path::AbstractString)
         K = keytype(v)
         (isconcretetype(K) && K <: _KEY_TYPES) || throw(ArgumentError(
             "the parameter $path is a Dict with keys of type $K: the keys of a Dict in parameters are Symbols (a " *
-            "ParamDict), Strings or Base integers (Int64, Int32, …, UInt64, …), all of one type"))
+            "ParamDict), Strings or Int64, all of one type"))
         for (k, x) in v
             _check_param(x, "$path[$(repr(k))]")
         end

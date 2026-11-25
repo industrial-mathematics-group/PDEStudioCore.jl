@@ -15,7 +15,8 @@ Blueprint of a batch of simulation runs.
 - `reference::Union{Symbol, Nothing}`: name of a reference *factory* `params -> (x -> u_exact)`.
 - `postprocess::Union{Symbol, Nothing}`: name of a function `data -> Bool` run on every dataset after the
   statistics (return `true` to save the modified data; the data itself is saved either way).
-- `sources::Vector{String}`: files included into the target module before running.
+- `sources::Vector{String}`: files included into the target module before running, in this order: helper files (a
+  set, each defining its own names) and, as the last entry, the file that builds the configuration.
 """
 mutable struct SimulationConfig
     shared::ParamDict

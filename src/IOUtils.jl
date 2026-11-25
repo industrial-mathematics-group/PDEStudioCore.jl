@@ -418,12 +418,17 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
     isempty(metadata) || merge!(sim_data.metadata, _metadata_dict(metadata))
     path = _find_file(sim_data.params)
     writes = path === nothing || overwrite
-    (path === nothing || overwrite) && _new_or_same_data!(sim_data, path)
+    same = (path === nothing || overwrite) && _new_or_same_data!(sim_data, path)
+    # the record of what the statistics pass evaluated goes with the statistics it describes: kept for the same data
+    # (e.g. a metadata edit), dropped with the evaluation records for new data
+    entries = same ? jldopen(f -> haskey(f, "evaluated_stats") ? Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) :
+                                  Dict{String, Any}(), path, "r") : Dict{String, Any}()
+    drop = same ? () : ("evaluated_with_reference", "evaluated_reference")
     # saved deliberately, it becomes the data of these parameters: a derived dataset is one no more, but only if it is
     # written (a stored native run is kept without `overwrite`: the dataset stays derived)
     derived = writes ? pop!(sim_data.metadata, :derived, nothing) : nothing
     try
-        return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}())
+        return _save_sim_data(sim_data, overwrite, verbose, entries; drop)
     catch
         isnothing(derived) || (sim_data.metadata[:derived] = derived)
         rethrow()
@@ -449,7 +454,7 @@ function _new_or_same_data!(data::AbstractSimData, path)
         delete!(md, :sources)
         delete!(md, :postprocessed)
     end
-    return data
+    return same
 end
 
 # The same data rewritten (e.g. recomputed, or loaded and saved again): it takes the pipeline's entries of the
@@ -574,7 +579,7 @@ end
 
 # `save_sim_data` without the check of the metadata keys, so internal callers can write managed entries
 # (e.g. "evaluated_stats") in the same atomic write as the data.
-function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Bool, metadata::AbstractDict)
+function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Bool, metadata::AbstractDict; drop = ())
     normalized = _normalize_params(sim_data.params)
     empty!(sim_data.params)
     merge!(sim_data.params, normalized)
@@ -588,7 +593,7 @@ function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Boo
         verbose && @info "Saved simulation data to $(basename(path))"
     elseif state === :same
         if overwrite
-            _write_sim_file(path, sim_data, metadata, path)
+            _write_sim_file(path, sim_data, metadata, path; drop)
             verbose && @info "Saved simulation data to $(basename(path)) (replaced; conversion caches cleared)"
         else
             verbose && @info "Not saved: data of these parameters is stored already ($(basename(path))); " *

@@ -245,7 +245,9 @@ function generate_tasks(config::SimulationConfig)
         for task in method_tasks
             h = _param_hash(task)
             if haskey(seen, h)   # (the same run twice, e.g. from a varied key a method doesn't use; or two runs stored alike)
-                isequal(seen[h], task) || throw(ArgumentError(_collision_text(seen[h], task)))
+                # (the same raw values by `isequal` and by their typed encoding: `1.5f0` is not `1.5`, though `isequal`
+                # and the stored form agree; `Val{Base.Matrix}` is not a `Val` of another `Matrix`, though the names do)
+                (isequal(seen[h], task) && _same_value(seen[h], task)) || throw(ArgumentError(_collision_text(seen[h], task)))
                 continue
             end
             seen[h] = task
@@ -260,7 +262,8 @@ end
 
 # Two different tasks whose parameters are stored alike (and so would be one run): which values they differ in
 function _collision_text(a::AbstractDict, b::AbstractDict)
-    keys_ = sort!([k for k in union(keys(a), keys(b)) if !isequal(get(a, k, nothing), get(b, k, nothing))], by = string)
+    differ(x, y) = !(isequal(x, y) && _same_value(x, y))   # (as the check: `1.5f0` and `1.5` differ)
+    keys_ = sort!([k for k in union(keys(a), keys(b)) if differ(get(a, k, nothing), get(b, k, nothing))], by = string)
     diffs = join(("$k: $(repr(get(a, k, nothing))) and $(repr(get(b, k, nothing)))" for k in keys_), "; ")
     return "two runs of this configuration have parameters that are stored alike (the same hash), so they would be " *
            "one run: $diffs. Only data identifies a run: add data that tells them apart " *
@@ -358,7 +361,18 @@ function _code_changed(path::AbstractString, params::AbstractDict, metadata::Abs
     return false
 end
 
+# The sources are helper files, a set (each defines its own names: solvers, references, post-processors, statistics), and
+# as the last entry the configuration's own file, which is included after them and may build on or override them. A run
+# records the digests of all files, not their order (see "Source files" in the manual). A file listed twice is refused.
+function _check_sources(sources::AbstractVector{<:AbstractString})
+    paths = abspath.(sources)
+    allunique(paths) || throw(ArgumentError(
+        "`sources` lists $(first(p for p in paths if count(==(p), paths) > 1)) more than once; each source file is listed once (the configuration's own file last)"))
+    return nothing
+end
+
 function _load_sources(sources::AbstractVector{<:AbstractString})
+    _check_sources(sources)
     for file in sources
         path = abspath(file)
         isfile(path) || throw(ArgumentError("source file not found: $path"))
@@ -369,6 +383,7 @@ end
 
 # Always written (possibly empty), so a rerun without sources replaces digests from an earlier run.
 function _source_metadata(sources::AbstractVector{<:AbstractString})
+    _check_sources(sources)
     digests = Dict{String, String}(abspath(f) => bytes2hex(open(sha256, abspath(f))) for f in sources)
     return Dict{String, Any}("sources" => digests)
 end
@@ -424,10 +439,15 @@ end
 # reference, or one not recorded: `calculate_all_stats!`, files of 0.6.2 and earlier) or `:code` (the same reference,
 # its file or package version changed; with `ignore_file` only the package version counts), and the stored record
 function _reference_change(path::AbstractString, record::AbstractString; ignore_file::Bool = false)
-    stored = jldopen(path, "r") do file
-        haskey(file, "evaluated_reference") && return file["evaluated_reference"]
-        return haskey(file, "evaluated_with_reference") && file["evaluated_with_reference"] === true ? "" : nothing
+    stored, without = jldopen(path, "r") do file
+        with = haskey(file, "evaluated_with_reference") ? file["evaluated_with_reference"] : nothing
+        evaluated = haskey(file, "evaluated_stats") && !isempty(file["evaluated_stats"])
+        haskey(file, "evaluated_reference") && return (file["evaluated_reference"], false)
+        return (with === true ? "" : nothing, with === false && evaluated)
     end
+    # statistics evaluated without a reference, now with one: all of them again (also finite ones that a statistic
+    # computes differently without a reference)
+    without && !isempty(record) && return (:reference, "")
     stored === nothing && return (:none, "")   # (nothing evaluated with a reference)
     stored == record && return (:none, stored)
     isempty(stored) && return (:reference, stored)
