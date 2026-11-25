@@ -668,10 +668,10 @@ Base.:(==)(a::StTaggedIndex, b::StTaggedIndex) = isequal(a, b)
 Base.hash(k::StTaggedIndex, h::UInt) = hash(k.i, h)
 
 @testset "Review fixes (#58)" begin
-    # Dict keys of explicit types only: Symbol, String, Base integers
+    # Dict keys of explicit types only: Symbol, String, Int64 (since the full review of 0.9.0: no other integer widths)
     @test_throws r"keys of type StTaggedIndex" calculate_hash(Dict(:v => Dict(StTaggedIndex(1, :left) => 10, StTaggedIndex(1, :right) => 20)))
-    @test calculate_hash(Dict(:v => Dict(Int32(1) => 1))) != calculate_hash(Dict(:v => Dict(1 => 1)))
-    @test calculate_hash(Dict(:v => Dict(UInt8(3) => 1))) isa String
+    @test_throws r"keys of type Int32" calculate_hash(Dict(:v => Dict(Int32(1) => 1)))
+    @test calculate_hash(Dict(:v => Dict(3 => 1))) isa String
     # a stored file whose parameters this version doesn't accept (e.g. written by an earlier one) is foreign: listings,
     # deletions, tidy and imports go on with the other files
     dir = st_fresh()
@@ -687,4 +687,66 @@ Base.hash(k::StTaggedIndex, h::UInt) = hash(k.i, h)
     st_fresh()
     imported = @test_logs (:warn, r"aren't valid parameters of this version") match_mode = :any import_sim_data(src)
     @test length(imported) == 1 && st_stored(get_file_name(st_params("good"))) == ("good", 1.0)
+end
+
+# Fixes of the whole-codebase review of 0.9.0 (reviews/2026-11-25-full-codebase-codex.md) and the review of #60
+struct StCoding <: Integer   # (a user-defined integer with a declared identity: both values print as 2)
+    value::Int
+    variant::Symbol
+end
+Base.show(io::IO, x::StCoding) = print(io, x.value)
+PDEStudioCore.param_identity(x::StCoding) = (; value = x.value, variant = x.variant)
+st_fallback_reference(p) = _ -> 3.0
+PDEStudioCore.calc_stat(::Val{:st_fallback}, fixed, u, ana, domain) =   # (the solution without a reference, else the reference)
+    all(a -> all(isnan, a), ana) ? first(u) : first(ana)
+
+@testset "Review fixes (0.9.0, full review)" begin
+    # numbers are Int64, Float64 (Float32/Float16 stored as Float64) or Bool: no other widths, BigInt, own types
+    for v in (UInt64(1), Int128(1), big(1), Int32(1), 1 // 2, 1 + 2im, StCoding(2, :a))
+        @test_throws r"numbers in parameters are Int64" calculate_hash(Dict(:v => v))
+    end
+    @test_throws r":v\[1\] has the type Int32" calculate_hash(Dict(:v => Int32[1, 2]))
+    @test_throws r"is a set" calculate_hash(Dict(:v => Set(["label", :label])))
+    @test calculate_hash(Dict(:v => [1, 2], :b => true, :x => 1.5)) isa String
+    # a sweep over raw values that are stored alike is refused, also Float32 against Float64
+    cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1, :x => 1.5);
+                           varied = create_varied_dict(:x => Any[1.5f0, 1.5]))
+    @test_throws r"stored alike" generate_tasks(cfg)
+    # a source file listed twice is refused (the sources are a set)
+    src = joinpath(mktempdir(), "model.jl")
+    write(src, "st_twice_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\n")
+    twice = SimulationConfig(create_param_dict(:sim_func_name => :st_twice_solver); sources = [src, src])
+    @test_throws r"more than once" run_all_simulations(twice)
+
+    old = PDEStudioCore.get_stat_registry()
+    try
+        # a metadata-only save keeps the record of what the statistics pass evaluated, with the statistics
+        st_fresh()
+        model(c) = "st_meta_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)\nst_meta_reference(p) = _ -> $c\n"
+        write(src, model(2.0))
+        mcfg = SimulationConfig(create_param_dict(:sim_func_name => :st_meta_solver); reference = :st_meta_reference, sources = [src])
+        set_stat_registry!(Dict(:l1error => :time))
+        run_all_simulations(mcfg; calculate_stats = true)
+        d = load_sim_data(generate_tasks(mcfg)[1])
+        d.metadata[:note] = "edited"
+        save_sim_data(d; overwrite = true, verbose = false)
+        @test PDEStudioCore.JLD2.jldopen(f -> f["evaluated_stats"], get_file_name(generate_tasks(mcfg)[1]), "r") == [:l1error]
+        write(src, model(4.0))
+        set_stat_registry!(Dict(:l2error => :time))
+        run_all_simulations(mcfg; calculate_stats = true)
+        register_stat!(:l1error, :time)
+        run_all_simulations(mcfg; calculate_stats = true)
+        @test load_sim_data(generate_tasks(mcfg)[1]).stats[:l1error][1] == 6.0   # (against B, not A's 2)
+
+        # statistics evaluated without a reference are evaluated again, all of them, once a reference is configured
+        st_fresh()
+        set_stat_registry!(Dict(:st_fallback => :time))
+        fcfg(ref) = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1); reference = ref)
+        run_all_simulations(fcfg(nothing); calculate_stats = true)
+        @test load_sim_data(generate_tasks(fcfg(nothing))[1]).stats[:st_fallback][1] == 1.0
+        @test run_all_simulations(fcfg(:st_fallback_reference); calculate_stats = true).stats == Dict(:ran => 1)
+        @test load_sim_data(generate_tasks(fcfg(nothing))[1]).stats[:st_fallback][1] == 3.0
+    finally
+        set_stat_registry!(old)
+    end
 end

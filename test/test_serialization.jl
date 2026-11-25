@@ -109,7 +109,7 @@ end
           "PDEStudioCore hash format 4\nd17:Dict{Symbol, Any}2:y1:N#5:Int642:50y1:ss1:a"
     # values that `isequal` (or a printed text) takes for one another have distinct encodings
     for (a, b) in ((1, 1.0), (true, 1), (1, "1"), ([1 2], [1, 2]), ([1, 2], (1, 2)), (Int[], Float64[]),
-                   (Dict(1 => 2), Dict(Int8(1) => 2)), (:a, "a"), ("a" => 1, ("a", 1)), (nothing, "nothing"), (0.0, -0.0))
+                   (Dict(1 => 2), Dict(1 => 2.0)), (:a, "a"), ("a" => 1, ("a", 1)), (nothing, "nothing"), (0.0, -0.0))
         @test calculate_hash(Dict(:k => a)) != calculate_hash(Dict(:k => b))
     end
 end
