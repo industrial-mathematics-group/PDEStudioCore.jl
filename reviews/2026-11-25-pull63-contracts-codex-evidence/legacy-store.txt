@@ -1,0 +1,10 @@
+Prepared control: 71cff7ac897b2a3d0f0298b3d9ee5cf6c9dc0dd275ef23339b531b7e4769be33.jld2 map type=Dict{Int64, Int64}
+Prepared previously accepted: db95b5795dd95962337fa75b8b1624603b48bea9865eb7677cc8045dc2d4e50d.jld2 map type=Dict{Float64, Int64}
+Direct lookup of control: true
+Unfiltered listing: 1
+Filtered listing of unrelated control: 1
+Table for unrelated control: 1
+Tidy dry run: (temp_files = 0, foreign = 1)
+Delete dry run for unrelated control: 1
+Import of directory filtered for control: 1
+Imported control is present: true

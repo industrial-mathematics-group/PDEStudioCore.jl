@@ -1,0 +1,15 @@
+After save none: has aux=true records=Pair{String}["evaluated_stats" => [:aux], "evaluated_with_reference" => true, "evaluated_reference" => "name=contract_reference; file=1155a99beb29e7c4be2fe07f810748b419962c489f3e4d56d24eaf88cb8c3ae5"]
+After pipeline none: Dict(:cached => 1) has aux=true
+After forcing none: aux=1.0
+After save stats_view: has aux=false records=Pair{String}["evaluated_stats" => [:aux], "evaluated_with_reference" => true, "evaluated_reference" => "name=contract_reference; file=1155a99beb29e7c4be2fe07f810748b419962c489f3e4d56d24eaf88cb8c3ae5"]
+After pipeline stats_view: Dict(:cached => 1) has aux=false
+After forcing stats_view: aux=1.0
+After save whole_stat: has aux=false records=Pair{String}["evaluated_stats" => [:aux], "evaluated_with_reference" => true, "evaluated_reference" => "name=contract_reference; file=1155a99beb29e7c4be2fe07f810748b419962c489f3e4d56d24eaf88cb8c3ae5"]
+After pipeline whole_stat: Dict(:ran => 1) has aux=true
+After forcing whole_stat: aux=1.0
+A then no reference: fallback=1.0 records=Pair{String}["evaluated_stats" => [:aux, :fallback], "evaluated_with_reference" => false, "evaluated_reference" => "name=contract_reference; file=1155a99beb29e7c4be2fe07f810748b419962c489f3e4d56d24eaf88cb8c3ae5"]
+Restore same A: Dict(:cached => 1) fallback=1.0
+Restore same A forced: fallback=3.0
+Fresh no reference: fallback=1.0
+Fresh then A: Dict(:ran => 1) fallback=3.0
+Replacing solution: records=["evaluated_stats" => missing, "evaluated_with_reference" => missing, "evaluated_reference" => missing]
