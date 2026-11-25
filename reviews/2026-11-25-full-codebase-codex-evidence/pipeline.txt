@@ -1,0 +1,11 @@
+Julia 1.13.4 threads=2
+Mixed scalar sweep: types=DataType[Float32, Float64] distinct raw types=true normalized=(1.5, 1.5) same hash=true
+mixed tasks=1 ran=1 field=10.0
+Float32 tasks=1 ran=1 field=10.0
+Float64 tasks=1 ran=1 field=20.0
+Source order A,B: field=20.0
+Source order B,A: changed=0 cached=1 field=20.0
+Source order B,A forced: field=10.0
+Finite statistic without a reference: Dict(:ran => 1) value=1.0
+After adding a reference: Dict(:cached => 1) value=1.0
+After forcing stats: Dict(:ran => 1) value=3.0
