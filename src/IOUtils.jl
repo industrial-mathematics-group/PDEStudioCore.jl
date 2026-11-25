@@ -355,6 +355,7 @@ function _write_sim_file(path::AbstractString, data::AbstractSimData, entries::A
     _refuse_link(path)
     md = data.metadata
     (previous === nothing || !isfile(previous)) && !haskey(md, :provenance) && (md[:provenance] = _provenance())
+    _stamp_basis!(data)   # (the statistics above the post-processing layer, as written: see `_upstream_basis`)
     tmp = _tmp_path(path)
     try
         jldopen(tmp, "w") do file

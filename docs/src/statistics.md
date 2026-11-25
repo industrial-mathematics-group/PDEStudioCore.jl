@@ -20,11 +20,11 @@ Every statistic belongs to one of three layers, by what produced it. Each layer 
 | :--- | :--- | :--- |
 | `:simulation` | the solution, what the solver attached (run time, volumes, time steps, …), statistics added by hand, and the registered statistics of the data alone (a `calc_stat` without the reference argument: mass, norms) | the solution changes (data statistics: also when the registry changes) |
 | `:reference` | the registered statistics that use the reference (`calc_stat` with `ana`: errors) | another reference is configured, its code changed (see `on_changed_sources`), statistics are missing, or with `force_stats` |
-| `:postprocess` | what post-processors added | the layers above change (a statistic evaluated, replaced or removed, or another reference); or the post-processor changed |
+| `:postprocess` | what post-processors added | the layers above change (a statistic evaluated, replaced or removed, also by hand; another reference); or the post-processor changed |
 
 [`stat_layer`](@ref)`(data, name)` tells the layer of a statistic and [`layer_stats`](@ref)`(data, layer)` lists a layer; `data.stats` stays one dictionary with all of them. Statistic names are unique across the layers: a registered name that the solver, `add_stat!` or a post-processor produced is an error. The records of the layers are reserved entries of the dataset's metadata (`:stat_records`, `:postprocessed`), saved and loaded with it, so a dataset object always carries the records of the statistics it holds.
 
-Without a reference, the reference layer is left as it is: its statistics are neither evaluated (a statistic that uses the reference has no value without one) nor removed. A statistic that isn't registered any more stays in its layer until the layer is evaluated afresh (another reference, or `force_stats`), so a run with a smaller registry doesn't remove what others evaluated.
+Without a reference, the reference layer is left as it is: its statistics are neither evaluated (a statistic that uses the reference has no value without one) nor removed. A statistic that isn't registered any more stays in its layer until the layer is evaluated afresh (another reference, or `force_stats`), so a run with a smaller registry doesn't remove what others evaluated. The statistics of files of earlier versions are of unknown origin (they count as the simulation layer): the next statistics pass evaluates the registered ones again and takes them over. A registered name without any `calc_stat` method is an error.
 
 ## 1. Loading Presets
 

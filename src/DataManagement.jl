@@ -240,6 +240,12 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
                 raw = _open_data(f -> (r = f["raw"]; r.metadata = _file_metadata(f); r), staged)
                 empty!(raw.params)
                 merge!(raw.params, params)
+                # (the records belong to the run under its new parameters: the removed keys didn't change its results)
+                if haskey(raw.metadata, :stat_records)
+                    r = _stat_records(raw.metadata)
+                    r[:params] = calculate_hash(params)
+                    raw.metadata[:stat_records] = r
+                end
                 _write_sim_file(dest, raw, Dict{String, Any}(), staged)   # (the records are in the metadata)
             end
         catch e
