@@ -1,0 +1,5 @@
+Reference A, L1 registered: Dict(:ran => 1) L1=2.0 L2=missing record=[:l1error]
+Reference A, L2 registered: Dict(:ran => 1) L1=2.0 L2=1.4142135623730951 record=[:l2error]
+Reference B, L2 registered: Dict(:ran => 1) L1=2.0 L2=4.242640687119285 record=[:l2error]
+Reference B, L1 re-registered: Dict(:cached => 1) L1=2.0 L2=4.242640687119285 record=[:l2error]
+Forced: Dict(:ran => 1) L1=6.0
