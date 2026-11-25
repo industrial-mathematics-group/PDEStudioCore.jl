@@ -521,8 +521,12 @@ end
 # design). Other numbers (other integer widths, BigInt, rationals, complex, user-defined Number types) would be read
 # back as another type or print two values alike: convert them for the parameters (e.g. `Int64(x)`)
 const _NUMBERS = Union{Bool, Int64, Float64, Float32, Float16}
-# Values that are data as they are, and element types whose arrays need no look at every element
-const _PLAIN = Union{AbstractString, Symbol, AbstractChar, _NUMBERS, Type, Val, Enum, Nothing, Missing}   # (named tuples: refused)
+# Values that are data as they are, and element types whose arrays need no look at every element (other strings,
+# types, `Val`s and enum values are checked one by one, below; named tuples are refused)
+const _PLAIN = Union{String, SubString{String}, Symbol, Char, _NUMBERS, Nothing, Missing}
+# The values a type written in parameters may have as type parameters (`Val{1}`, `Limiter{:minmod}`, `SVector{3, Float64}`):
+# explicit types whose distinct values print distinct texts (`Int32(1)` prints as `1`, a type parameter is written as text)
+const _TYPE_PARAMETERS = Union{Symbol, Char, Bool, Int64, Float64, Float32, Float16, Nothing}
 # The key types of a Dict in parameters: explicit types whose distinct values have distinct texts, so the order by
 # text is canonical
 const _KEY_TYPES = Union{Symbol, String, Int64}
@@ -540,6 +544,37 @@ function _valid_stored(p)
 end
 _plain_eltype(T) = T <: _PLAIN || (T <: StaticArray && eltype(T) <: _NUMBERS)
 
+# Refuses a type (written as text: its name and parameters) whose parameters include a value that doesn't print as
+# itself (e.g. `Val{Int32(1)}`, written like `Val{1}`, or a value of a custom type)
+function _check_type(T, path::AbstractString)
+    if T isa Union
+        _check_type(T.a, path); _check_type(T.b, path)
+    elseif T isa UnionAll
+        _check_type(T.var, path); _check_type(T.body, path)
+    elseif T isa TypeVar
+        _check_type(T.lb, path); _check_type(T.ub, path)
+    elseif T isa Core.TypeofVararg
+        isdefined(T, :T) && _check_type(T.T, path)
+        isdefined(T, :N) && _check_type_parameter(T.N, T, path)
+    elseif T isa DataType
+        foreach(p -> _check_type_parameter(p, T, path), T.parameters)
+    end
+    return nothing
+end
+function _check_type_parameter(p, T, path::AbstractString)
+    if p isa Union{Type, TypeVar, Core.TypeofVararg}
+        _check_type(p, path)
+    elseif p isa Tuple
+        foreach(x -> _check_type_parameter(x, T, path), p)
+    elseif !(p isa _TYPE_PARAMETERS)
+        throw(ArgumentError(
+            "the parameter $path has the type $(_type_text(T)) with the type parameter $(repr(p)) of type $(typeof(p)): " *
+            "types in parameters are written as text, so their parameters are Symbols, Chars, Int64, Bool, floats or " *
+            "`nothing` (e.g. `Val{1}`, not `Val{Int32(1)}`)"))
+    end
+    return nothing
+end
+
 # Refuses what can't identify a run: functions, and values of custom types that don't declare their identity
 # (`param_identity`); `path` names the place in the parameters for the message
 function _check_param(v, path::AbstractString)
@@ -548,12 +583,25 @@ function _check_param(v, path::AbstractString)
         "runs apart. Give it a name instead (e.g. a String or Symbol the solver looks up), or wrap it in a struct whose " *
         "`param_identity` names it."))
     v isa _PLAIN && return nothing
+    v isa AbstractChar && throw(ArgumentError(
+        "the parameter $path is a character of type $(typeof(v)): characters in parameters are `Char`s; convert it " *
+        "(`Char(c)`), or use a type of your own that isn't a character and declares `param_identity`"))
+    if v isa Union{AbstractString, Enum}   # (a string by its text, an enum value by its type's name and its name)
+        _declares_identity(v) && throw(ArgumentError(
+            "the parameter $path has the type $(typeof(v).name.name), which declares `param_identity` but is " *
+            (v isa Enum ? "an enum" : "a string") * ": it is stored by its " * (v isa Enum ? "name" : "text") *
+            ", not by its identity; use a type of your own that isn't a string or an enum"))
+        return nothing
+    end
+    v isa Type && return _check_type(v, path)
+    v isa Val && return _check_type(typeof(v), path)
     v isa Number && throw(ArgumentError(
         "the parameter $path has the type $(typeof(v)): numbers in parameters are Int64, Float64 (Float32 and Float16 are stored " *
         "as Float64) or Bool; convert it for the parameters (e.g. Int64(x)), also if the solver uses another type"))
     v isa AbstractSet && throw(ArgumentError(
         "the parameter $path is a set: its order would depend on how it was built; use a sorted Vector or a Tuple"))
     if v isa Union{AbstractArray, Tuple}
+        v isa AbstractArray && _check_type(eltype(v), path)   # (written with the array)
         _plain_eltype(eltype(v)) && return nothing
         for (i, x) in enumerate(v)
             _check_param(x, "$path[$i]")
@@ -563,6 +611,7 @@ function _check_param(v, path::AbstractString)
         (isconcretetype(K) && K <: _KEY_TYPES) || throw(ArgumentError(
             "the parameter $path is a Dict with keys of type $K: the keys of a Dict in parameters are Symbols (a " *
             "ParamDict), Strings or Int64, all of one type"))
+        _check_type(valtype(v), path)
         for (k, x) in v
             _check_param(x, "$path[$(repr(k))]")
         end
@@ -573,7 +622,9 @@ function _check_param(v, path::AbstractString)
     elseif v isa Pair
         foreach(f -> _check_param(getfield(v, f), "$path.$f"), fieldnames(typeof(v)))
     elseif _declares_identity(v)
-        for (k, x) in pairs(_identity_of(v))
+        id = _identity_of(v)
+        isempty(id) && _check_type(typeof(v), path)   # (an empty identity: written as the type with its parameters)
+        for (k, x) in pairs(id)
             _check_param(x, "$path.$k")
         end
     else

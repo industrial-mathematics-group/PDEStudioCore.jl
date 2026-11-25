@@ -294,14 +294,15 @@ function _calculate_all_stats!(sim_data::AbstractSimData, ref_func, force_overwr
             # Remember what was evaluated (and whether a reference was available), so the pipeline does
             # not reload data for stats that came out NaN, but retries them once a reference exists.
             # Written together with the data if that is (re)written; otherwise only if the entries differ.
-            # Which reference the statistics evaluated with one were evaluated with (`_reference_record`; "" from
-            # `calculate_all_stats!`, which doesn't know it: due again in the pipeline) is recorded only when statistics
-            # were evaluated with a reference: values kept from before keep their record (an evaluation without a
-            # reference, or one with nothing to evaluate, leaves it; rewritten data carries it over).
+            # Which reference the statistics were evaluated with (`_reference_record`; "" from `calculate_all_stats!`,
+            # which doesn't know it, and for an evaluation without a reference: due again in the pipeline once it has
+            # one) is recorded whenever statistics were evaluated: the statistics of a file then belong to one
+            # reference, or to none known (some evaluated without one, beside values kept from an earlier one).
+            # An evaluation with nothing to evaluate leaves it; rewritten data carries it over.
             evaluated = Dict{String, Any}("evaluated_stats" => names)
             if !isempty(pending)
                 evaluated["evaluated_with_reference"] = ref_func !== nothing
-                ref_func === nothing || (evaluated["evaluated_reference"] = String(reference))
+                evaluated["evaluated_reference"] = ref_func === nothing ? "" : String(reference)
             end
             # (the same data rewritten: it keeps the pipeline's entries of the stored metadata, see `_carry_metadata!`)
             changed && path !== nothing && _carry_metadata!(sim_data, path)

@@ -342,8 +342,9 @@ end
 _error_text(e) = (msg = e isa LoadError ? sprint(showerror, e.error) : sprint(showerror, e); String(first(split(msg, '\n'))))
 
 # Whether the stored result of `params` was made with other source code than the current run: other contents of
-# the source files (compared as a set of digests, so moved files don't count; only if both runs list sources), or
-# another version of the solver's package (only if both are known).
+# the source files (compared as a set of digests, so moved files don't count; only if both runs list sources), another
+# configuration file (the last source, which may override the helpers: its digest is recorded on its own; only if both
+# runs recorded it), or another version of the solver's package (only if both are known).
 function _code_changed(path::AbstractString, params::AbstractDict, metadata::AbstractDict)
     stored = jldopen(_file_metadata, path, "r")
     stored_sources = get(stored, :sources, nothing)
@@ -352,6 +353,8 @@ function _code_changed(path::AbstractString, params::AbstractDict, metadata::Abs
     current = get(metadata, "sources", nothing)
     if stored_sources isa AbstractDict && current isa AbstractDict && !isempty(stored_sources) && !isempty(current)
         Set(values(stored_sources)) == Set(values(current)) || return true
+        stored_last, last = get(stored, :configuration_source, nothing), get(metadata, "configuration_source", nothing)
+        stored_last isa AbstractString && last isa AbstractString && stored_last != last && return true
     end
     if stored_version !== nothing
         solver = try _resolve_solver(params) catch; nothing end
@@ -363,9 +366,10 @@ end
 
 # The sources are helper files, a set (each defines its own names: solvers, references, post-processors, statistics), and
 # as the last entry the configuration's own file, which is included after them and may build on or override them. A run
-# records the digests of all files, not their order (see "Source files" in the manual). A file listed twice is refused.
+# records the digests of all files and which one is the configuration's, not the order of the helpers (see "Source files"
+# in the manual). A file listed twice is refused, also under two paths (a symbolic link: compared by the file it names).
 function _check_sources(sources::AbstractVector{<:AbstractString})
-    paths = abspath.(sources)
+    paths = [ispath(f) ? realpath(f) : abspath(f) for f in sources]
     allunique(paths) || throw(ArgumentError(
         "`sources` lists $(first(p for p in paths if count(==(p), paths) > 1)) more than once; each source file is listed once (the configuration's own file last)"))
     return nothing
@@ -381,11 +385,13 @@ function _load_sources(sources::AbstractVector{<:AbstractString})
     return nothing
 end
 
-# Always written (possibly empty), so a rerun without sources replaces digests from an earlier run.
+# Always written (possibly empty), so a rerun without sources replaces digests from an earlier run; with the digest
+# of the configuration's own file (the last one) on its own, since it may override the helpers ("" without sources).
 function _source_metadata(sources::AbstractVector{<:AbstractString})
     _check_sources(sources)
-    digests = Dict{String, String}(abspath(f) => bytes2hex(open(sha256, abspath(f))) for f in sources)
-    return Dict{String, Any}("sources" => digests)
+    digest(f) = bytes2hex(open(sha256, abspath(f)))
+    digests = Dict{String, String}(abspath(f) => digest(f) for f in sources)
+    return Dict{String, Any}("sources" => digests, "configuration_source" => isempty(sources) ? "" : digest(last(sources)))
 end
 
 function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, force_overwrite::Bool, dry_run::Bool,
@@ -466,12 +472,18 @@ end
 function _postprocess_record(name, post_func, metadata::AbstractDict)
     sources = get(metadata, "sources", Dict{String, String}())
     record = Dict{Symbol, Any}(:sources => sort!(collect(String, values(sources))))
+    last = get(metadata, "configuration_source", "")
+    isempty(last) || (record[:configuration_source] = last)
     v = _func_version(post_func)
     isnothing(v) || (record[:version] = v)
     return Symbol(name) => record
 end
 
-_without_sources(record::AbstractDict) = filter(p -> Symbol(first(p)) !== :sources, record)
+_without_sources(record::AbstractDict) = filter(p -> !(Symbol(first(p)) in (:sources, :configuration_source)), record)
+# (a record of an earlier version has no `:configuration_source`: compared without it)
+_same_record(own::AbstractDict, record::AbstractDict) =
+    isequal(own, any(k -> Symbol(k) === :configuration_source, keys(own)) ? record :
+                 filter(p -> Symbol(first(p)) !== :configuration_source, record))
 
 function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::Bool, dry_run::Bool, ignore_sources::Bool)
     try
@@ -481,7 +493,7 @@ function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::B
         records = done isa AbstractDict ? Dict{Symbol, Any}(Symbol(k) => v for (k, v) in done) : Dict{Symbol, Any}()
         own = get(records, name, nothing)
         if !force && own isa AbstractDict
-            same = ignore_sources ? isequal(_without_sources(own), _without_sources(record)) : isequal(own, record)
+            same = ignore_sources ? isequal(_without_sources(own), _without_sources(record)) : _same_record(own, record)
             return (same ? :skipped : :outdated, nothing)
         end
         dry_run && return (:ran, nothing)
@@ -698,7 +710,8 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
           "$(length(empty_)) without output, $(length(failed)) failed."
     if !isempty(changed) && on_changed_sources === :warn
         # (once per session for the same results and code: the summary lists them on every run)
-        key = hash((sort!([_param_hash(p) for p in changed]), get(metadata, "sources", nothing)))
+        key = hash((sort!([_param_hash(p) for p in changed]), get(metadata, "sources", nothing),
+                    get(metadata, "configuration_source", nothing)))
         if key in _CHANGED_WARNED
             @debug "$(length(changed)) stored result(s) of other source code kept (warned before)."
         else
