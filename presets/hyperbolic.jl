@@ -13,24 +13,24 @@ register_stat!(:mass_error, :time)
 register_stat!(:mass_signed_error, :time)
 
 # ==============================================================================
-# --- STANDARD METRICS ---
+# --- STANDARD METRICS (of the data alone: no reference argument, the simulation layer) ---
 # ==============================================================================
 # (The sums are taken in at least Float64 and converted to the data's precision at the end, see `_wide_sum`: the
 # squares of Float16 values overflow from 256 on.)
 
-function calc_stat(::Val{:mass}, fixed_coords, u, ana, domain::DomainInfo)
+function calc_stat(::Val{:mass}, fixed_coords, u, domain::DomainInfo)
     return _narrow(u, _wide_sum(identity, u, _wide_measure(:mass, domain)))
 end
 
-function calc_stat(::Val{:l1norm}, fixed_coords, u, ana, domain::DomainInfo)
+function calc_stat(::Val{:l1norm}, fixed_coords, u, domain::DomainInfo)
     return _narrow(u, _wide_sum(v -> abs.(v), u, _wide_measure(:l1norm, domain)))
 end
 
-function calc_stat(::Val{:l2norm}, fixed_coords, u, ana, domain::DomainInfo)
+function calc_stat(::Val{:l2norm}, fixed_coords, u, domain::DomainInfo)
     return _narrow(u, sqrt.(_wide_sum(v -> abs2.(v), u, _wide_measure(:l2norm, domain))))
 end
 
-function calc_stat(::Val{:wave_height}, fixed_coords, u, ana, domain::DomainInfo)
+function calc_stat(::Val{:wave_height}, fixed_coords, u, domain::DomainInfo)
     # A Lagrangian step can have no particles at all; there is no maximum then.
     isempty(u) && return map(_ -> oftype(zero(eltype(eltype(u))), NaN), zero(eltype(u)))
     return reduce((a, b) -> max.(a, b), u)
@@ -38,7 +38,7 @@ end
 
 
 # ==============================================================================
-# --- ERROR METRICS (Naturally propagates NaNs if analytical data is missing) ---
+# --- ERROR METRICS (they use the reference: the reference layer, evaluated with a reference only) ---
 # ==============================================================================
 function calc_stat(::Val{:l1error}, fixed_coords, u, ana, domain::DomainInfo)
     return _narrow(u, _wide_sum((v, a) -> abs.(v - a), u, ana, _wide_measure(:l1error, domain)))

@@ -313,6 +313,7 @@ function run_smart_simulation(sim_func, params::AbstractDict; force_overwrite::B
     isempty(metadata) || merge!(md, _metadata_dict(metadata))
     md[:provenance] = _provenance(solver = sim_func, wall_time = wall_time)
     delete!(md, :postprocessed)
+    delete!(md, :stat_records)   # (the solver's output: its statistics are the simulation layer's)
     _save_sim_data(sim_data, true, false, Dict{String, Any}())
     return sim_data
 end
@@ -401,32 +402,27 @@ function _source_metadata(sources::AbstractVector{<:AbstractString})
     return Dict{String, Any}("sources" => digests, "configuration_source" => isempty(sources) ? "" : digest(last(sources)))
 end
 
-function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, force_overwrite::Bool, dry_run::Bool,
-                     ref_record::AbstractString = "", on_changed::Symbol = :warn)
+# Pass 2 for one task: the statistics in their layers (see `_plan_stats`): the registered statistics of the data, and
+# with a reference those that use it. The plan is made from the file's records (no data is loaded for `:cached`,
+# `:outdated` or a dry run), and carried out on the loaded data, which is saved with its records.
+function _stats_task(params::ParamDict, ref_factory, force_overwrite::Bool, dry_run::Bool, ref_record::AbstractString = "",
+                     on_changed::Symbol = :warn)
     try
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
-        has_reference = ref_factory !== nothing
-        # Statistics evaluated with another reference (or an unknown one) are evaluated again, all of them; with the
-        # same reference whose code changed (its file or package version), `on_changed` decides, as for solver results:
-        # `:warn` keeps them (`:outdated`), `:recompute` evaluates them again, `:ignore` doesn't look at the file. The
-        # statistics of a file always belong to one reference (one record): if some are missing (e.g. newly registered),
-        # all of them are evaluated with the current reference (`:refreshed`, reported) rather than mixing references.
-        change, _ = has_reference ? _reference_change(path, ref_record; ignore_file = on_changed === :ignore) : (:none, "")
-        missing_stats = _needs_stats(path, required, has_reference)
-        keep = change === :code && on_changed !== :recompute && !force_overwrite
-        keep && !missing_stats && return (:outdated, nothing)
-        force = force_overwrite || change !== :none
-        (force || missing_stats) || return (:cached, nothing)
-        status = keep ? :refreshed : :ran
-        dry_run && return (status, nothing)
+        reference = ref_factory === nothing ? nothing : ref_record
+        plan = jldopen(path, "r") do f
+            md = _file_metadata(f; strict = true)
+            present = haskey(f, "stat_keys") ? _names(f["stat_keys"]) : Symbol[]
+            dims = haskey(f, "registry") ? f["registry"] : Dict{Symbol, Any}()
+            _plan_stats(_stat_records(md), _post_records(md), present, dims, get_stat_registry(), reference;
+                        force = force_overwrite, on_changed = on_changed)
+        end
+        plan.error === nothing || return (:failed, plan.error)
+        (dry_run || !_has_work(plan)) && return (plan.status, nothing)
         sim_data = _load_key(path, "raw")
-        ref_func = has_reference ? ref_factory(deepcopy(params)) : nothing   # (a copy, like the solver's: the task stays as it is)
-        # Evaluated again, the statistics get the current record: statistics of the earlier evaluation that are no
-        # longer registered go (they'd pass for evaluated with it); the ones the solver or a post-processor added stay
-        stale = force ? setdiff(jldopen(f -> haskey(f, "evaluated_stats") ? Symbol.(f["evaluated_stats"]) : Symbol[], path, "r"),
-                                required) : Symbol[]
-        _calculate_all_stats!(sim_data, ref_func, force, true, true; reference = ref_record, drop = stale)
+        ref_func = reference === nothing ? nothing : ref_factory(deepcopy(params))   # (a copy, like the solver's: the task stays as it is)
+        status = _calculate_all_stats!(sim_data, ref_func, reference, force_overwrite, true, true; on_changed = on_changed)
         return (status, nothing)
     catch e
         e isa InterruptException && rethrow()
@@ -435,7 +431,7 @@ function _stats_task(params::ParamDict, ref_factory, required::Vector{Symbol}, f
     end
 end
 
-# What identifies the reference statistics were evaluated with (stored as "evaluated_reference"): the name of the
+# What identifies the reference statistics were evaluated with (the record of the reference layer): the name of the
 # factory, its package's version and the digest of the file that defines it, so a changed reference (another name, or
 # its file edited) makes the statistics due again. "" without a reference.
 function _reference_record(name, factory)
@@ -448,34 +444,11 @@ function _reference_record(name, factory)
     return join(parts, "; ")
 end
 
-# How the reference the statistics of a file were evaluated with differs from `record`: `:none`, `:reference` (another
-# reference, or one not recorded: `calculate_all_stats!`, files of 0.6.2 and earlier) or `:code` (the same reference,
-# its file or package version changed; with `ignore_file` only the package version counts), and the stored record
-function _reference_change(path::AbstractString, record::AbstractString; ignore_file::Bool = false)
-    stored, without = jldopen(path, "r") do file
-        with = haskey(file, "evaluated_with_reference") ? file["evaluated_with_reference"] : nothing
-        evaluated = haskey(file, "evaluated_stats") && !isempty(file["evaluated_stats"])
-        haskey(file, "evaluated_reference") && return (file["evaluated_reference"], false)
-        return (with === true ? "" : nothing, with === false && evaluated)
-    end
-    # statistics evaluated without a reference, now with one: all of them again (also finite ones that a statistic
-    # computes differently without a reference)
-    without && !isempty(record) && return (:reference, "")
-    stored === nothing && return (:none, "")   # (nothing evaluated with a reference)
-    stored == record && return (:none, stored)
-    isempty(stored) && return (:reference, stored)
-    parts(r) = Dict(split(p, "="; limit = 2) for p in split(r, "; ") if occursin("=", p))
-    a, b = parts(stored), parts(record)
-    get(a, "name", "") == get(b, "name", "") || return (:reference, stored)
-    ignore_file && (delete!(a, "file"); delete!(b, "file"))
-    return (a == b ? :none : :code, stored)
-end
-
-# What identifies a post-processor in the records of a dataset (`metadata[:postprocessed]`: name => record): its
-# name, the source files of the run (their digests) and its package's version. A file with a record of the same name is not
-# post-processed again: with the same record it is `:skipped`, with another one (the post-processor changed)
-# `:outdated` (applying it again to post-processed data is only right for an idempotent post-processor:
-# `force_postprocess`). With `on_changed_sources = :ignore` the sources don't count.
+# What identifies a post-processor in the records of a dataset (`metadata[:postprocessed]`: name => record, which also
+# lists the statistics it added, `:keys`): its name, the source files of the run (their digests, and the configuration's
+# own file) and its package's version. A file whose record of the same name is valid (its statistics are there) is not
+# post-processed again: with the same identity it is `:skipped`, with another one (the post-processor changed)
+# `:outdated` under `on_changed_sources = :warn`, run again under `:recompute`. With `:ignore` the sources don't count.
 function _postprocess_record(name, post_func, metadata::AbstractDict)
     sources = get(metadata, "sources", Dict{String, String}())
     record = Dict{Symbol, Any}(:sources => sort!(collect(String, values(sources))))
@@ -486,91 +459,98 @@ function _postprocess_record(name, post_func, metadata::AbstractDict)
     return Symbol(name) => record
 end
 
-_without_sources(record::AbstractDict) = filter(p -> !(Symbol(first(p)) in (:sources, :configuration_source)), record)
+_identity_part(record::AbstractDict) = filter(p -> Symbol(first(p)) !== :keys, record)
+_without_sources(record::AbstractDict) =
+    filter(p -> !(Symbol(first(p)) in (:sources, :configuration_source, :keys)), record)
 # (a record of an earlier version has no `:configuration_source`: compared without it)
-_same_record(own::AbstractDict, record::AbstractDict) =
-    isequal(own, any(k -> Symbol(k) === :configuration_source, keys(own)) ? record :
-                 filter(p -> Symbol(first(p)) !== :configuration_source, record))
+function _same_record(own::AbstractDict, record::AbstractDict)
+    own = _identity_part(own)
+    return isequal(own, any(k -> Symbol(k) === :configuration_source, keys(own)) ? record :
+                        filter(p -> Symbol(first(p)) !== :configuration_source, record))
+end
 
-function _post_task(params::ParamDict, post_func, (name, record)::Pair, force::Bool, dry_run::Bool, ignore_sources::Bool)
+const _RESERVED_METADATA = (:provenance, :sources, :configuration_source, :stat_records, :postprocessed)
+
+# Pass 3 for one post-processor: it runs on the simulation and reference layers only (its own earlier statistics and
+# those of other post-processors are taken out while it runs), may add statistics and metadata, and must leave the
+# solution, the parameters and the statistics of those layers as they are (a statistic of an earlier version's file
+# that it rewrites becomes its own: `:legacy`). What it added is recorded as its statistics (`:keys`).
+function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force::Bool, dry_run::Bool, on_changed::Symbol)
     try
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
-        done = get(jldopen(f -> _file_metadata(f; strict = true), path, "r"), :postprocessed, nothing)
-        records = done isa AbstractDict ? Dict{Symbol, Any}(Symbol(k) => v for (k, v) in done) : Dict{Symbol, Any}()
-        own = get(records, name, nothing)
-        if !force && own isa AbstractDict
-            same = ignore_sources ? isequal(_without_sources(own), _without_sources(record)) : _same_record(own, record)
-            return (same ? :skipped : :outdated, nothing)
+        own, present = jldopen(path, "r") do f
+            md = _file_metadata(f; strict = true)
+            get(_post_records(md), name, nothing), Set(haskey(f, "stat_keys") ? _names(f["stat_keys"]) : Symbol[])
+        end
+        valid = own !== nothing && all(k -> k in present, get(own, :keys, Symbol[]))   # (a recomputed dataset lacks them)
+        if !force && valid
+            same = on_changed === :ignore ? isequal(_without_sources(own), _without_sources(identity)) : _same_record(own, identity)
+            same && return (:skipped, nothing)
+            on_changed === :recompute || return (:outdated, nothing)
         end
         dry_run && return (:ran, nothing)
-        records[name] = record
-        sim_data = _load_key(path, "raw")   # (with its metadata)
+        sim_data = _load_key(path, "raw")   # (with its metadata and records)
+        md, raw = sim_data.metadata, _raw_stats(sim_data)
+        records, posts = _stat_records(md), _post_records(md)
+        mine_before = own === nothing ? Symbol[] : get(own, :keys, Symbol[])
+        others = Dict{Symbol, Any}(k => raw[k] for (n, rec) in posts if n !== name for k in get(rec, :keys, Symbol[]) if haskey(raw, k))
+        foreach(k -> delete!(raw, k), union(mine_before, keys(others)))
+        before = Dict(k => _value_digest(v) for (k, v) in raw)
+        reserved = Dict(k => deepcopy(md[k]) for k in _RESERVED_METADATA if haskey(md, k))
         solution = _solution_digest(sim_data)
-        reserved = Dict(k => sim_data.metadata[k] for k in (:provenance, :sources, :configuration_source) if haskey(sim_data.metadata, k))
-        if post_func(sim_data) === true
-            # (the pipeline's metadata entries are reserved: what the post-processor did to them is undone)
-            foreach(k -> delete!(sim_data.metadata, k), (:provenance, :sources, :configuration_source))
-            merge!(sim_data.metadata, reserved)
+        added = post_func(sim_data) === true
+        if added
             # A post-processor adds statistics and metadata; it changes neither the parameters (the data would replace
-            # another run) nor the solution (the statistics would describe another one; a different result belongs
-            # into the solver). Either fails, and nothing is saved.
+            # another run), nor the solution, nor the statistics of the layers above (a different result belongs into
+            # the solver; the pipeline's statistics belong to the statistics pass). Either fails, and nothing is saved.
             _identity(_normalize_params(sim_data.params)) == _identity(_normalize_params(params)) ||
                 error("the post-processor $name changed the parameters of the data (to " *
                       "$(_param_summary(_normalize_params(sim_data.params), Set{Symbol}()))); nothing was saved")
             _solution_digest(sim_data) == solution ||
                 error("the post-processor $name changed the solution of the data; post-processors add statistics and " *
                       "metadata (a different result belongs into the solver); nothing was saved")
-            # The rewrite keeps the record of evaluated statistics, so the next run doesn't redo them; the metadata the
-            # post-processor changed is saved with the data.
-            sim_data.metadata[:postprocessed] = records
-            entries = jldopen(f -> haskey(f, "evaluated_stats") ? Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) :
-                                   Dict{String, Any}(), path, "r")
-            _save_sim_data(sim_data, true, false, entries)
+            changed = sort!([k for (k, d) in before if !haskey(raw, k) || _value_digest(raw[k]) != d])
+            adopted = filter(k -> k in records[:legacy] && haskey(raw, k), changed)
+            bad = setdiff(changed, adopted)
+            isempty(bad) || error("the post-processor $name changed or removed the statistics $(join(repr.(bad), ", ")) of " *
+                                  "the simulation or reference layer; post-processors add statistics of their own " *
+                                  "(names are unique); nothing was saved")
+            new = setdiff(keys(raw), keys(before))
+            clash = intersect(new, keys(others))
+            isempty(clash) || error("the post-processor $name added $(join(repr.(sort!(collect(clash))), ", ")), which " *
+                                    "another post-processor added already: statistic names are unique; nothing was saved")
+            mine = _names(union(new, adopted))
         else
-            _update_metadata!(path, :postprocessed => records)   # (nothing changed: only the record)
+            mine = Symbol[]
+            # (nothing to save, unless its earlier statistics are stored: they go, they belonged to an earlier run of it)
+            if isempty(intersect(mine_before, present))
+                posts[name] = merge(_identity_part(identity), Dict{Symbol, Any}(:keys => mine))
+                _update_metadata!(path, :postprocessed => posts)
+                return (:ran, nothing)
+            end
+            sim_data = _load_key(path, "raw")
+            md, raw = sim_data.metadata, _raw_stats(sim_data)
+            foreach(k -> delete!(raw, k), mine_before)
+            reserved = Dict(k => md[k] for k in _RESERVED_METADATA if haskey(md, k))
         end
+        merge!(raw, others)
+        # (the pipeline's metadata entries are reserved: what the post-processor did to them is undone)
+        foreach(k -> delete!(md, k), _RESERVED_METADATA)
+        merge!(md, reserved)
+        records = _stat_records(md)
+        records[:legacy] = setdiff(records[:legacy], mine)
+        records[:solution] = bytes2hex(solution)
+        md[:stat_records] = records
+        posts = _post_records(md)
+        posts[name] = merge(_identity_part(identity), Dict{Symbol, Any}(:keys => mine))
+        md[:postprocessed] = posts
+        _save_sim_data(sim_data, true, false, Dict{String, Any}())
         return (:ran, nothing)
     catch e
         e isa InterruptException && rethrow()
         @error "Post-processing failed for parameters $params" exception = (e, catch_backtrace())
         return (:failed, _error_text(e))
-    end
-end
-
-# The SHA-256 digest of the solution of a dataset: every value of its axes (or times and positions) and of `u`, each
-# array with its length (`Base.hash` samples large arrays and would miss a change of a few entries)
-function _solution_digest(d::AbstractSimData)
-    ctx = SHA.SHA256_CTX()
-    arrays = d isa ESimData ? (d.axes..., d.u) : Iterators.flatten(((d.t,), d.x, d.u))   # (Lagrangian: one array per step)
-    for a in arrays
-        SHA.update!(ctx, reinterpret(UInt8, [length(a)]))
-        SHA.update!(ctx, !isbitstype(eltype(a)) ? codeunits(repr(a)) :   # (e.g. BigFloat: its text)
-                         reinterpret(UInt8, a isa Array ? vec(a) : collect(a)))
-    end
-    return SHA.digest!(ctx)
-end
-
-# Whether a file is missing (or has stale) entries for any of the required statistics. A statistic that
-# was evaluated without a reference and dropped (all NaN) is due again once a reference is available.
-function _needs_stats(path::AbstractString, required::Vector{Symbol}, has_reference::Bool = false)
-    return jldopen(path, "r") do file
-        saved = haskey(file, "stat_keys") ? file["stat_keys"] : Symbol[]
-        evaluated = haskey(file, "evaluated_stats") ? file["evaluated_stats"] : Symbol[]
-        evaluated_with_reference = haskey(file, "evaluated_with_reference") ? file["evaluated_with_reference"] : false
-        file_registry = haskey(file, "registry") ? file["registry"] : nothing
-        registry = get_stat_registry()
-        for k in required
-            if k in saved
-                # present: stale only if the kept dimensions changed
-            elseif k in evaluated
-                has_reference && !evaluated_with_reference && return true
-            else
-                return true
-            end
-            file_registry === nothing || get(file_registry, k, nothing) == registry[k] || return true
-        end
-        return false
     end
 end
 
@@ -582,8 +562,9 @@ What [`run_all_simulations`](@ref) did (or, with `dry_run = true`, would do), sh
 - `ran`, `cached`, `empty` (the solver returned nothing), `failed` (`params => error message`): pass 1;
 - `changed`: stored results made with other source code (other contents of the source files, or another version of
   the solver's package), kept (`on_changed_sources = :warn`) or recomputed (`:recompute`); empty with `:ignore`;
-- `stats`, `postprocessing`: counts per outcome (`:ran`, `:cached` / `:skipped`, `:outdated` (post-processed by
-  another version of the post-processor, see [`run_all_simulations`](@ref)), `:failed`, `:missing`, `:not_run` (the
+- `stats`, `postprocessing`: counts per outcome (`:ran`, `:cached` / `:skipped`, `:outdated` (evaluated with another
+  version of the reference, or post-processed by another version of the post-processor, see
+  [`run_all_simulations`](@ref)), `:refreshed` (statistics), `:failed`, `:missing`, `:not_run` (the
   solver failed or returned nothing in pass 1: data stored before is left as it is)), and
   `stats_failed`, `postprocessing_failed` (`params => error message`);
 - `files`: the data file of each task (in the order of `tasks`), `nothing` where nothing usable is stored. After a
@@ -650,25 +631,25 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
    code (other contents of the source files, or another version of the solver's package) are handled by
    `on_changed_sources`: `:warn` keeps them and warns (once per session for the same results and code; the summary
    lists them on every run), `:recompute` runs them again, `:ignore` keeps them silently,
-2. with `calculate_stats = true`, evaluates missing statistics using the reference factory
-   `config.reference` (`params -> (x -> u_exact)`); statistics that were dropped earlier for lack of
-   a reference are evaluated again once a reference is configured, and all of them when another reference is
-   configured. Statistics evaluated with the same reference whose code changed (the file defining it, or its
-   package's version) are handled by `on_changed_sources` like solver results: `:warn` keeps them and reports them
-   as `:outdated`, `:recompute` evaluates them again, `:ignore` only looks at the package version. The statistics
-   of a file belong to one reference: if some are missing (e.g. newly registered ones), all of them are evaluated with
-   the current reference and reported as `:refreshed`.
+2. with `calculate_stats = true`, evaluates the missing registered statistics in their layers (see
+   [`stat_layer`](@ref)): those of the data alone always, those that use the reference with the reference factory
+   `config.reference` (`params -> (x -> u_exact)`; without one the reference layer is left as it is), all of them when
+   the reference layer was evaluated with another reference. A reference whose code changed (the file defining it, or
+   its package's version) is handled by `on_changed_sources` like solver results: `:warn` keeps the reference layer
+   and reports it as `:outdated`, `:recompute` evaluates it again, `:ignore` only looks at the package version. The
+   reference layer belongs to one reference: if statistics are missing (e.g. newly registered ones), all of them are
+   evaluated with the current reference and reported as `:refreshed`. When a statistic of the simulation or
+   reference layer is replaced or removed, the post-processing layer is dropped (the post-processors run again).
    `force_stats = true` recomputes every registered statistic without rerunning the simulations,
-3. with `post_process = true`, calls `config.postprocess(data)` for every dataset it hasn't post-processed yet and
-   saves the data again when it returns `true`. A post-processor adds statistics (`add_stat!`) and metadata; one that
-   changed the data's parameters or its solution fails and nothing is saved (a different result belongs into the
-   solver). Each file records the post-processor that ran (its name,
-   the source files of the run and its package's version), so it runs once per dataset and post-processor: on new
-   data, and for a post-processor of another name. Data post-processed by another version of it (other source files
-   or package version; with `on_changed_sources = :ignore` only another package version) is kept and reported as
-   `:outdated` with a warning; `force_postprocess = true` runs it on every dataset, also on data it has processed
-   already, so a post-processor should be idempotent (files of earlier versions have no record: the first run
-   post-processes them).
+3. with `post_process = true`, calls `config.postprocess(data)` for every dataset without a valid record of it and
+   saves the data again when it returns `true`. It sees the simulation and reference layers (without its own earlier
+   statistics and those of other post-processors) and adds statistics (`add_stat!`) and metadata of its own; one that
+   changed the data's parameters, its solution or a statistic of the layers above fails and nothing is saved. Each
+   file records the post-processor that ran (its name, the source files of the run, its package's version and the
+   statistics it added), so it runs once per dataset, post-processor and state of the layers above. Data
+   post-processed by another version of it (other source files or package version; with `on_changed_sources =
+   :ignore` only another package version) is kept and reported as `:outdated` with a warning under `:warn`, and
+   post-processed again under `:recompute`; `force_postprocess = true` runs it on every dataset again.
 With `dry_run = true` no solver, statistic or post-processor runs and nothing is written (the `sources` are still
 included): the summary lists what would run, and its `files` the data files the configuration needs that are stored
 already (`nothing` for those that would be computed), e.g. to copy them together with the configuration.
@@ -746,7 +727,7 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
             # (in a dry run, the tasks that would run would get their statistics and post-processing, too)
             st, err = not_run[i] ? (:not_run, nothing) :
                       dry_run && would_run[i] ? (isempty(required) ? :cached : :ran, nothing) :
-                      Base.invokelatest(_stats_task, params, ref_factory, required, force_overwrite || force_stats, dry_run,
+                      Base.invokelatest(_stats_task, params, ref_factory, force_overwrite || force_stats, dry_run,
                                         ref_record, on_changed_sources)
             stats[st] = get(stats, st, 0) + 1
             st === :failed && push!(stats_failed, params => err)
@@ -776,15 +757,15 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
             st, err = not_run[i] ? (:not_run, nothing) :
                       dry_run && would_run[i] ? (:ran, nothing) :
                       Base.invokelatest(_post_task, params, post_func, record, force_postprocess, dry_run,
-                                        on_changed_sources === :ignore)
+                                        on_changed_sources)
             post[st] = get(post, st, 0) + 1
             st === :failed && push!(post_failed, params => err)
             next!(progress)
         end
         if get(post, :outdated, 0) > 0
             @warn "$(post[:outdated]) dataset(s) were post-processed by another version of $(config.postprocess) (other " *
-                  "source files or package version) and are kept. run_all_simulations(…; force_postprocess = true) " *
-                  "applies it again, to data it has processed already: only right for an idempotent post-processor."
+                  "source files or package version) and are kept. on_changed_sources = :recompute or " *
+                  "force_postprocess = true post-processes them again."
         end
     end
 

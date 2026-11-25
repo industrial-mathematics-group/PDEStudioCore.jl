@@ -28,7 +28,7 @@ export load_sim_data, save_sim_data, get_file_name, does_sim_data_exist, list_av
 export find_sim_data, delete_sim_data, import_sim_data, check_data, SimFileNotFoundError
 export sim_data_table, tidy_sim_data
 export calculate_hash, val2str, str2val, get_clean_params, print_clean_params, param_identity, @param_struct
-export calculate_all_stats!, generate_reference_simdata, get_time_dim, has_time
+export calculate_all_stats!, stat_layer, layer_stats, generate_reference_simdata, get_time_dim, has_time
 export convert_to_eulerian, convert_to_lagrangian, resample_eulerian
 
 # --- Utilities ---
@@ -39,6 +39,7 @@ export test_advection_1d, test_burgers_1d, test_heat_1d, test_heat_2d, test_pois
 
 include("Structs.jl")
 include("SimData.jl")
+include("StatLayers.jl")
 include("Config.jl")
 include("Serialization.jl")
 include("IOUtils.jl")

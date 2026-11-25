@@ -200,7 +200,7 @@ end
     @test length(import_sim_data(moved; remove_keys = [:obsolete])) == 1
     d = load_sim_data(b)
     @test d.stats[:l1error][1] == 2.0 && d.stats[:iterations][1] == 23.0 && d.stats[:marked][1] == 1.0 && haskey(d.metadata, :postprocessed)
-    @test PDEStudioCore.JLD2.jldopen(f -> haskey(f, "evaluated_stats") && haskey(f, "evaluated_with_reference"), get_file_name(b), "r")
+    @test stat_layer(d, :l1error) === :reference && stat_layer(d, :marked) === :postprocess && stat_layer(d, :iterations) === :simulation
     s = run_all_simulations(cfg(b); calculate_stats = true)   # (nothing to do: not solved, evaluated or post-processed again)
     @test isempty(s.ran) && get(s.stats, :ran, 0) == 0 && get(s.postprocessing, :ran, 0) == 0 && ST_MARKS[] == 1
 end
@@ -376,7 +376,7 @@ st_own_error(data) = (add_stat!(data, :l1error, 7.0, :time); true)   # (a post-p
         old = PDEStudioCore.get_stat_registry()
         try
             register_stat!(:st_umax, :time)
-            cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_solver, :k => 3))
+            cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_solver, :k => 3); reference = :st_double_reference)
             s = run_all_simulations(cfg; calculate_stats = true)
             @test get(s.stats, :failed, 0) == 1 && occursin("has no `calc_stat", last(only(s.stats_failed)))
             @eval PDEStudioCore.calc_stat(::Val{:st_umax}, fixed, u, ana, domain) = maximum(u)
@@ -415,13 +415,12 @@ st_own_error(data) = (add_stat!(data, :l1error, 7.0, :time); true)   # (a post-p
         cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_large, :n => 50_000); postprocess = :st_poke)
         s = run_all_simulations(cfg; calculate_stats = true)
         @test get(s.postprocessing, :failed, 0) == 1 && load_sim_data(generate_tasks(cfg)[1]).u[1][1] == 1.0
-        # a statistic the post-processor computes itself is kept, also one the statistics pass dropped (all NaN)
+        # a post-processor can't add a registered statistic: names are unique across the layers
         st_fresh()
         cfg = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 2); postprocess = :st_own_error)
-        run_all_simulations(cfg; calculate_stats = true)   # (no reference: :l1error is all NaN, dropped)
-        @test load_sim_data(generate_tasks(cfg)[1]).stats[:l1error][1] == 7.0
         s = run_all_simulations(cfg; calculate_stats = true)
-        @test load_sim_data(generate_tasks(cfg)[1]).stats[:l1error][1] == 7.0 && get(s.postprocessing, :skipped, 0) == 1
+        @test get(s.postprocessing, :failed, 0) == 1 && occursin("is registered", last(only(s.postprocessing_failed)))
+        @test !haskey(load_sim_data(generate_tasks(cfg)[1]).stats, :l1error)
     end
 
     @testset "review of #46: quoted symbols in type parameters are data" begin
@@ -739,7 +738,7 @@ PDEStudioCore.calc_stat(::Val{:st_fallback}, fixed, u, ana, domain) =   # (the s
         d = load_sim_data(generate_tasks(mcfg)[1])
         d.metadata[:note] = "edited"
         save_sim_data(d; overwrite = true, verbose = false)
-        @test PDEStudioCore.JLD2.jldopen(f -> f["evaluated_stats"], get_file_name(generate_tasks(mcfg)[1]), "r") == [:l1error]
+        @test load_sim_data(generate_tasks(mcfg)[1]).metadata[:stat_records][:reference][:evaluated] == [:l1error]
         write(src, model(4.0))
         set_stat_registry!(Dict(:l2error => :time))
         run_all_simulations(mcfg; calculate_stats = true)
@@ -747,12 +746,12 @@ PDEStudioCore.calc_stat(::Val{:st_fallback}, fixed, u, ana, domain) =   # (the s
         run_all_simulations(mcfg; calculate_stats = true)
         @test load_sim_data(generate_tasks(mcfg)[1]).stats[:l1error][1] == 6.0   # (against B, not A's 2)
 
-        # statistics evaluated without a reference are evaluated again, all of them, once a reference is configured
+        # a statistic that uses the reference isn't evaluated without one (no fallback value), and is with one
         st_fresh()
         set_stat_registry!(Dict(:st_fallback => :time))
         fcfg(ref) = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1); reference = ref)
         run_all_simulations(fcfg(nothing); calculate_stats = true)
-        @test load_sim_data(generate_tasks(fcfg(nothing))[1]).stats[:st_fallback][1] == 1.0
+        @test !haskey(load_sim_data(generate_tasks(fcfg(nothing))[1]).stats, :st_fallback)
         @test run_all_simulations(fcfg(:st_fallback_reference); calculate_stats = true).stats == Dict(:ran => 1)
         @test load_sim_data(generate_tasks(fcfg(nothing))[1]).stats[:st_fallback][1] == 3.0
     finally
@@ -774,7 +773,7 @@ struct StTag{X} end
 @param_struct StTag
 @enum StColor st_red st_blue
 st_aux_solver(p) = create_sim_data([0.0, 1.0], [1.0, 1.0], p)
-PDEStudioCore.calc_stat(::Val{:st_aux}, fixed, u, ana, domain) = first(u)
+PDEStudioCore.calc_stat(::Val{:st_aux}, fixed, u, domain) = first(u)   # (of the data alone)
 
 @testset "Review fixes (#63)" begin
     hash_of(v) = calculate_hash(Dict(:v => v))
@@ -832,7 +831,8 @@ PDEStudioCore.calc_stat(::Val{:st_aux}, fixed, u, ana, domain) = first(u)
         save_sim_data(d; overwrite = true, verbose = false)
         @test run_all_simulations(acfg; calculate_stats = true).stats == Dict(:cached => 1)
 
-        # statistics evaluated without a reference beside ones evaluated with A: back with A, all are evaluated again
+        # a run without a reference leaves the reference layer as it is (a statistic that uses the reference isn't
+        # evaluated without one); back with A, the new one is evaluated against A
         st_fresh()
         set_stat_registry!(Dict(:st_aux => Symbol[]))
         fcfg(ref) = SimulationConfig(create_param_dict(:sim_func_name => :st_flat, :k => 1); reference = ref)
@@ -840,7 +840,7 @@ PDEStudioCore.calc_stat(::Val{:st_aux}, fixed, u, ana, domain) = first(u)
         register_stat!(:st_fallback, :time)
         run_all_simulations(fcfg(nothing); calculate_stats = true)
         q = only(generate_tasks(fcfg(nothing)))
-        @test load_sim_data(q).stats[:st_fallback][1] == 1.0
+        @test !haskey(load_sim_data(q).stats, :st_fallback)
         @test run_all_simulations(fcfg(:st_fallback_reference); calculate_stats = true).stats == Dict(:ran => 1)
         @test load_sim_data(q).stats[:st_fallback][1] == 3.0
         @test run_all_simulations(fcfg(:st_fallback_reference); calculate_stats = true).stats == Dict(:cached => 1)
@@ -899,7 +899,7 @@ st_ref_b(p) = _ -> 4.0
         run_all_simulations(c; calculate_stats = true)
         set_stat_registry!(Dict(:l2error => :time))
         run_all_simulations(c; calculate_stats = true)
-        @test PDEStudioCore.JLD2.jldopen(f -> f["evaluated_stats"], get_file_name(q), "r") == [:l1error, :l2error]
+        @test load_sim_data(q).metadata[:stat_records][:reference][:evaluated] == [:l1error, :l2error]
         c.reference = :st_ref_b
         run_all_simulations(c; calculate_stats = true)
         @test !haskey(load_sim_data(q).stats, :l1error)
@@ -932,11 +932,11 @@ st_val(p, k) = (d = load_sim_data(p); haskey(d.stats, k) ? d.stats[k][1][1] : mi
         d = load_sim_data(p)
         calculate_all_stats!(d; save = false)
         calculate_all_stats!(d)
-        @test isempty(record(p, "evaluated_stats"))
+        @test !haskey(PDEStudioCore.JLD2.jldopen(PDEStudioCore._file_metadata, get_file_name(p), "r"), :stat_records)
         @test run_all_simulations(SimulationConfig(p); calculate_stats = true).stats == Dict(:ran => 1) && st_val(p, :mass) == 2.0
 
-        # an object loaded before a later pass, saved again: its statistics differ from the stored ones, so the
-        # reference becomes unknown and the next pass evaluates them again
+        # an object loaded before a later pass, saved again: its records travel with its statistics (A's values with
+        # A's record), so the next pass with B evaluates them again
         st_fresh()
         set_stat_registry!(Dict(:l1error => :time))
         c = SimulationConfig(p; reference = :st_ref_a)
@@ -946,14 +946,15 @@ st_val(p, k) = (d = load_sim_data(p); haskey(d.stats, k) ? d.stats[k][1][1] : mi
         run_all_simulations(c; calculate_stats = true)
         early.metadata[:note] = "edited"
         save_sim_data(early; overwrite = true, verbose = false)
-        @test record(p, "evaluated_reference") == ""
+        @test occursin("st_ref_a", load_sim_data(p).metadata[:stat_records][:reference][:record]) && st_val(p, :l1error) == 2.0
         @test run_all_simulations(c; calculate_stats = true).stats == Dict(:ran => 1) && st_val(p, :l1error) == 6.0
         same = load_sim_data(p)   # (the same values: the record is kept)
         same.metadata[:note] = "again"
         save_sim_data(same; overwrite = true, verbose = false)
         @test run_all_simulations(c; calculate_stats = true).stats == Dict(:cached => 1)
 
-        # a statistics pass that drops a pipeline statistic doesn't make a post-processor run again
+        # the post-processors run again when the reference layer changes (another reference), not for a pass without
+        # a reference
         st_fresh()
         ST_PP_RUNS[] = 0
         set_stat_registry!(Dict(:l1error => :time, :l2error => :time))
@@ -962,7 +963,7 @@ st_val(p, k) = (d = load_sim_data(p); haskey(d.stats, k) ? d.stats[k][1][1] : mi
         set_stat_registry!(Dict(:l2error => :time))
         run_all_simulations(pc(:st_ref_b); calculate_stats = true)   # (drops the unregistered L1)
         run_all_simulations(pc(nothing); calculate_stats = true, force_stats = true)   # (L2 without a reference: dropped)
-        @test ST_PP_RUNS[] == 1 && st_val(p, :pp_mark) == 1.0
+        @test ST_PP_RUNS[] == 2 && st_val(p, :pp_mark) == 1.0
 
         # the pipeline's metadata entries are reserved: a post-processor can't take them out
         st_fresh()
@@ -976,15 +977,12 @@ st_val(p, k) = (d = load_sim_data(p); haskey(d.stats, k) ? d.stats[k][1][1] : mi
         write(helper, "st_helper_value() = 2.0\n")
         @test length(run_all_simulations(wc; on_changed_sources = :recompute).changed) == 1
 
-        # a statistic the solver attached (under a registered name) isn't recorded as evaluated, so it isn't dropped
+        # a solver can't attach a registered statistic (names are unique across the layers)
         st_fresh()
         set_stat_registry!(Dict(:l1error => :time, :mass => :time))
         q = create_param_dict(:sim_func_name => :st_solver_mass)
-        run_all_simulations(SimulationConfig(q; reference = :st_ref_a); calculate_stats = true)
-        @test record(q, "evaluated_stats") == [:l1error]
-        set_stat_registry!(Dict(:l1error => :time))
-        run_all_simulations(SimulationConfig(q; reference = :st_ref_b); calculate_stats = true)
-        @test st_val(q, :mass) == 123.0 && st_val(q, :l1error) == 6.0
+        s = run_all_simulations(SimulationConfig(q; reference = :st_ref_a); calculate_stats = true)
+        @test length(s.failed) == 1 && occursin("is registered", last(only(s.failed)))
 
         # the reference is recorded as it was included: a file edited while the solvers run is a changed reference
         st_fresh()

@@ -79,8 +79,10 @@ runs, and each solver shows what its docstring claims (stability limits, order, 
 - Requires Julia 1.12.
 - Breaking releases have no deprecated aliases and no migration guide. If a change the
   user asked for is breaking, say so prominently in the PR description.
-- New statistics: `register_stat!(name, kept_dims)` plus a `calc_stat(::Val{name}, …)`
-  method; test them on a case with a known exact value.
+- New statistics: `register_stat!(name, kept_dims)` plus a `calc_stat` method: `calc_stat(::Val{name}, fixed, u,
+  domain)` for one of the data alone (simulation layer), with `ana` before `domain` for one that uses the reference
+  (reference layer); see `src/StatLayers.jl`. Statistic names are unique across the layers. Test them on a case with
+  a known exact value.
 - Threaded code uses Polyester `@batch` / `Threads`; results must not depend on the thread
   count (test with `-t 1` and `-t 8` when touching it).
 - Tests use `set_save_path!(mktempdir())`; never write into the repo or the user's data.

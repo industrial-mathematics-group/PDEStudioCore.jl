@@ -23,6 +23,7 @@ include("solvers.jl")
     include("test_data.jl")
     include("test_review_fixes.jl")
     include("test_store.jl")
+    include("test_layers.jl")
 
     include("test_examples.jl")
 end

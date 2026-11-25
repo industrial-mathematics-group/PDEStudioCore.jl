@@ -240,9 +240,7 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
                 raw = _open_data(f -> (r = f["raw"]; r.metadata = _file_metadata(f); r), staged)
                 empty!(raw.params)
                 merge!(raw.params, params)
-                entries = _open_data(f -> haskey(f, "evaluated_stats") ?
-                                          Dict{String, Any}("evaluated_stats" => f["evaluated_stats"]) : Dict{String, Any}(), staged)
-                _write_sim_file(dest, raw, entries, staged)
+                _write_sim_file(dest, raw, Dict{String, Any}(), staged)   # (the records are in the metadata)
             end
         catch e
             e isa InterruptException && rethrow()

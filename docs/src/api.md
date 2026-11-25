@@ -6,5 +6,5 @@ on the [next page](api_pipeline.md).
 ```@autodocs
 Modules = [PDEStudioCore]
 Private = false
-Pages = ["PDEStudioCore.jl", "Structs.jl", "SimData.jl", "Constructors.jl", "ConversionUtils.jl", "StatCalculation.jl", "Display.jl"]
+Pages = ["PDEStudioCore.jl", "Structs.jl", "SimData.jl", "StatLayers.jl", "Constructors.jl", "ConversionUtils.jl", "StatCalculation.jl", "Display.jl"]
 ```
