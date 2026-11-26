@@ -73,8 +73,8 @@ function _files_with_params(match_params::AbstractDict)
     for path in sort!(_data_files(), by = p -> (mtime(p), basename(p)), rev = true)
         h = _filename_hash(basename(path))
         (h === nothing || islink(path)) && continue   # (the store keeps no links)
-        file_params = _file_params(path)
-        clean = _valid_stored(file_params)   # (parameters this version doesn't accept: not part of the store)
+        file_params = _store_params(path)   # (a file of another format: not part of the store)
+        clean = file_params === nothing ? nothing : _valid_stored(file_params)   # (parameters this version doesn't accept: neither)
         clean !== nothing && calculate_hash(clean) == h || continue
         _has_pairs(clean, match_params) || continue
         push!(matched, path => file_params)
@@ -145,18 +145,18 @@ end
     import_sim_data(source; filter_pairs = nothing, remove_keys = Symbol[]) -> Vector{Pair{String, String}}
 
 Copies runs into the store, the data folder of the current save path: the `.jld2` file `source`, or every `.jld2`
-file below the directory `source` (e.g. the data folder of an earlier PDEStudioCore version, of another save path or of
-another machine). Each run is stored under the hash of its parameters, as `data/<hash>.jld2` ([`calculate_hash`](@ref)).
+file below the directory `source` (e.g. the data folder of another save path or of another machine). Each run is stored under the hash of its parameters, as `data/<hash>.jld2` ([`calculate_hash`](@ref)).
 The source must lie outside the data folder (and not contain it); it is only read.
 
 Each selected source file is copied next to its destination, and that copy is checked before it is renamed into
-place: it must hold a dataset (`"raw"`) whose parameters, kind and shape are those stored in the file, in the file
-format of PDEStudioCore 0.5 and later. Files that fail (can't be read, no dataset, written by PDEStudioCore 0.4, …) are
-reported and skipped. Every copy is written atomically, so an interrupted import is simply run again.
+place: it must hold a dataset (`"raw"`) whose parameters, kind and shape are those stored in the file, in this version's
+file format (4, PDEStudioCore 0.10 and later: there is no compatibility with earlier formats; convert such data first,
+or recompute it, see "Data of earlier versions" in the manual). Files that fail (can't be read, no dataset, another
+file format, …) are reported and skipped. Every copy is written atomically, so an interrupted import is simply run again.
 
 A run that is stored already is skipped. Nothing at a destination is ever replaced: a stored file of the parameters
 that isn't a usable run (e.g. without its dataset), a file of other parameters or one whose parameters can't be read,
-and a symbolic link are reported (move or delete them, then import again). Of several source files of the same parameters the
+a file of another format, and a symbolic link are reported (move or delete them, then import again). Of several source files of the same parameters the
 first (by path) is imported, the others are reported.
 
 # Keywords
@@ -207,7 +207,7 @@ function import_sim_data(source::AbstractString; filter_pairs = nothing, remove_
             push!(skipped, src); continue
         end
         state = _file_state(dest, params)
-        if state === :other || state === :unreadable
+        if state in (:other, :unreadable, :format)
             @warn "Not imported: $src. " * sprint(showerror, _name_taken(dest, state))
             push!(failed, src); continue
         end
@@ -308,7 +308,8 @@ function tidy_sim_data(; dry_run::Bool = false, min_tmp_age::Real = 3600)
     isdir(dir) || return (temp_files = temp_files, foreign = foreign)
     for path in _data_files(dir)
         h = _filename_hash(basename(path))
-        clean = h === nothing || islink(path) ? nothing : _valid_stored(_file_params(path))
+        p = h === nothing || islink(path) ? nothing : _store_params(path)
+        clean = p === nothing ? nothing : _valid_stored(p)
         clean !== nothing && calculate_hash(clean) == h || push!(foreign, path)
     end
     now_s = time()

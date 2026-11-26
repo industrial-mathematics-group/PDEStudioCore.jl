@@ -108,7 +108,9 @@ function _wide_l2(g, measure, us...)
     fast(a, c) = measure_ok && isfinite(a) && a >= sqrt(floatmin(F)) && isfinite(c) && c >= sqrt(floatmin(F) / eps(F))
     all(map(fast, s, m)) && return s
     m1 = map(x -> isfinite(x) && !iszero(x) ? x : one(x), m)
-    scaled = m1 .* sqrt(measure) .* sqrt.(_wide_sum((vs...) -> abs2.(g(vs...) ./ m1), us..., one(F)))
+    # (√measure times the norm of the scaled values first: a normal number, as the norm is between 1 and √n; then one
+    # product with the largest magnitude, rounded once: the result is a subnormal or Inf only if the norm itself is)
+    scaled = m1 .* (sqrt(measure) .* sqrt.(_wide_sum((vs...) -> abs2.(g(vs...) ./ m1), us..., one(F))))
     return map((a, b, c, u) -> u || !isfinite(c) ? a : iszero(c) ? zero(a) : fast(a, c) ? a : b, s, scaled, m, undefined)
 end
 # The L2 norm of a registered statistic. Its integration measure, the product of the spacings of the dimensions it

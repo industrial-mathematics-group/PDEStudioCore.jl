@@ -314,7 +314,7 @@ function run_smart_simulation(sim_func, params::AbstractDict; force_overwrite::B
     md[:provenance] = _provenance(solver = sim_func, wall_time = wall_time)
     delete!(md, :postprocessed)
     delete!(md, :stat_records)   # (the solver's output: its statistics are the simulation layer's)
-    _save_sim_data(sim_data, true, false, Dict{String, Any}(); replace_earlier = true)   # (new data: replaces any format)
+    _save_sim_data(sim_data, true, false, Dict{String, Any}())
     return sim_data
 end
 
@@ -412,7 +412,7 @@ function _stats_task(params::ParamDict, ref_factory, force_overwrite::Bool, dry_
         path === nothing && return (:missing, nothing, false)
         reference = ref_factory === nothing ? nothing : ref_record
         plan = jldopen(path, "r") do f
-            (v = _format_version(f)) >= _FORMAT_VERSION || throw(_earlier_format(path, v))
+            (v = _format_version(f)) == _FORMAT_VERSION || throw(_earlier_format(path, v))
             md = _file_metadata(f; strict = true)
             present = haskey(f, "stat_keys") ? _names(f["stat_keys"]) : Symbol[]
             dims = haskey(f, "registry") ? f["registry"] : Dict{Symbol, Any}()
@@ -482,7 +482,7 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
         own, present, basis = jldopen(path, "r") do f
-            (v = _format_version(f)) >= _FORMAT_VERSION || throw(_earlier_format(path, v))
+            (v = _format_version(f)) == _FORMAT_VERSION || throw(_earlier_format(path, v))
             md = _file_metadata(f; strict = true)
             get(_post_records(md), name, nothing), Set(haskey(f, "stat_keys") ? _names(f["stat_keys"]) : Symbol[]),
             get(_stat_records(md), :basis, nothing)

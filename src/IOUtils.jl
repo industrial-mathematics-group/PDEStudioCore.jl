@@ -23,10 +23,9 @@ const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shap
                        "evaluated_stats", "evaluated_with_reference", "evaluated_reference", "format_version", "metadata")
 
 # The layout of the data files: 4 = the statistic layers, their records in the metadata (PDEStudioCore 0.10 and later).
-# There is no compatibility with earlier layouts (3: PDEStudioCore 0.5 to 0.9, with the "evaluated_*" statistic records;
-# 0.4: 0 to 2): their data can be loaded, but the statistics and post-processing passes refuse them, and they are
-# neither imported nor written again in place (a recomputed run replaces them). A change of the layout, or of what the
-# records mean, is a new format version.
+# There is no compatibility with other layouts (3: PDEStudioCore 0.5 to 0.9, with the "evaluated_*" statistic records;
+# 0.4: 0 to 2; or a later one): such files aren't part of the store (`_store_params`): not found, listed, loaded,
+# imported or replaced. A change of the layout, or of what the records mean, is a new format version.
 const _FORMAT_VERSION = 4
 
 """
@@ -112,13 +111,20 @@ function _file_for(normalized::AbstractDict, hash_val::AbstractString = calculat
     return path
 end
 
-# What the file at `path` holds: :missing (no file), :same (the parameters `normalized`), :other (other parameters) or
-# :unreadable (its parameters can't be read, or it is a symbolic link: the store keeps no links). Reads the file again.
+# What the file at `path` holds: :missing (no file), :same (the parameters `normalized`), :other (other parameters),
+# :format (a file of another format: not part of the store) or :unreadable (its parameters can't be read, or it is a
+# symbolic link: the store keeps no links). Reads the file again.
 function _file_state(path::AbstractString, normalized::AbstractDict)
     ispath(path) || islink(path) || return :missing
     ident = _stored_identity(path; fresh = true)
-    return ident === nothing ? :unreadable : ident == _identity(normalized) ? :same : :other
+    ident === nothing || return ident == _identity(normalized) ? :same : :other
+    v = islink(path) ? nothing : try _file_format(path) catch; nothing end
+    return v isa Integer && v != _FORMAT_VERSION ? :format : :unreadable
 end
+
+# The parameters stored in a file that is part of the store (written in this version's file format), else `nothing`:
+# files of other formats are neither found, listed, loaded nor replaced (no compatibility; see "Data of earlier versions")
+_store_params(path::AbstractString) = (try _file_format(path) catch; nothing end) == _FORMAT_VERSION ? _file_params(path) : nothing
 
 # The canonical encoding of the parameters stored in a file (`nothing` if there is none or they can't be read), read
 # once per file version: a version is the file's inode, size and modification time, so a file replaced by another
@@ -139,8 +145,8 @@ function _stored_identity(path::AbstractString; fresh::Bool = false)
         hit = lock(() -> get(_STORED_IDENTITY, path, nothing), _STORED_LOCK)
         !isnothing(hit) && hit[1] == version && return hit[2]
     end
-    p = _file_params(path)
-    clean = _valid_stored(p)
+    p = _store_params(path)
+    clean = p === nothing ? nothing : _valid_stored(p)
     ident = clean === nothing ? nothing : _identity(clean)
     lock(_STORED_LOCK) do
         length(_STORED_IDENTITY) >= _STORED_MAX && empty!(_STORED_IDENTITY)
@@ -431,7 +437,7 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
     # written (a stored native run is kept without `overwrite`: the dataset stays derived)
     derived = writes ? pop!(sim_data.metadata, :derived, nothing) : nothing
     try
-        return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}(); replace_earlier = !same)
+        return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}())
     catch
         isnothing(derived) || (sim_data.metadata[:derived] = derived)
         rethrow()
@@ -579,8 +585,7 @@ end
 
 # `save_sim_data` without the check of the metadata keys, so internal callers can write managed entries
 # in the same atomic write as the data.
-function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Bool, metadata::AbstractDict; drop = (),
-                        replace_earlier::Bool = false)
+function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Bool, metadata::AbstractDict; drop = ())
     normalized = _normalize_params(sim_data.params)
     empty!(sim_data.params)
     merge!(sim_data.params, normalized)
@@ -594,9 +599,6 @@ function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Boo
         verbose && @info "Saved simulation data to $(basename(path))"
     elseif state === :same
         if overwrite
-            # (a file of an earlier format is only replaced by new data, e.g. a recomputed run: its statistic records
-            # can't be read, so the same data written again would carry statistics without them)
-            replace_earlier || (v = _file_format(path)) >= _FORMAT_VERSION || throw(_earlier_format(path, v))
             _write_sim_file(path, sim_data, metadata, path; drop)
             verbose && @info "Saved simulation data to $(basename(path)) (replaced; conversion caches cleared)"
         else
@@ -611,7 +613,11 @@ end
 
 # The error for a file name of parameters that is taken by a file of other parameters (`state = :other`) or one whose
 # parameters can't be read (`:unreadable`): such a file is never replaced
-_name_taken(path::AbstractString, state::Symbol) = ErrorException(
+_name_taken(path::AbstractString, state::Symbol) = state === :format ? ErrorException(
+    "Not saved: $path, the file of these parameters, is a file of another format (file format $(_file_format(path)); " *
+    "this version reads and writes format $_FORMAT_VERSION only), which isn't part of the store and is never replaced. " *
+    "Convert the store, or move the file away, then save again (see \"Data of earlier versions\" in the manual).") :
+    ErrorException(
     "Not saved: $path, the file of these parameters, " *
     (state === :other ? "holds the data of other parameters" :
      islink(path) ? "is a symbolic link (the store keeps no links)" : "is there, but its parameters can't be read") *
@@ -623,7 +629,7 @@ function _check_name_free(params::AbstractDict)
     clean = _normalize_params(params)
     path = _hash_path(calculate_hash(clean))
     state = _file_state(path, clean)
-    state in (:other, :unreadable) && throw(_name_taken(path, state))
+    state in (:other, :unreadable, :format) && throw(_name_taken(path, state))
     return nothing
 end
 save_sim_data(::NoSimData; kwargs...) = nothing
@@ -724,6 +730,7 @@ function load_sim_data(hash_prefix::AbstractString; index::Int = 1, key::Union{N
     1 <= index <= length(files) || throw(ArgumentError(
         "requested index $index, but only $(length(files)) file(s) match '$hash_prefix'"))
     path = files[index]
+    (v = _file_format(path)) == _FORMAT_VERSION || throw(_earlier_format(path, v))   # (not part of the store)
     @info "Manual load: $(length(files)) matching file(s); loading index $index: $(basename(path))"
     key === nothing || return _load_key(path, String(key))
     return _open_data(path) do file   # (every entry, groups as "group/entry"; the datasets with the file's metadata)
@@ -768,10 +775,9 @@ _file_format(path::AbstractString) = jldopen(_format_version, path, "r")
 
 # The error for a file of an earlier format where this version would read or write its statistics
 _earlier_format(path::AbstractString, v::Integer) = ErrorException(
-    "$(basename(path)) was written by an earlier version of PDEStudioCore (file format $v; this version reads and " *
-    "writes format $_FORMAT_VERSION): its statistic records can't be read, so its statistics are neither evaluated, " *
-    "post-processed nor written again here. Its data loads as it is. Recompute the run " *
-    "(`run_all_simulations(config; force_overwrite = true)`), or convert the store (see \"Data of earlier versions\" in the manual).")
+    "$(basename(path)) was written by " * (v > _FORMAT_VERSION ? "a later" : "an earlier") * " version of PDEStudioCore " *
+    "(file format $v; this version reads and writes format $_FORMAT_VERSION only): it isn't part of the store. Convert " *
+    "the store, or move the file away and recompute the run (see \"Data of earlier versions\" in the manual).")
 
 # Writes a file again, with the same data (and metadata `changes`): :rewritten, or :unreadable
 function _rewrite_file!(path::AbstractString, changes::Pair...)
