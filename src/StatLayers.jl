@@ -18,10 +18,7 @@
 #                      every write): a post-processor's record holds the one it ran on,
 #       :simulation => Dict(:evaluated => names, :empty => names),       # the registered statistics of the data
 #       :reference  => Dict(:record => the reference (`_reference_record`), :evaluated => names, :empty => names),
-#       :legacy     => names,   # (a file of an earlier version: statistics of unknown origin, taken over by the pass
-#                                  # that evaluates them again: the statistics pass or a post-processor)
-#       :legacy_derived => names)  # (those of them the statistics pass of that version evaluated: derived from the
-#                                  # solution and parameters, dropped when these change)
+#       )
 #   :postprocessed => Dict(name => Dict(the post-processor's identity…, :keys => the statistics it added))
 # `:evaluated` lists what the statistics pass evaluated; `:empty` those of them without a result (all NaN: dropped).
 
@@ -43,9 +40,7 @@ end
 function _stat_records(md::AbstractDict)
     r = get(md, :stat_records, nothing)
     r = r isa AbstractDict ? Dict{Symbol, Any}(Symbol(k) => v for (k, v) in r) : Dict{Symbol, Any}()
-    out = Dict{Symbol, Any}(:simulation => something(_layer_record(get(r, :simulation, nothing)), _empty_layer()),
-                            :legacy => _names(get(r, :legacy, nothing)),
-                            :legacy_derived => _names(get(r, :legacy_derived, nothing)))
+    out = Dict{Symbol, Any}(:simulation => something(_layer_record(get(r, :simulation, nothing)), _empty_layer()))
     s = get(r, :solution, nothing)
     s isa AbstractString && (out[:solution] = String(s))
     for k in (:params, :basis)
@@ -144,9 +139,8 @@ function _stat_fingerprint(data::AbstractSimData, k::Symbol)
     return SHA.digest!(ctx)
 end
 
-# The fingerprint of the statistics above the post-processing layer (all but the post-processors', including those of
-# unknown origin, `:legacy`, which count as the simulation layer): a post-processor's record is valid while it is the
-# one it ran on
+# The fingerprint of the statistics above the post-processing layer (all but the post-processors'): a post-processor's
+# record is valid while it is the one it ran on
 function _upstream_basis(data::AbstractSimData)
     md = data.metadata
     skip = _post_keys(_post_records(md))
@@ -186,55 +180,12 @@ function _value_digest(v)
     return SHA.digest!(ctx)
 end
 
-# The records of a file written by an earlier version ("evaluated_stats", post-processing records without the
-# statistics they added), read as records of this version without guessing layers (that would depend on which
-# `calc_stat` methods are loaded): its statistics evaluated by the statistics pass, and if a post-processor ran its
-# other statistics, are `:legacy`, of unknown origin. Nothing of them is dropped: the statistics pass evaluates the
-# registered ones again and takes them over (once), a post-processor takes over the ones it changes. Its solution
-# digest and parameter hash are stamped when the data is loaded (`_stamp_records!`).
-function _migrate_records!(md::Dict{Symbol, Any}, file)
-    if haskey(md, :stat_records)
-        r = _stat_records(md)
-        haskey(r, :basis) && return md
-        # (records without a basis were written before it existed, by the unreleased 0.10.0 snapshot before #70, whose
-        # migration guessed layers from the methods loaded: read like an earlier version's, their evaluated statistics
-        # of unknown origin, taken over again)
-        stored = setdiff(haskey(file, "stat_keys") ? _names(file["stat_keys"]) : Symbol[], [:Solution])
-        evaluated = intersect(union(r[:simulation][:evaluated], get(get(r, :reference, Dict{Symbol, Any}()), :evaluated, Symbol[])), stored)
-        md[:stat_records] = Dict{Symbol, Any}(:simulation => _empty_layer(), :legacy => _names(union(r[:legacy], evaluated)),
-                                              :legacy_derived => _names(union(r[:legacy_derived], evaluated)))
-        return md
-    end
-    has_posts = !isempty(_post_records(md))
-    (haskey(file, "evaluated_stats") || has_posts) || return md
-    evaluated = haskey(file, "evaluated_stats") ? _names(file["evaluated_stats"]) : Symbol[]
-    stored = setdiff(haskey(file, "stat_keys") ? _names(file["stat_keys"]) : Symbol[], [:Solution])
-    legacy = union(intersect(evaluated, stored), has_posts ? setdiff(stored, evaluated) : Symbol[])
-    md[:stat_records] = Dict{Symbol, Any}(:simulation => _empty_layer(), :legacy => _names(legacy),
-                                          :legacy_derived => _names(intersect(evaluated, stored)))
-    return md
-end
-
 _params_hash(data::AbstractSimData) = calculate_hash(data.params)
-
-# Stamps the solution digest and the parameter hash into records that lack them (records of an earlier version, read
-# with the data they describe: `_load_key`), so a change made to the data afterwards is recognised
-function _stamp_records!(data::AbstractSimData)
-    md = data.metadata
-    haskey(md, :stat_records) || return data
-    r = _stat_records(md)
-    haskey(r, :solution) && haskey(r, :params) && return data
-    haskey(r, :solution) || (r[:solution] = _solution_hex(data))
-    haskey(r, :params) || (r[:params] = _params_hash(data))
-    md[:stat_records] = r
-    return data
-end
 
 # Drops the statistics whose records describe other data than the dataset's, with their records: for another solution
 # the registered statistics of the simulation layer and the reference and post-processing layers, for other parameters
 # (the reference and the post-processors get them) the reference and post-processing layers. `same`: whether the data is
-# the one the records were read with, for records without a digest. The statistics of an earlier version's
-# post-processor (`:legacy`, unknown which) stay listed. Returns whether it dropped.
+# the one the records were read with, for records without a digest. Returns whether it dropped.
 function _drop_stale_layers!(data::AbstractSimData; same::Bool = true)
     md = data.metadata
     (haskey(md, :stat_records) || haskey(md, :postprocessed)) || return false
@@ -246,10 +197,8 @@ function _drop_stale_layers!(data::AbstractSimData; same::Bool = true)
     raw = _raw_stats(data)
     derived = union(haskey(r, :reference) ? r[:reference][:evaluated] : Symbol[], _post_keys(_post_records(md)))
     solution_ok || (derived = union(derived, r[:simulation][:evaluated]))
-    derived = union(derived, r[:legacy_derived])   # (an earlier version's statistics: unknown which depend on what)
     foreach(k -> delete!(raw, k), derived)
-    kept = Dict{Symbol, Any}(:simulation => solution_ok ? r[:simulation] : _empty_layer(),
-                             :legacy => setdiff(r[:legacy], derived))
+    kept = Dict{Symbol, Any}(:simulation => solution_ok ? r[:simulation] : _empty_layer())
     md[:stat_records] = kept
     delete!(md, :postprocessed)
     return true
@@ -311,7 +260,7 @@ function _plan_stats(records::AbstractDict, posts::AbstractDict, present, dims::
     # (statistics that aren't registered any more stay, still valid, until their layer is evaluated afresh: `force`, or
     # for the reference layer another reference; a pass with a smaller registry doesn't remove what others evaluated)
     sim = records[:simulation]
-    sim_stale = force ? union(setdiff(sim[:evaluated], data_names), setdiff(records[:legacy_derived], registered)) : Symbol[]
+    sim_stale = force ? setdiff(sim[:evaluated], data_names) : Symbol[]
     sim_due = filter(n -> needs(sim, n), data_names)
 
     ref = get(records, :reference, nothing)
@@ -341,7 +290,7 @@ function _plan_stats(records::AbstractDict, posts::AbstractDict, present, dims::
     recorded = union(sim[:evaluated], ref === nothing ? Symbol[] : ref[:evaluated])
     post_keys = _post_keys(posts)
     for n in union(sim_due, ref_due)
-        (n in present && !(n in recorded) && !(n in records[:legacy])) || continue   # (a legacy statistic is taken over)
+        (n in present && !(n in recorded)) || continue
         owner = n in post_keys ? "the post-processor that added it" : "the solver, or `add_stat!`"
         return _StatPlan(status = :failed, error =
             "the statistic :$n is registered, but the dataset has a statistic :$n from $owner; statistic names are " *
