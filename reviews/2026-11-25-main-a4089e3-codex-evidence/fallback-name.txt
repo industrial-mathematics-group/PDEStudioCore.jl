@@ -1,0 +1,2 @@
+A registered reference statistic implemented under the allowed name: Dict(:failed => 1) failures=["the statistic :__no_statistic__ is registered (`register_stat!`), but has no `calc_stat` method (neither `calc_stat(::Val{:__no_statistic__}, fixed_coords, u, domain)` nor one with `ana` before `domain`): a missing `include`, a typo in the name, or a preset loaded later?"]
+A different registered name with no implementation: Dict(:cached => 1) failures=String[]

@@ -1,0 +1,3 @@
+Before callback: calibration layer=simulation
+After callback: Dict(:ran => 1) calibration=47.0 layer=simulation owned=Symbol[]
+After statistics refresh: Dict(:ran => 1) has solver calibration=true

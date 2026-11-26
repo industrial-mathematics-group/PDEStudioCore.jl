@@ -1,0 +1,2 @@
+Before refresh: mass layer=simulation
+After refresh: Dict(:ran => 1) mass present=true
