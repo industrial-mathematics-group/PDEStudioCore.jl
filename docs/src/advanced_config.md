@@ -68,7 +68,7 @@ config = SimulationConfig(shared, methods, [:upwind];
 run_all_simulations(config; calculate_stats = true)
 ```
 
-The reference may return an `SVector`, a tuple/vector or (for scalar fields) a plain number. It is evaluated once at every grid node or particle, in parallel. Statistics that come out entirely `NaN` (for example errors without a reference) are dropped.
+The factory (like the solver and the post-processor) is looked up by name in the target module ([`set_target_module!`](@ref), default `Main`): it must be defined there, imported functions aren't resolved. A function of a package is named through a wrapper in the configuration's source file, e.g. `analytical_solution(p) = HyperCloud.analytical_solution(p)`. A reference or post-processor that doesn't resolve is an error before anything runs. The reference may return an `SVector`, a tuple/vector or (for scalar fields) a plain number. It is evaluated once at every grid node or particle, in parallel. Statistics that come out entirely `NaN` (for example errors without a reference) are dropped.
 
 Methods whose name contains a word starting with `analytic`, `reference`, `exact`, `baseline` or `true` (e.g. `:analytic`, `:exact_solution`) are treated as reference methods and skipped by the pipeline; frontends can generate them on demand with [`generate_reference_simdata`](@ref).
 
