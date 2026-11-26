@@ -89,37 +89,46 @@ function _wide_sum(f, u, ana, measure)
     return sum(map((v, a) -> f(_wide.(v), _wide.(a)) .* measure, u, ana))
 end
 _narrow(u, x) = map(eltype(eltype(u)), x)
-# The L2 norm `sqrt(∑ g(v)² * measure)` per component (`g` gives the magnitudes, e.g. `abs.(v - a)`): as `_wide_sum`,
-# and where that overflows for finite values (squares times the measure beyond `floatmax`), again with the values
-# scaled by their largest magnitude (the result is the same where nothing overflows: computed only then)
-function _wide_l2(g, measure, us...; log_measure = log(measure))
+# The L2 norm `sqrt(∑ g(v)² * measure)` per component (`g` gives the magnitudes, e.g. `abs.(v - a)`) for a measure
+# that is zero or a normal float (`_l2_stat` checks it): as `_wide_sum` where nothing in the sum overflows, underflows
+# or is subnormal (bit-identical to the plain formula there), else with the values scaled by their largest magnitude.
+# A component with an undefined (NaN) value is NaN.
+function _wide_l2(g, measure, us...)
     sq(vs...) = abs2.(g(vs...))
     s = sqrt.(_wide_sum(sq, us..., measure))
-    isempty(first(us)) && return map(x -> isnan(x) ? zero(x) : x, s)   # (no values: 0, also with an infinite measure)
-    # (per component, the largest finite magnitude, ignoring NaNs)
+    isempty(first(us)) && return s
+    mags = map((vs...) -> g(map(v -> _wide.(v), vs)...), us...)
     nanmax(x, y) = isnan(x) ? y : isnan(y) ? x : max(x, y)
-    m = reduce((a, b) -> map(nanmax, a, b), map((vs...) -> g(map(v -> _wide.(v), vs)...), us...))
+    m = reduce((a, b) -> map(nanmax, a, b), mags)                    # (per component, the largest magnitude)
+    undefined = reduce((a, b) -> a .| b, map(v -> isnan.(v), mags))   # (per component, whether a value is NaN)
     F = eltype(m)
-    measure_ok = isfinite(measure) && measure >= floatmin(F)
-    # The plain sum is exact to rounding where nothing in it overflows, underflows or is subnormal: a normal measure, a
-    # largest magnitude whose square is far above floatmin (the smaller squares can't matter then), a normal result
+    measure_ok = measure >= floatmin(F)
+    # (the plain sum is exact to rounding with a normal measure, a largest magnitude whose square is far above floatmin
+    # (the smaller squares can't matter then) and a normal result)
     fast(a, c) = measure_ok && isfinite(a) && a >= sqrt(floatmin(F)) && isfinite(c) && c >= sqrt(floatmin(F) / eps(F))
     all(map(fast, s, m)) && return s
-    # (the scaled sum without the measure; their product directly where the measure and the product are normal floats,
-    # exact to an ulp, else in log space, the measure from the logs of its factors, so no intermediate overflows or
-    # underflows: accurate to about 1e-14 there)
     m1 = map(x -> isfinite(x) && !iszero(x) ? x : one(x), m)
-    t = sqrt.(_wide_sum((vs...) -> abs2.(g(vs...) ./ m1), us..., one(F)))
-    direct = measure_ok ? m1 .* sqrt(measure) .* t : m1 .* F(NaN)
-    normal(x) = isfinite(x) && x >= floatmin(F)
-    scaled = map((dc, mc, tc) -> normal(dc) ? dc : exp(log(mc) + log_measure / 2 + log(tc)), direct, m1, t)
-    return map((a, b, c) -> iszero(c) ? zero(a) : !isfinite(c) || fast(a, c) ? a : b, s, scaled, m)
+    scaled = m1 .* sqrt(measure) .* sqrt.(_wide_sum((vs...) -> abs2.(g(vs...) ./ m1), us..., one(F)))
+    return map((a, b, c, u) -> u || !isfinite(c) ? a : iszero(c) ? zero(a) : fast(a, c) ? a : b, s, scaled, m, undefined)
 end
-# The L2 norm of a registered statistic: its measure, and the log of its measure as the sum of the logs of the spacings
-_l2_stat(g, stat::Symbol, domain::DomainInfo{D, T}, us...) where {D, T} =
-    _wide_l2(g, _wide_measure(stat, domain), us...;
-             log_measure = (kept = get_kept_dims(stat, domain);
-                            sum((log(_wide(domain.spacing[d])) for d in 1:D if !(domain.dim_keys[d] in kept)); init = zero(_wide(one(T))))))
+# The L2 norm of a registered statistic. Its integration measure, the product of the spacings of the dimensions it
+# integrates out, must stay in the range of normal floats (or be zero) while it is formed: outside it the norm can't be
+# computed reliably, and that is an error (grids with such spacings aren't supported by the L2 statistics)
+function _l2_stat(g, stat::Symbol, domain::DomainInfo{D, T}, us...) where {D, T}
+    kept = get_kept_dims(stat, domain)
+    p, zero_spacing = _wide(one(T)), false
+    for d in 1:D
+        domain.dim_keys[d] in kept && continue
+        h = _wide(domain.spacing[d])
+        zero_spacing |= iszero(h)   # (a spacing of zero: the measure is zero, exactly)
+        p *= h
+        (zero_spacing || (isfinite(p) && p >= floatmin(p))) || throw(ArgumentError(
+            "the integration measure of :$stat (the product of the spacings of the dimensions it integrates out, " *
+            "$(Tuple(domain.spacing[i] for i in 1:D if !(domain.dim_keys[i] in kept)))) leaves the range of " *
+            "$(typeof(p)): the L2 statistics need it, and its partial products, between floatmin and floatmax"))
+    end
+    return _wide_l2(g, _wide_measure(stat, domain), us...)
+end
 
 # --- add_stat! ---------------------------------------------------------------
 
@@ -336,9 +345,6 @@ function _apply_stat_plan!(data::AbstractSimData, plan::_StatPlan, ref_func, ref
     end
     r[:simulation] = sim
     ref === nothing || (r[:reference] = ref)
-    for k in (:legacy, :legacy_derived)   # (evaluated again: taken over; or dropped)
-        r[k] = setdiff(r[k], union(plan.sim_due, plan.ref_due, plan.sim_stale, plan.ref_stale))
-    end
     r[:solution] = _solution_hex(data)
     r[:params] = _params_hash(data)
     md[:stat_records] = r

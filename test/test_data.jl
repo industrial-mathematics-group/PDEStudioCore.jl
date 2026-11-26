@@ -432,7 +432,7 @@ end
         p = create_param_dict(:n => 5, :kind => "eul")
         @test !does_sim_data_exist(p) && size(sim_data_table(), 1) == 0
         @test sort(tidy_sim_data().foreign) == sort(joinpath.(dir, readdir(fixtures)))   # (listed, not deleted)
-        r = @test_logs (:warn, r"PDEStudioCore 0.4") match_mode = :any import_sim_data(fixtures)
+        r = @test_logs (:warn, r"earlier version of PDEStudioCore \(file format [0-2];") match_mode = :any import_sim_data(fixtures)
         @test isempty(r) && length(readdir(dir)) == 2   # (nothing imported, nothing changed)
     end
 end

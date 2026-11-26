@@ -22,9 +22,12 @@ const _ENABLE_CONV_CACHE = Ref{Bool}(false)
 const _MANAGED_KEYS = ("raw", "native", "params", "stat_keys", "registry", "shape", "dim_keys", "time_dim",
                        "evaluated_stats", "evaluated_with_reference", "evaluated_reference", "format_version", "metadata")
 
-# The layout of the data files: 3 = datasets with the `metadata` field, stored as "metadata" (PDEStudioCore 0.5 and
-# later). Files of earlier layouts (0.4: 0 without the fast metadata, 1, 2) aren't read since 0.7.
-const _FORMAT_VERSION = 3
+# The layout of the data files: 4 = the statistic layers, their records in the metadata (PDEStudioCore 0.10 and later).
+# There is no compatibility with earlier layouts (3: PDEStudioCore 0.5 to 0.9, with the "evaluated_*" statistic records;
+# 0.4: 0 to 2): their data can be loaded, but the statistics and post-processing passes refuse them, and they are
+# neither imported nor written again in place (a recomputed run replaces them). A change of the layout, or of what the
+# records mean, is a new format version.
+const _FORMAT_VERSION = 4
 
 """
     enable_cache!(val::Bool)
@@ -177,7 +180,6 @@ function _load_key(path::AbstractString, key::AbstractString)
         haskey(file, key) || throw(SimFileNotFoundError("Key '$key' not found in $(basename(path))."))
         value = file[key]
         value isa AbstractSimData && (value.metadata = _entry_metadata(_file_metadata(file), key))   # (stored once, next to the data)
-        value isa AbstractSimData && key == "raw" && _stamp_records!(value)   # (records of an earlier version: of this data)
         return value
     end
 end
@@ -429,7 +431,7 @@ function save_sim_data(sim_data::AbstractSimData; overwrite::Bool = false, verbo
     # written (a stored native run is kept without `overwrite`: the dataset stays derived)
     derived = writes ? pop!(sim_data.metadata, :derived, nothing) : nothing
     try
-        return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}())
+        return _save_sim_data(sim_data, overwrite, verbose, Dict{String, Any}(); replace_earlier = !same)
     catch
         isnothing(derived) || (sim_data.metadata[:derived] = derived)
         rethrow()
@@ -480,8 +482,7 @@ function _file_metadata(file; strict::Bool = false)
         @warn "The metadata of $(basename(file.path)) can't be read; the data is loaded without it" exception = e
         return Dict{Symbol, Any}()
     end
-    md = v isa AbstractDict ? _metadata_dict(v) : Dict{Symbol, Any}(:metadata => v)
-    return _migrate_records!(md, file)   # (a file of an earlier version: its records as this version's)
+    return v isa AbstractDict ? _metadata_dict(v) : Dict{Symbol, Any}(:metadata => v)
 end
 
 # Changes the stored metadata of a file without rewriting its data (`nothing` removes an entry)
@@ -578,7 +579,8 @@ end
 
 # `save_sim_data` without the check of the metadata keys, so internal callers can write managed entries
 # in the same atomic write as the data.
-function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Bool, metadata::AbstractDict; drop = ())
+function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Bool, metadata::AbstractDict; drop = (),
+                        replace_earlier::Bool = false)
     normalized = _normalize_params(sim_data.params)
     empty!(sim_data.params)
     merge!(sim_data.params, normalized)
@@ -592,6 +594,9 @@ function _save_sim_data(sim_data::AbstractSimData, overwrite::Bool, verbose::Boo
         verbose && @info "Saved simulation data to $(basename(path))"
     elseif state === :same
         if overwrite
+            # (a file of an earlier format is only replaced by new data, e.g. a recomputed run: its statistic records
+            # can't be read, so the same data written again would carry statistics without them)
+            replace_earlier || (v = _file_format(path)) >= _FORMAT_VERSION || throw(_earlier_format(path, v))
             _write_sim_file(path, sim_data, metadata, path; drop)
             verbose && @info "Saved simulation data to $(basename(path)) (replaced; conversion caches cleared)"
         else
@@ -758,6 +763,15 @@ function _format_version(file)
     v isa Integer && v >= 2 && haskey(file, "dim_keys") || return haskey(file, "native") && haskey(file, "shape") ? 1 : 0
     return v >= 3 && !haskey(file, "metadata") ? 2 : Int(v)   # (written by these versions)
 end
+
+_file_format(path::AbstractString) = jldopen(_format_version, path, "r")
+
+# The error for a file of an earlier format where this version would read or write its statistics
+_earlier_format(path::AbstractString, v::Integer) = ErrorException(
+    "$(basename(path)) was written by an earlier version of PDEStudioCore (file format $v; this version reads and " *
+    "writes format $_FORMAT_VERSION): its statistic records can't be read, so its statistics are neither evaluated, " *
+    "post-processed nor written again here. Its data loads as it is. Recompute the run " *
+    "(`run_all_simulations(config; force_overwrite = true)`), or convert the store (see \"Data of earlier versions\" in the manual).")
 
 # Writes a file again, with the same data (and metadata `changes`): :rewritten, or :unreadable
 function _rewrite_file!(path::AbstractString, changes::Pair...)

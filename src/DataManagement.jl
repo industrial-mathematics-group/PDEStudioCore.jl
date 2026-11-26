@@ -270,7 +270,9 @@ end
 function _run_problem(path::AbstractString)
     try
         return jldopen(path, "r") do f
-            _format_version(f) >= _FORMAT_VERSION || return "it was written by PDEStudioCore 0.4, which this version doesn't read"
+            (v = _format_version(f)) == _FORMAT_VERSION || return "it was written by " *
+                (v > _FORMAT_VERSION ? "a later" : "an earlier") * " version of PDEStudioCore (file format $v; this version " *
+                "imports format $_FORMAT_VERSION only: recompute it, or convert it first)"
             all(k -> haskey(f, k), ("raw", "native", "shape", "params")) || return "it has no dataset or no fast metadata"
             raw, stored = f["raw"], f["params"]
             raw isa AbstractSimData || return "its \"raw\" entry is no dataset (a $(typeof(raw)))"

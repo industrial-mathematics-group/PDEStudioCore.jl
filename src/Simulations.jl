@@ -314,7 +314,7 @@ function run_smart_simulation(sim_func, params::AbstractDict; force_overwrite::B
     md[:provenance] = _provenance(solver = sim_func, wall_time = wall_time)
     delete!(md, :postprocessed)
     delete!(md, :stat_records)   # (the solver's output: its statistics are the simulation layer's)
-    _save_sim_data(sim_data, true, false, Dict{String, Any}())
+    _save_sim_data(sim_data, true, false, Dict{String, Any}(); replace_earlier = true)   # (new data: replaces any format)
     return sim_data
 end
 
@@ -412,6 +412,7 @@ function _stats_task(params::ParamDict, ref_factory, force_overwrite::Bool, dry_
         path === nothing && return (:missing, nothing, false)
         reference = ref_factory === nothing ? nothing : ref_record
         plan = jldopen(path, "r") do f
+            (v = _format_version(f)) >= _FORMAT_VERSION || throw(_earlier_format(path, v))
             md = _file_metadata(f; strict = true)
             present = haskey(f, "stat_keys") ? _names(f["stat_keys"]) : Symbol[]
             dims = haskey(f, "registry") ? f["registry"] : Dict{Symbol, Any}()
@@ -475,12 +476,13 @@ const _RESERVED_METADATA = (:provenance, :sources, :configuration_source, :stat_
 # Pass 3 for one post-processor: it runs on the simulation and reference layers only (its own earlier statistics and
 # those of other post-processors are taken out while it runs), may add statistics and metadata, and must leave the
 # solution, the parameters and the statistics of those layers as they are (a statistic of an earlier version's file
-# that it changes on this dataset becomes its own: `:legacy`). What it added is recorded as its statistics (`:keys`).
+# What it added is recorded as its statistics (`:keys`); it replaces only its own (set aside before it runs).
 function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force::Bool, dry_run::Bool, on_changed::Symbol)
     try
         path = _find_file(params)
         path === nothing && return (:missing, nothing)
         own, present, basis = jldopen(path, "r") do f
+            (v = _format_version(f)) >= _FORMAT_VERSION || throw(_earlier_format(path, v))
             md = _file_metadata(f; strict = true)
             get(_post_records(md), name, nothing), Set(haskey(f, "stat_keys") ? _names(f["stat_keys"]) : Symbol[]),
             get(_stat_records(md), :basis, nothing)
@@ -519,21 +521,19 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
                 error("the post-processor $name changed the solution of the data; post-processors add statistics and " *
                       "metadata (a different result belongs into the solver); nothing was saved")
             changed = sort!([k for (k, d) in before if !haskey(raw, k) || _stat_fingerprint(sim_data, k) != d])
-            # (a statistic of unknown origin, of an earlier version's file, that it changed on this dataset is its own)
-            adopted = filter(k -> k in records[:legacy] && haskey(raw, k), changed)
-            bad = setdiff(changed, adopted)
+            bad = changed
             isempty(bad) || error("the post-processor $name changed or removed the statistics $(join(repr.(bad), ", ")) of " *
                                   "the simulation or reference layer; post-processors add statistics of their own " *
                                   "(names are unique); nothing was saved")
             new = setdiff(keys(raw), keys(before))
-            taken = intersect(union(new, adopted), union(keys(get_stat_registry()), records[:simulation][:evaluated],
+            taken = intersect(new, union(keys(get_stat_registry()), records[:simulation][:evaluated],
                                          get(get(records, :reference, Dict{Symbol, Any}()), :evaluated, Symbol[])))
             isempty(taken) || error("the post-processor $name added $(join(repr.(sort!(collect(taken))), ", ")), which " *
                                     "is registered (the statistics pass evaluates it): statistic names are unique; nothing was saved")
             clash = intersect(new, keys(others))
             isempty(clash) || error("the post-processor $name added $(join(repr.(sort!(collect(clash))), ", ")), which " *
                                     "another post-processor added already: statistic names are unique; nothing was saved")
-            mine = _names(union(new, adopted))
+            mine = _names(new)
         else
             mine = Symbol[]
             # (nothing to save, unless its earlier statistics are stored: they go, they belonged to an earlier run of it)
@@ -553,7 +553,6 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
         foreach(k -> delete!(md, k), _RESERVED_METADATA)
         merge!(md, reserved)
         records = _stat_records(md)
-        records[:legacy] = setdiff(records[:legacy], mine)
         records[:solution] = bytes2hex(solution)
         records[:params] = _params_hash(sim_data)
         md[:stat_records] = records
