@@ -1,0 +1,2 @@
+After first callback: [:Solution, :calibration, :first_post]
+After whole-dictionary assignment: Dict(:ran => 1) stats=[:Solution, :calibration, :first_post, :second_post] second layer=postprocess owned=[:second_post]

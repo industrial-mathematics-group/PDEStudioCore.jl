@@ -1,0 +1,2 @@
+Before refresh: calibration=47.0 layer=simulation
+Current statistics refresh: Dict(:ran => 1) has solver calibration=true
