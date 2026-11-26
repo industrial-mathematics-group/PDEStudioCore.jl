@@ -1,0 +1,2 @@
+Before metadata save: Dict(:skipped => 1) invocations=1
+After metadata save: Dict(:ran => 1) invocations=2

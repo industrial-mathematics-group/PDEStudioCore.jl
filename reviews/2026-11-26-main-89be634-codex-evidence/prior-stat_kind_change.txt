@@ -1,0 +1,2 @@
+Before callback: StaticArraysCore.SVector{1, Float64}
+After callback: Dict(:failed => 1) type=StaticArraysCore.SVector{1, Float64} kept=Symbol[] layer=simulation

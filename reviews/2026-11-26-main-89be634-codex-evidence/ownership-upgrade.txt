@@ -1,0 +1,4 @@
+0.9 store: calibration=47.0 quality=2.0
+Save using #70: Dict(:ran => 1) calibration=47.0 recorded owner keys=[:calibration, :quality] has basis=true
+Before refresh: calibration=47.0 layer=postprocess
+Current statistics refresh: Dict(:ran => 1) has solver calibration=false
