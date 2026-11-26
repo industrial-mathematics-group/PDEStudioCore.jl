@@ -1,0 +1,5 @@
+normal measure=2.0e-300 reported=0.0 BigFloat then rounded=5.0e-324
+Mixed undefined norm = [NaN, 2.23606797749979]
+Undefined reference error = omitted
+Relative L2 error at the same scale = omitted expected=1.0
+subnormal partial product rejected: ArgumentError: the integration measure of :l2norm (the product of the spacings of the dimensions it integrates out, (2.0e-162, 2.0e-162, 1.0e308)) leaves the range of Float64: the L2 statistics need it, and its partial products, between floatmin and floatmax

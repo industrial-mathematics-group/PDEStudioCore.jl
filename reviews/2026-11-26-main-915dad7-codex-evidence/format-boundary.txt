@@ -1,0 +1,7 @@
+Raw format=3 calibration=47.0
+Normal passes: stats=Dict(:failed => 1) post=Dict(:failed => 1) unchanged=true
+In-place save: 3e3b78aa542c1a8f91d42bbfdc69dd10411a400aeb7d9c06047e0fe97c651b44.jld2 was written by an earlier version of PDEStudioCore (file format 3; this version reads and writes format 4): its statistic records can't be read, so its statistics are neither evaluated, post-processed nor written again here. Its data loads as it is. Recompute the run (`run_all_simulations(config; force_overwrite = true)`), or convert the store (see "Data of earlier versions" in the manual).
+Original unchanged after save attempt=true
+Imported legacy files=0
+Converted length=3 original bytes unchanged=false format=3 cached keys=["conv_E_3"]
+Recompute: format=4 stats=Dict(:ran => 1) post=Dict(:ran => 1) calibration=47.0

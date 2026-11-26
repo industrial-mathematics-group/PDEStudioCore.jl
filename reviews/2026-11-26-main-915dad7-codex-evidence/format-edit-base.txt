@@ -1,0 +1,4 @@
+Before edit: format=3 l2=1.4142135623730951
+Save of edited legacy dataset: returned
+After edit: format=3 u=StaticArraysCore.SVector{1, Float64}[[2.0], [2.0]] stored l2=omitted
+Refresh after edit: Dict(:ran => 1) errors=String[] stored l2=[2.8284271247461903] expected=2.8284271247461903
