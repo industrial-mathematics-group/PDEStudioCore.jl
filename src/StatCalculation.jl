@@ -92,17 +92,34 @@ _narrow(u, x) = map(eltype(eltype(u)), x)
 # The L2 norm `sqrt(∑ g(v)² * measure)` per component (`g` gives the magnitudes, e.g. `abs.(v - a)`): as `_wide_sum`,
 # and where that overflows for finite values (squares times the measure beyond `floatmax`), again with the values
 # scaled by their largest magnitude (the result is the same where nothing overflows: computed only then)
-function _wide_l2(g, measure, us...)
+function _wide_l2(g, measure, us...; log_measure = log(measure))
     sq(vs...) = abs2.(g(vs...))
     s = sqrt.(_wide_sum(sq, us..., measure))
-    (isempty(first(us)) || all(x -> isfinite(x) && !iszero(x), s)) && return s   # (0: maybe squares that underflowed)
-    # (per component, the largest finite magnitude, ignoring NaNs; the measure, a number, factored out)
+    isempty(first(us)) && return map(x -> isnan(x) ? zero(x) : x, s)   # (no values: 0, also with an infinite measure)
+    # (per component, the largest finite magnitude, ignoring NaNs)
     nanmax(x, y) = isnan(x) ? y : isnan(y) ? x : max(x, y)
     m = reduce((a, b) -> map(nanmax, a, b), map((vs...) -> g(map(v -> _wide.(v), vs)...), us...))
+    F = eltype(m)
+    measure_ok = isfinite(measure) && measure >= floatmin(F)
+    # The plain sum is exact to rounding where nothing in it overflows, underflows or is subnormal: a normal measure, a
+    # largest magnitude whose square is far above floatmin (the smaller squares can't matter then), a normal result
+    fast(a, c) = measure_ok && isfinite(a) && a >= sqrt(floatmin(F)) && isfinite(c) && c >= sqrt(floatmin(F) / eps(F))
+    all(map(fast, s, m)) && return s
+    # (the scaled sum without the measure; their product directly where the measure and the product are normal floats,
+    # exact to an ulp, else in log space, the measure from the logs of its factors, so no intermediate overflows or
+    # underflows: accurate to about 1e-14 there)
     m1 = map(x -> isfinite(x) && !iszero(x) ? x : one(x), m)
-    scaled = m1 .* sqrt(measure) .* sqrt.(_wide_sum((vs...) -> abs2.(g(vs...) ./ m1), us..., one(measure)))
-    return map((a, b, c) -> (isfinite(a) && !(iszero(a) && isfinite(c) && c > 0)) || !isfinite(c) ? a : b, s, scaled, m)
+    t = sqrt.(_wide_sum((vs...) -> abs2.(g(vs...) ./ m1), us..., one(F)))
+    direct = measure_ok ? m1 .* sqrt(measure) .* t : m1 .* F(NaN)
+    normal(x) = isfinite(x) && x >= floatmin(F)
+    scaled = map((dc, mc, tc) -> normal(dc) ? dc : exp(log(mc) + log_measure / 2 + log(tc)), direct, m1, t)
+    return map((a, b, c) -> iszero(c) ? zero(a) : !isfinite(c) || fast(a, c) ? a : b, s, scaled, m)
 end
+# The L2 norm of a registered statistic: its measure, and the log of its measure as the sum of the logs of the spacings
+_l2_stat(g, stat::Symbol, domain::DomainInfo{D, T}, us...) where {D, T} =
+    _wide_l2(g, _wide_measure(stat, domain), us...;
+             log_measure = (kept = get_kept_dims(stat, domain);
+                            sum((log(_wide(domain.spacing[d])) for d in 1:D if !(domain.dim_keys[d] in kept)); init = zero(_wide(one(T))))))
 
 # --- add_stat! ---------------------------------------------------------------
 
@@ -166,7 +183,6 @@ function add_stat!(sim_data::AbstractSimData{D, DS, M, T}, name::Symbol, value, 
         "layers (simulation, reference, post-processing): add it under another name"))
     sim_data.domain.stat_registry[name] = reg_val
     _raw_stats(sim_data)[name] = stored
-    _note_write(name)
     @info "Added custom stat '$name' keeping dimensions: $reg_val"
     return stored
 end
@@ -193,6 +209,8 @@ method is an error (the statistics of the dataset fail and are tried again on th
 calc_stat(::Val{name}, fixed_coords, u, ana, domain) where {name} = throw(ArgumentError(
     "the statistic :$name is registered (`register_stat!`), but has no `calc_stat(::Val{:$name}, fixed_coords, u, ana, " *
     "domain)` method (a missing `include`, a typo in the name, or a preset loaded later?)"))
+# (the generic method above, the only one at this point: `_stat_kind` doesn't count it as an implementation)
+const _CALC_STAT_FALLBACK = only(methods(calc_stat))
 
 """
     is_all_nan(val)

@@ -109,16 +109,12 @@ end
 # What a registered statistic is, by its `calc_stat` methods: `:data` (`calc_stat(::Val{name}, fixed_coords, u, domain)`,
 # no reference: the simulation layer), `:reference` (`calc_stat(::Val{name}, fixed_coords, u, ana, domain)`) or `:none`
 # (no method: an error). In the latest world: methods defined after the caller started count.
-const _FALLBACK_METHOD = Ref{Any}(nothing)
 function _stat_kind(name::Symbol)
     return Base.invokelatest() do
-        _FALLBACK_METHOD[] === nothing &&
-            (_FALLBACK_METHOD[] = which(calc_stat, Tuple{Val{:__no_statistic__}, Any, Any, Any, Any}))
-        fallback = _FALLBACK_METHOD[]
         # (by the calls the statistics pass makes: a method applicable to them, e.g. also a vararg one; not a generic
-        # method for another domain type)
+        # method for another domain type, nor the generic fallback, which only reports the missing method)
         !isempty(methods(calc_stat, Tuple{Val{name}, Any, Any, DomainInfo})) ? :data :
-        any(m -> m !== fallback, methods(calc_stat, Tuple{Val{name}, Any, Any, Any, DomainInfo})) ? :reference : :none
+        any(m -> m !== _CALC_STAT_FALLBACK, methods(calc_stat, Tuple{Val{name}, Any, Any, Any, DomainInfo})) ? :reference : :none
     end
 end
 _is_data_stat(name::Symbol) = _stat_kind(name) === :data
@@ -168,9 +164,17 @@ function _stamp_basis!(data::AbstractSimData)
     return data
 end
 
+# What a statistic's value is, independent of the names a session imported (`string(typeof(v))` would print
+# `StaticArraysCore.SVector` or `SVector`): scalar (`s<components>`), array (`a<dims>[element]`), number type
+_type_kind(T) = T <: SVector ? string("s", length(T), _type_kind(eltype(T))) :
+                T <: AbstractArray ? string("a", ndims(T), "[", _type_kind(eltype(T)), "]") :
+                T isa DataType ? string(nameof(T)) : "?"
+_kind_text(v) = _type_kind(typeof(v))
+
 # The digest of the value of a statistic, with its shape
 function _value_digest(v)
     ctx = SHA.SHA256_CTX()
+    SHA.update!(ctx, codeunits(_kind_text(v) * "\0"))   # (a scalar is not a one-element series)
     v isa AbstractArray && SHA.update!(ctx, reinterpret(UInt8, collect(Int, size(v))))
     if v isa AbstractArray && eltype(v) <: AbstractArray && !(eltype(v) <: SVector)   # (per-particle fields)
         foreach(a -> _digest_array!(ctx, a), v)
@@ -186,10 +190,21 @@ end
 # statistics they added), read as records of this version without guessing layers (that would depend on which
 # `calc_stat` methods are loaded): its statistics evaluated by the statistics pass, and if a post-processor ran its
 # other statistics, are `:legacy`, of unknown origin. Nothing of them is dropped: the statistics pass evaluates the
-# registered ones again and takes them over (once), a post-processor takes over the ones it rewrites. Its solution
+# registered ones again and takes them over (once), a post-processor takes over the ones it changes. Its solution
 # digest and parameter hash are stamped when the data is loaded (`_stamp_records!`).
 function _migrate_records!(md::Dict{Symbol, Any}, file)
-    haskey(md, :stat_records) && return md
+    if haskey(md, :stat_records)
+        r = _stat_records(md)
+        haskey(r, :basis) && return md
+        # (records without a basis were written before it existed, by the unreleased 0.10.0 snapshot before #70, whose
+        # migration guessed layers from the methods loaded: read like an earlier version's, their evaluated statistics
+        # of unknown origin, taken over again)
+        stored = setdiff(haskey(file, "stat_keys") ? _names(file["stat_keys"]) : Symbol[], [:Solution])
+        evaluated = intersect(union(r[:simulation][:evaluated], get(get(r, :reference, Dict{Symbol, Any}()), :evaluated, Symbol[])), stored)
+        md[:stat_records] = Dict{Symbol, Any}(:simulation => _empty_layer(), :legacy => _names(union(r[:legacy], evaluated)),
+                                              :legacy_derived => _names(union(r[:legacy_derived], evaluated)))
+        return md
+    end
     has_posts = !isempty(_post_records(md))
     (haskey(file, "evaluated_stats") || has_posts) || return md
     evaluated = haskey(file, "evaluated_stats") ? _names(file["evaluated_stats"]) : Symbol[]

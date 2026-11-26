@@ -27,7 +27,7 @@ function calc_stat(::Val{:l1norm}, fixed_coords, u, domain::DomainInfo)
 end
 
 function calc_stat(::Val{:l2norm}, fixed_coords, u, domain::DomainInfo)
-    return _narrow(u, _wide_l2(v -> abs.(v), _wide_measure(:l2norm, domain), u))
+    return _narrow(u, _l2_stat(v -> abs.(v), :l2norm, domain, u))
 end
 
 function calc_stat(::Val{:wave_height}, fixed_coords, u, domain::DomainInfo)
@@ -52,13 +52,12 @@ function calc_stat(::Val{:relative_l1error}, fixed_coords, u, ana, domain::Domai
 end
 
 function calc_stat(::Val{:l2error}, fixed_coords, u, ana, domain::DomainInfo)
-    return _narrow(u, _wide_l2((v, a) -> abs.(v - a), _wide_measure(:l2error, domain), u, ana))
+    return _narrow(u, _l2_stat((v, a) -> abs.(v - a), :l2error, domain, u, ana))
 end
 
 function calc_stat(::Val{:relative_l2error}, fixed_coords, u, ana, domain::DomainInfo)
-    measure = _wide_measure(:relative_l2error, domain)
-    error_norm = _wide_l2((v, a) -> abs.(v - a), measure, u, ana)
-    ana_norm = _wide_l2(a -> abs.(a), measure, ana)
+    error_norm = _l2_stat((v, a) -> abs.(v - a), :relative_l2error, domain, u, ana)
+    ana_norm = _l2_stat(a -> abs.(a), :relative_l2error, domain, ana)
     return _narrow(u, error_norm ./ ana_norm)
 end
 

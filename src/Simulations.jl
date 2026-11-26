@@ -475,7 +475,7 @@ const _RESERVED_METADATA = (:provenance, :sources, :configuration_source, :stat_
 # Pass 3 for one post-processor: it runs on the simulation and reference layers only (its own earlier statistics and
 # those of other post-processors are taken out while it runs), may add statistics and metadata, and must leave the
 # solution, the parameters and the statistics of those layers as they are (a statistic of an earlier version's file
-# that it rewrites becomes its own: `:legacy`). What it added is recorded as its statistics (`:keys`).
+# that it changes on this dataset becomes its own: `:legacy`). What it added is recorded as its statistics (`:keys`).
 function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force::Bool, dry_run::Bool, on_changed::Symbol)
     try
         path = _find_file(params)
@@ -500,17 +500,14 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
         records, posts = _stat_records(md), _post_records(md)
         mine_before = own === nothing ? Symbol[] : get(own, :keys, Symbol[])
         others = Dict{Symbol, Any}(k => raw[k] for (n, rec) in posts if n !== name for k in get(rec, :keys, Symbol[]) if haskey(raw, k))
+        others_dims = Dict(k => sim_data.domain.stat_registry[k] for k in keys(others) if haskey(sim_data.domain.stat_registry, k))
         foreach(k -> delete!(raw, k), union(mine_before, keys(others)))
         before = Dict(k => _stat_fingerprint(sim_data, k) for k in keys(raw))
         reserved = Dict(k => deepcopy(md[k]) for k in _RESERVED_METADATA if haskey(md, k))
         solution = _solution_digest(sim_data)
-        written = Set{Symbol}()
-        _STAT_WRITES[] = written
-        added = try
-            post_func(sim_data) === true
-        finally
-            _STAT_WRITES[] = nothing
-        end
+        added = post_func(sim_data) === true
+        # (the dataset's current statistics and metadata: the post-processor may have assigned new ones)
+        md, raw = sim_data.metadata, _raw_stats(sim_data)
         if added
             # A post-processor adds statistics and metadata; it changes neither the parameters (the data would replace
             # another run), nor the solution, nor the statistics of the layers above (a different result belongs into
@@ -522,8 +519,8 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
                 error("the post-processor $name changed the solution of the data; post-processors add statistics and " *
                       "metadata (a different result belongs into the solver); nothing was saved")
             changed = sort!([k for (k, d) in before if !haskey(raw, k) || _stat_fingerprint(sim_data, k) != d])
-            adopted = filter(k -> k in records[:legacy] && haskey(raw, k) && (k in changed || k in written), keys(before))
-            adopted = sort!(collect(adopted))
+            # (a statistic of unknown origin, of an earlier version's file, that it changed on this dataset is its own)
+            adopted = filter(k -> k in records[:legacy] && haskey(raw, k), changed)
             bad = setdiff(changed, adopted)
             isempty(bad) || error("the post-processor $name changed or removed the statistics $(join(repr.(bad), ", ")) of " *
                                   "the simulation or reference layer; post-processors add statistics of their own " *
@@ -551,6 +548,7 @@ function _post_task(params::ParamDict, post_func, (name, identity)::Pair, force:
             reserved = Dict(k => md[k] for k in _RESERVED_METADATA if haskey(md, k))
         end
         merge!(raw, others)
+        merge!(sim_data.domain.stat_registry, others_dims)   # (the other post-processors' statistics, as they were)
         # (the pipeline's metadata entries are reserved: what the post-processor did to them is undone)
         foreach(k -> delete!(md, k), _RESERVED_METADATA)
         merge!(md, reserved)

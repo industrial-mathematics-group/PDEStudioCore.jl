@@ -207,18 +207,12 @@ function Base.iterate(v::StatsView, state)
     return state === nothing ? iterate(raw) : iterate(raw, state)
 end
 
-# The names of the statistics written while a post-processor runs (`_post_task`: a statistic of an earlier version's
-# file that it writes again becomes its own, also when the value is the same); `nothing` otherwise
-const _STAT_WRITES = Ref{Union{Nothing, Set{Symbol}}}(nothing)
-_note_write(name::Symbol) = (w = _STAT_WRITES[]; w === nothing || push!(w, name); nothing)
-
 # Derived statistics are stored as given (numbers are converted to SVectors); use `add_stat!`
 # to also record the dimensions a statistic keeps.
 function Base.setindex!(v::StatsView, value, key::Symbol)
     if key === :Solution
         _set_solution!(v.data, value)
     else
-        _note_write(key)
         _raw_stats(v.data)[key] = _stat_value(v.data, value)
     end
     return v
@@ -269,7 +263,7 @@ function Base.setproperty!(data::_SimDataTypes, name::Symbol, value)
         raw = fieldtype(typeof(data), :stats)()
         solution = nothing
         for (k, v) in value
-            Symbol(k) === :Solution ? (solution = v) : (raw[Symbol(k)] = _stat_value(data, v); _note_write(Symbol(k)))
+            Symbol(k) === :Solution ? (solution = v) : (raw[Symbol(k)] = _stat_value(data, v))
         end
         solution === nothing || _set_solution!(data, solution)
         setfield!(data, :stats, raw)
