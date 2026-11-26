@@ -1,0 +1,3 @@
+threads=8 slices=32 spacings=[1.0e200, 1.0e200, 1.0]
+caught ArgumentError: ArgumentError: the integration measure of :l2norm (the product of the spacings of the dimensions it integrates out, (1.0e200, 1.0e200)) leaves the range of Float64: the L2 statistics need it, and its partial products, between floatmin and floatmax
+exit=0

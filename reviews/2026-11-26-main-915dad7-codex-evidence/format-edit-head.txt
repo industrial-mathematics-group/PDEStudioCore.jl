@@ -1,0 +1,4 @@
+Before edit: format=3 l2=1.4142135623730951
+Save of edited legacy dataset: returned
+After edit: format=4 u=StaticArraysCore.SVector{1, Float64}[[2.0], [2.0]] stored l2=[1.4142135623730951]
+Refresh after edit: Dict(:failed => 1) errors=["the statistic :l2norm is registered, but the dataset has a statistic :l2norm from the solver, or `add_stat!`; statistic names are unique across the layers (simulation, reference, post-processing): rename one of them"] stored l2=[1.4142135623730951] expected=2.8284271247461903
