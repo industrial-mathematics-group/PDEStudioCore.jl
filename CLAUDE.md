@@ -43,9 +43,10 @@ runs, and each solver shows what its docstring claims (stability limits, order, 
   never "fix" a failing hash test by updating the expected value without asking.
 - **`str2val` never evaluates code.** It's a literal parser (CSV/config values come from
   files). Don't add `eval`, `Meta.parse` + `eval`, or `include` to it.
-- **No backwards compatibility.** A version reads and writes its own file format (`_FORMAT_VERSION`); files of
-  earlier formats load as data, but the statistics/post-processing passes, imports and in-place saves refuse them. A
-  change of the layout or of what the statistic records mean is a new format version, without migration code.
+- **No backwards compatibility.** A version reads and writes its own file format (`_FORMAT_VERSION`); files of any
+  other format aren't part of the store (not found, listed, loaded, imported or replaced: `_store_params`,
+  `_file_state` → `:format`). A change of the layout or of what the statistic records mean is a new format version,
+  without migration code.
 - **Atomic writes.** Data is written to a temporary file and renamed into place; keep it
   that way for every new writer.
 - **The store never moves or deletes data on its own.** A run is only ever written to its

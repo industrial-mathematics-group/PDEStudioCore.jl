@@ -138,29 +138,39 @@ PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no r
         @test !(:ly_moving in d.metadata[:stat_records][:reference][:evaluated])
         delete_stat!(:ly_moving)
 
-        # a file of an earlier format (0.9): no compatibility. Its data loads as it is; the statistics and
-        # post-processing passes refuse it, and so do a save of the same data in place and an import; a recomputed
-        # run replaces it (format 4)
+        # a file of another format (an earlier one, 0.9; or a later one): no compatibility, not part of the store. It
+        # isn't found, listed, loaded (also not by hash prefix), imported, post-processed or replaced (a save or a run
+        # of its parameters is refused, the file stays byte for byte); tidy lists it as foreign
         set_save_path!(mktempdir())
         q = create_param_dict(:sim_func_name => :ly_solver, :k => 2)
         run_all_simulations(SimulationConfig(q; reference = :ly_ref_a); calculate_stats = true)
         path = get_file_name(q)
-        ly_write_earlier(path, load_sim_data(q))
-        before = read(path)
-        d = load_sim_data(q)
-        @test d.stats[:ly_err][1][1] == 0.0 && d.stats[:ly_runtime][1][1] == 3.0   # (its data, as it is)
-        lc = SimulationConfig(q; reference = :ly_ref_b, postprocess = :ly_weighted)
-        s = run_all_simulations(lc; calculate_stats = true)
-        @test s.cached == [q] && get(s.stats, :failed, 0) == 1 && get(s.postprocessing, :failed, 0) == 1
-        @test occursin("earlier version of PDEStudioCore (file format 3", last(only(s.stats_failed)))
-        @test_throws r"earlier version of PDEStudioCore" save_sim_data(d; overwrite = true, verbose = false)
-        @test read(path) == before   # (untouched)
-        moved = mktempdir()
-        cp(path, joinpath(moved, "q.jld2"))
-        set_save_path!(mktempdir())
-        @test isempty(import_sim_data(moved))
-        set_save_path!(dirname(dirname(path)))
-        run_all_simulations(lc; force_overwrite = true, calculate_stats = true)
+        loaded = load_sim_data(q)
+        for format in (3, 5)
+            ly_write_earlier(path, loaded)
+            format == 5 && PDEStudioCore._set_key!(path, "format_version", 5)
+            before = read(path)
+            @test !does_sim_data_exist(q) && size(sim_data_table(), 1) == 0 && tidy_sim_data().foreign == [path]
+            @test_throws SimFileNotFoundError load_sim_data(q)
+            @test_throws r"version of PDEStudioCore \(file format \d; this version reads and writes format 4 only\)" load_sim_data(basename(path)[1:12])
+            lc = SimulationConfig(q; reference = :ly_ref_b, postprocess = :ly_weighted)
+            s = run_all_simulations(lc; calculate_stats = true)
+            @test length(s.failed) == 1 && occursin("file of another format (file format $format", last(only(s.failed)))
+            @test_throws r"file of another format" save_sim_data(loaded; overwrite = true, verbose = false)
+            enable_cache!(true)
+            @test_throws SimFileNotFoundError load_sim_data(q, :lagrangian)
+            enable_cache!(false)
+            moved = mktempdir()
+            cp(path, joinpath(moved, "q.jld2"))
+            store = dirname(dirname(path))
+            set_save_path!(mktempdir())
+            @test isempty(import_sim_data(moved))
+            set_save_path!(store)
+            @test read(path) == before   # (untouched)
+        end
+        # (moved away, the run is computed again in format 4)
+        mv(path, joinpath(mktempdir(), "old.jld2"))
+        run_all_simulations(SimulationConfig(q; reference = :ly_ref_b, postprocess = :ly_weighted); calculate_stats = true)
         @test PDEStudioCore._file_format(path) == 4 && ly_val(q, :ly_err) == 4.0 && ly_val(q, :ly_weighted) == 12.0
 
         # a post-processor whose code changed: :warn keeps its statistics (outdated), :recompute runs it again
@@ -298,6 +308,7 @@ PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no r
         l2(u) = PDEStudioCore._wide_l2(v -> abs.(v), 1.0, u)
         @test isequal(l2([SVector(0.0, 1.0), SVector(NaN, 2.0)]), SVector(NaN, sqrt(5.0)))
         @test l2([SVector(0.0, 0.0), SVector(0.0, 0.0)]) == SVector(0.0, 0.0)
+        @test PDEStudioCore._wide_l2(v -> abs.(v), 2e-300, fill(SVector(1.4e-174), 4))[1] == 5e-324   # (not a spurious 0)
         tiny = sqrt(nextfloat(0.0)) * sqrt(0.51)
         d = create_sim_data([0.0], [tiny], ParamDict())
         calculate_all_stats!(d; save = false)
