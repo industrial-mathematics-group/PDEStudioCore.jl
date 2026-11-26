@@ -412,6 +412,17 @@ using .ResolveSub: sub_solver
         @test (@test_logs (:warn, r"imported names are not accepted") PDEStudioCore.resolve_dynamic_function(name)) === nothing
     end
     @test (@test_logs (:warn, r"Could not resolve") PDEStudioCore.resolve_dynamic_function(:no_such_function_xyz)) === nothing
+    # a configured reference or post-processor that doesn't resolve is an error before anything runs (also an imported
+    # function: `sum` is Base's)
+    let p = create_param_dict(:N => 8, :sim_func_name => :advection_solver_1d, :test_mode => "unresolved")
+        for (kw, run_kw) in ((:reference => :no_such_reference_xyz, :calculate_stats => true), (:reference => :sum, :calculate_stats => true),
+                             (:postprocess => :no_such_post_xyz, :post_process => true))
+            cfg = SimulationConfig(p; Dict(kw)...)
+            @test_throws r"isn.t a function defined in the target module" run_all_simulations(cfg; Dict(run_kw)...)
+            @test !does_sim_data_exist(p)
+        end
+        @test run_all_simulations(SimulationConfig(p; reference = :no_such_reference_xyz)).ran == [p]   # (no statistics: not needed)
+    end
     # a configuration naming such a function does not run it
     config = SimulationConfig(create_param_dict(:N => 8, :sim_func_name => :advection_solver_1d);
                               reference = :delete_sim_data)

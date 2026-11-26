@@ -667,6 +667,9 @@ Runs the complete pipeline for a [`SimulationConfig`](@ref) and returns a [`RunS
    post-processed by another version of it (other source files or package version; with `on_changed_sources =
    :ignore` only another package version) is kept and reported as `:outdated` with a warning under `:warn`, and
    post-processed again under `:recompute`; `force_postprocess = true` runs it on every dataset again.
+A reference (with `calculate_stats = true`) or a post-processor (with `post_process = true`) that the configuration names
+but that doesn't resolve (see [`set_target_module!`](@ref): imported functions aren't resolved by name) is an error before
+anything runs.
 With `dry_run = true` no solver, statistic or post-processor runs and nothing is written (the `sources` are still
 included): the summary lists what would run, and its `files` the data files the configuration needs that are stored
 already (`nothing` for those that would be computed), e.g. to copy them together with the configuration.
@@ -682,8 +685,9 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
     @info dry_run ? "Planning the simulation pipeline (dry run)." : "Started simulation pipeline."
     load_sources && _load_sources(config.sources)
     # (the reference the statistics are evaluated with is recorded as it was included, not as its file is later)
-    ref_factory = calculate_stats ? resolve_dynamic_function(config.reference) : nothing
+    ref_factory = calculate_stats ? _resolve_configured(config.reference, "reference") : nothing
     ref_record = calculate_stats ? _reference_record(config.reference, ref_factory) : ""
+    post_func = post_process ? _resolve_configured(config.postprocess, "postprocess") : nothing
     tasks = generate_tasks(config)
     n = length(tasks)
     if n == 0
@@ -766,7 +770,6 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
 
     # --- Pass 3: post-processing ---
     post, post_failed = Dict{Symbol, Int}(), Pair{ParamDict, String}[]
-    post_func = resolve_dynamic_function(config.postprocess)
     if post_process && post_func !== nothing
         @info "Pass 3: $(dry_run ? "checking" : "custom") post-processing..."
         record = _postprocess_record(config.postprocess, post_func, metadata)
@@ -793,6 +796,21 @@ function run_all_simulations(config::SimulationConfig; force_overwrite::Bool = f
                          files = Union{Nothing, String}[_stored_file(t) for t in tasks])
     @info dry_run ? "Dry run complete." : "Batch simulation run complete!"
     return summary
+end
+
+# The function a configuration names as its reference or post-processor (`nothing` if it names none): a name that
+# doesn't resolve is an error, before anything runs (a run without it would look complete)
+function _resolve_configured(name, field::AbstractString)
+    (name === nothing || (name isa Union{Symbol, AbstractString} && Symbol(name) === :none)) && return nothing
+    f = Base.with_logger(Base.CoreLogging.NullLogger()) do
+        resolve_dynamic_function(name)
+    end
+    f === nothing && throw(ArgumentError(
+        "the configuration's $field `$name` isn't a function defined in the target module $(get_target_module()) (or " *
+        "a submodule): imported functions aren't resolved by name. Define it there (e.g. a wrapper " *
+        "`$name(p) = SomePackage.$name(p)` in the configuration's source file), or `set_target_module!` the module " *
+        "that defines it."))
+    return f
 end
 
 # The data file of `params` that loading would use, or `nothing` (also for a file whose data doesn't load as a dataset
