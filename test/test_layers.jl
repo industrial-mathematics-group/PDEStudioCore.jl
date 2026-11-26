@@ -25,6 +25,14 @@ ly_failing_ref(p) = error("this reference can't be built")
 # (writes its statistic of an earlier version again, with the same value; on a rerun its own statistic is set aside)
 ly_same_post(d) = (d.stats[:ly_old_post] = haskey(d.stats, :ly_old_post) ? d.stats[:ly_old_post][1][1] : 4.0; true)
 ly_take_total(d) = (d.stats[:ly_total] = 99.0; true)                            # (rewrites a registered legacy statistic)
+# (writes a statistic of the same name on another dataset, and adds one of its own to the run)
+ly_elsewhere(d) = (scratch = create_sim_data([0.0, 1.0], [0.0, 0.0], ParamDict()); scratch.stats[:ly_runtime] = 99.0;
+                   add_stat!(d, :ly_quality, 2.0, Symbol[]); true)
+ly_first_post(d) = (add_stat!(d, :ly_first, 1.0, Symbol[]); true)
+ly_assigning(d) = (s = copy(d.stats); delete!(s, :Solution); s[:ly_second] = SVector(2.0); d.stats = s; true)
+ly_to_series(d) = (d.stats[:ly_runtime] = [first(d.stats[:ly_runtime])]; true)   # (a scalar made a one-element series)
+ly_redim_other(d) = (d.domain.stat_registry[:ly_first] = :x; add_stat!(d, :ly_third, 1.0, Symbol[]); true)
+PDEStudioCore.calc_stat(::Val{:__no_statistic__}, fixed, u, ana, domain) = 1.0   # (a statistic of any name may be implemented)
 struct LyOtherDomain end
 PDEStudioCore.calc_stat(::Val, fixed, u, domain::LyOtherDomain) = 0.0           # (generic, for another domain type)
 PDEStudioCore.calc_stat(::Val{:ly_va}, fixed, u, rest...) = 1.0                 # (vararg: callable as a data statistic)
@@ -257,8 +265,8 @@ PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no r
         @test s.stats == Dict(:ran => 1) && ly_val(w, :ly_total) == 4.0   # (2×2 ones, no time axis)
 
         # focused hunt on the 0.10 fixes: statistics of unknown origin (legacy) are part of what a post-processor ran
-        # on; a post-processor record without a basis (0.9, 0.10.0) runs once; a post-processor takes over its legacy
-        # statistic also when it writes the same value, but not a registered one
+        # on; a post-processor record without a basis (0.9, 0.10.0) runs once; a post-processor doesn't take over a
+        # registered legacy statistic
         set_save_path!(mktempdir())
         set_stat_registry!(Dict(:ly_total => :time, :ly_err => :time))
         run_all_simulations(SimulationConfig(q; reference = :ly_ref_a); calculate_stats = true)
@@ -271,7 +279,8 @@ PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no r
         same = SimulationConfig(q; postprocess = :ly_same_post)
         @test run_all_simulations(same).postprocessing == Dict(:ran => 1)   # (no basis in the record: runs once)
         d = load_sim_data(q)
-        @test stat_layer(d, :ly_old_post) === :postprocess && run_all_simulations(same).postprocessing == Dict(:skipped => 1)
+        # (written again with the same value: unchanged on this dataset, so it stays of unknown origin, simulation layer)
+        @test stat_layer(d, :ly_old_post) === :simulation && run_all_simulations(same).postprocessing == Dict(:skipped => 1)
         d = load_sim_data(q)
         delete!(d.stats, :ly_total)   # (a legacy statistic, removed by hand)
         save_sim_data(d; overwrite = true, verbose = false)
@@ -304,6 +313,81 @@ PDEStudioCore.calc_stat(::Val{:ly_empty}, fixed, u, ana, domain) = NaN   # (no r
         @test l2([SVector(1e-200), SVector(1e-200)], 1.0)[1] ≈ sqrt(2) * 1e-200
         @test l2([SVector(1.0), SVector(1.0)], 1e308)[1] ≈ sqrt(2.0) * sqrt(1e308)
         @test l2([SVector(1.0, 2.0), SVector(3.0, 4.0)], 0.5) == sqrt.(SVector(10.0, 20.0) .* 0.5)   # (bit-identical)
+
+        # review of a4089e3: a post-processor takes over a legacy statistic only when it changed it on this dataset
+        set_save_path!(mktempdir())
+        set_stat_registry!(Dict(:ly_total => :time, :ly_err => :time))
+        run_all_simulations(SimulationConfig(q; reference = :ly_ref_a); calculate_stats = true)
+        path = get_file_name(q)
+        d = load_sim_data(q)
+        delete!(d.metadata, :stat_records)
+        d.metadata[:postprocessed] = Dict(:ly_elsewhere => Dict{Symbol, Any}(:sources => String[]))
+        ly_write_legacy(path, d, record)
+        run_all_simulations(SimulationConfig(q; postprocess = :ly_elsewhere))
+        d = load_sim_data(q)
+        @test stat_layer(d, :ly_runtime) === :simulation && layer_stats(d, :postprocess) == [:ly_quality]
+        run_all_simulations(SimulationConfig(q; reference = :ly_ref_b); calculate_stats = true)
+        @test ly_val(q, :ly_runtime) == 3.0
+
+        # a post-processor that assigns `data.stats` keeps the other post-processors' statistics; a scalar made a
+        # series is a change
+        set_save_path!(mktempdir())
+        run_all_simulations(SimulationConfig(p; postprocess = :ly_first_post))
+        run_all_simulations(SimulationConfig(p; postprocess = :ly_assigning))
+        d = load_sim_data(p)
+        @test layer_stats(d, :postprocess) == [:ly_first, :ly_second]
+        s = run_all_simulations(SimulationConfig(p; postprocess = :ly_to_series))
+        @test get(s.postprocessing, :failed, 0) == 1 && ly_val(p, :ly_runtime) == 3.0
+
+        # the generic fallback isn't confused with a statistic of any name
+        register_stat!(:__no_statistic__, :time)
+        @test PDEStudioCore._stat_kind(:__no_statistic__) === :reference
+        delete_stat!(:__no_statistic__)
+
+        # records without a basis (the unreleased 0.10.0 snapshot before #70 guessed layers): read as of unknown origin
+        set_save_path!(mktempdir())
+        run_all_simulations(SimulationConfig(q; reference = :ly_ref_a); calculate_stats = true)
+        path = get_file_name(q)
+        md = PDEStudioCore.JLD2.jldopen(f -> f["metadata"], path, "r")
+        r = md[:stat_records]
+        delete!(r, :basis)
+        r[:reference][:evaluated] = [:ly_err, :ly_total]   # (the guess: a data statistic in the reference layer)
+        r[:simulation][:evaluated] = Symbol[]
+        PDEStudioCore._set_key!(path, "metadata", md)
+        d = load_sim_data(q)
+        @test stat_layer(d, :ly_total) === :simulation && :ly_total in d.metadata[:stat_records][:legacy]
+        set_stat_registry!(Dict(:ly_err => :time))
+        run_all_simulations(SimulationConfig(q; reference = :ly_ref_b); calculate_stats = true)
+        @test ly_val(q, :ly_total) == 4.0 && ly_val(q, :ly_err) == 4.0   # (the data statistic stays; |2 - 4| twice)
+
+        # L2 where the integration measure itself overflows or underflows, or the sum is subnormal
+        set_stat_registry!(Dict(:l2norm => Symbol[]))
+        for (axes, v, expected) in ((([0.0, 1e200], [0.0, 1e200]), 1e-150, 2e50), (([0.0, 1e-200], [0.0, 1e-200]), 1e150, 2e-50))
+            d = create_sim_data(axes, fill(v, 2, 2), ParamDict())
+            calculate_all_stats!(d; save = false)
+            @test only(d.stats[:l2norm])[1] ≈ expected rtol = 1e-12
+        end
+        tiny = sqrt(nextfloat(0.0)) * sqrt(0.51)
+        d = create_sim_data([0.0], [tiny], ParamDict())
+        calculate_all_stats!(d; save = false)
+        @test only(d.stats[:l2norm])[1] ≈ Float64(sqrt(big(tiny)^2)) rtol = 1e-12
+
+        # focused hunt on the a4089e3 fixes: a statistic's fingerprint doesn't depend on the names a session imported;
+        # another post-processor's kept dimensions are restored; L2 of zero data with an infinite measure is 0, and a
+        # subnormal measure doesn't cost precision beyond the log path
+        @test PDEStudioCore._kind_text(SVector(1.0)) == "s1Float64" && PDEStudioCore._kind_text([SVector(1.0)]) == "a1[s1Float64]"
+        set_save_path!(mktempdir())
+        run_all_simulations(SimulationConfig(p; postprocess = :ly_first_post))
+        run_all_simulations(SimulationConfig(p; postprocess = :ly_redim_other))
+        @test get_kept_dims(:ly_first, load_sim_data(p).domain) == Symbol[]
+        @test run_all_simulations(SimulationConfig(p; postprocess = :ly_first_post)).postprocessing == Dict(:skipped => 1)
+        set_stat_registry!(Dict(:l2norm => Symbol[]))
+        d = create_sim_data(([0.0, 1e200], [0.0, 1e200]), zeros(2, 2), ParamDict())
+        calculate_all_stats!(d; save = false)
+        @test only(d.stats[:l2norm])[1] == 0.0
+        d = create_sim_data(([0.0, 1e-160], [0.0, 1e-160]), ones(2, 2), ParamDict())
+        calculate_all_stats!(d; save = false)
+        @test only(d.stats[:l2norm])[1] ≈ 2e-160 rtol = 1e-12
     finally
         set_stat_registry!(old)
     end
