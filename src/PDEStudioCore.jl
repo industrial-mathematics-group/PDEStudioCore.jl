@@ -31,6 +31,9 @@ export calculate_hash, val2str, str2val, get_clean_params, print_clean_params, p
 export calculate_all_stats!, stat_layer, layer_stats, generate_reference_simdata, get_time_dim, has_time
 export convert_to_eulerian, convert_to_lagrangian, resample_eulerian
 
+# --- Configuration files & source bundles ---
+export load_config_file, to_simulation_config, include_sources, bundle_sources, param_literal, is_param_object
+
 # --- Utilities ---
 export get_ignore_keys, assemble_params, is_reference_method, resolve_dynamic_function
 
@@ -48,6 +51,7 @@ include("Constructors.jl")
 include("ConversionUtils.jl")
 include("StatCalculation.jl")
 include("Simulations.jl")
+include("ConfigFiles.jl")
 include("Display.jl")
 include("Examples/_main.jl")
 using .Examples

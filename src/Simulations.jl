@@ -383,15 +383,7 @@ function _check_sources(sources::AbstractVector{<:AbstractString})
     return nothing
 end
 
-function _load_sources(sources::AbstractVector{<:AbstractString})
-    _check_sources(sources)
-    for file in sources
-        path = abspath(file)
-        isfile(path) || throw(ArgumentError("source file not found: $path"))
-        Base.include(get_target_module(), path)
-    end
-    return nothing
-end
+_load_sources(sources::AbstractVector{<:AbstractString}) = (include_sources(sources); nothing)   # (see ConfigFiles.jl)
 
 # Always written (possibly empty), so a rerun without sources replaces digests from an earlier run; with the digest
 # of the configuration's own file (the last one) on its own, since it may override the helpers ("" without sources).
