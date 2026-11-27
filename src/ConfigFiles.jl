@@ -194,12 +194,16 @@ function _is_inside(path::AbstractString, dir::AbstractString)
     return startswith(resolved(path), rstrip(resolved(dir), Base.Filesystem.path_separator[1]) * Base.Filesystem.path_separator)
 end
 
-# Whether `path` is a source file of the package the module `m` belongs to: its code (`src/`, `ext/`), which its
-# `include`s load. (Other files in the package's folder, e.g. configurations in a development checkout, are not.)
+# Whether `path` is a file of the package the module `m` belongs to, which the package loads into itself: its source code
+# (`src/`, `ext/`), and any other file of its folder that it includes into itself (e.g. PDEStudioCore's stat presets,
+# which `set_stat_preset!` includes), unless the package is the target module: then files of its folder other than its
+# code are configurations (a development checkout's `configs/`), which are recorded and checked.
 function _package_file(m::Module, path::AbstractString)
-    dir = pkgdir(Base.moduleroot(m))
+    root = Base.moduleroot(m)
+    dir = pkgdir(root)
     dir === nothing && return false
-    return _is_inside(path, joinpath(dir, "src")) || _is_inside(path, joinpath(dir, "ext"))
+    (_is_inside(path, joinpath(dir, "src")) || _is_inside(path, joinpath(dir, "ext"))) && return true
+    return _is_inside(path, dir) && root !== Base.moduleroot(get_target_module())
 end
 
 # Whether `within` (a folder, or a list of files) allows the file `file`
@@ -261,7 +265,10 @@ was added to the folder later doesn't run either.
 
 What is seen: `include` and `Base.include` (also `evalfile`, which includes) in the task that calls `include_sources`.
 Not seen: code that reads a file and evaluates its text (`include_string(read(path, String))`), and includes in other
-tasks (`@async`, `Threads.@spawn`). Source files of packages (their `src/` and `ext/`) are neither recorded nor refused.
+tasks (`@async`, `Threads.@spawn`). Files a package includes into itself (its `src/` and `ext/`, and e.g. the stat
+presets that `set_stat_preset!` includes into PDEStudioCore) are neither recorded nor refused: they belong to the
+package's version. With a package as the target module, the other files of its folder (configurations in a development
+checkout) are recorded and checked like any file.
 """
 function include_sources(sources::AbstractVector{<:AbstractString}; mod::Module = get_target_module(),
                          within::Union{Nothing, AbstractString, AbstractVector{<:AbstractString}} = nothing)

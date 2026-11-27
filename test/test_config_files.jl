@@ -155,6 +155,10 @@ PDEStudioCore.@param_struct ConfigFileWall
                 Core.eval(m, :(const $name = $(getglobal(PDEStudioCore, name))))
             end
             @test PDEStudioCore._package_file(m, joinpath(pkg, "src", "code.jl"))
+            # (a file of its folder that it includes into itself is the package's, unless the package is the target module)
+            @test PDEStudioCore._package_file(m, joinpath(pkg, "configs", "helper.jl"))
+            old_target = get_target_module()
+            set_target_module!(m)
             @test !PDEStudioCore._package_file(m, joinpath(pkg, "configs", "helper.jl"))
             included = String[]
             load_config_file(joinpath(pkg, "configs", "cfg.jl"); mod = m, included = included)
@@ -163,9 +167,23 @@ PDEStudioCore.@param_struct ConfigFileWall
             err = try include_sources([joinpath(pkg, "configs", "cfg.jl")]; mod = m, within = [joinpath(pkg, "configs", "cfg.jl")]); nothing catch e; e end
             err isa LoadError && (err = err.error)
             @test err isa ArgumentError && occursin("helper.jl", err.msg)
+            set_target_module!(old_target)
         finally
             popfirst!(LOAD_PATH)
         end
+    end
+
+    @testset "include_sources: a stat preset that a source loads is the package's, not the configuration's" begin
+        dir = mktempdir()
+        write(joinpath(dir, "with_preset.jl"), "set_stat_preset!(\"hyperbolic\")\n" * body * "\n")
+        included = String[]
+        load_config_file(joinpath(dir, "with_preset.jl"); included = included)
+        @test included == [joinpath(dir, "with_preset.jl")]                       # (the preset file isn't recorded)
+        # ... nor refused from a bundle
+        names = bundle_sources([joinpath(dir, "with_preset.jl")], joinpath(dir, "bundle"); extra = included)
+        @test names.extra == String[]
+        @test include_sources(joinpath.(dir, "bundle", names.sources); within = joinpath.(dir, "bundle", names.sources)) ==
+              joinpath.(dir, "bundle", names.sources)
     end
 
     @testset "bundle_sources: a copy that runs on its own" begin
