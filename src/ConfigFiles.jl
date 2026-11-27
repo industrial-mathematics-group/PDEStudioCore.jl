@@ -147,14 +147,14 @@ Pass a vector as `included` to get every file that ran: the file itself and the 
 the ones they include; absolute paths, not the files of packages). These are what a copy of the configuration's code
 needs besides its `sources` (see [`bundle_sources`](@ref)).
 
-With `within = dir`, an `include` of a file outside the folder `dir` is refused with an `ArgumentError` before the
-file runs (see [`include_sources`](@ref)).
+With `within`, an `include` of a file outside a folder (`within = dir`), or of any other file than the listed ones
+(`within = files`), is refused with an `ArgumentError` before that file runs (see [`include_sources`](@ref)).
 
 !!! warning
     This **executes the file's code**: only load files you trust.
 """
 function load_config_file(path::AbstractString; mod::Module = get_target_module(),
-                          within::Union{Nothing, AbstractString} = nothing,
+                          within::Union{Nothing, AbstractString, AbstractVector{<:AbstractString}} = nothing,
                           included::Union{Nothing, AbstractVector{<:AbstractString}} = nothing)
     file = abspath(path)
     isfile(file) || throw(ArgumentError("configuration file not found: $file"))
@@ -194,37 +194,56 @@ function _is_inside(path::AbstractString, dir::AbstractString)
     return startswith(resolved(path), rstrip(resolved(dir), Base.Filesystem.path_separator[1]) * Base.Filesystem.path_separator)
 end
 
-# Whether `path` is a file of the package the module `m` belongs to (its `include`s while it loads)
+# Whether `path` is a source file of the package the module `m` belongs to: its code (`src/`, `ext/`), which its
+# `include`s load. (Other files in the package's folder, e.g. configurations in a development checkout, are not.)
 function _package_file(m::Module, path::AbstractString)
     dir = pkgdir(Base.moduleroot(m))
-    return dir !== nothing && _is_inside(path, dir)
+    dir === nothing && return false
+    return _is_inside(path, joinpath(dir, "src")) || _is_inside(path, joinpath(dir, "ext"))
 end
 
+# Whether `within` (a folder, or a list of files) allows the file `file`
+function _allowed(file::AbstractString, within::AbstractString)
+    return _is_inside(file, within)
+end
+function _allowed(file::AbstractString, within::AbstractVector{<:AbstractString})
+    resolved(p) = ispath(p) ? realpath(p) : normpath(abspath(p))
+    return resolved(file) in Set(map(resolved, within))
+end
+_within_text(within::AbstractString) = "from outside $(abspath(within))"
+_within_text(within::AbstractVector) = "that isn't one of the listed source files (from outside the bundle)"
+
+# (`Base.include_callbacks` is a plain vector: pushes and removals from several tasks are serialized)
+const _CALLBACKS_LOCK = ReentrantLock()
+
 # Runs `f()` and returns `(result, files)`: every file that was included meanwhile in this task (absolute paths, in the
-# order of their first include; not the files of packages). With `within`, an include of a file outside that folder
-# throws before the file runs. (Uses Julia's include callbacks, which Revise relies on; without them nothing is
-# recorded or refused.)
-function _record_includes(f, within::Union{Nothing, AbstractString} = nothing)
+# order of their first include; not the source files of packages, see `_package_file`). With `within` (a folder or a
+# list of files, see `_allowed`), an include of another file throws before the file runs. Includes in other tasks
+# (`@async`, `Threads.@spawn`) are not seen. (Uses Julia's include callbacks, which Revise relies on; without them
+# nothing is recorded or refused.)
+function _record_includes(f, within::Union{Nothing, AbstractString, AbstractVector{<:AbstractString}} = nothing)
     files = String[]
     isdefined(Base, :include_callbacks) || return f(), files
     task = current_task()
     callback = function (m::Module, path::AbstractString)
         (current_task() === task && !_package_file(m, path)) || return nothing
         file = abspath(path)
-        if within !== nothing && !_is_inside(file, within)
-            throw(ArgumentError("$file was included from outside $(abspath(within)): the source files there run on " *
-                                "their own (list the file in the configuration's `sources`, or include it relative " *
-                                "to the file that needs it, so it is bundled with them)"))
+        if within !== nothing && !_allowed(file, within)
+            throw(ArgumentError("$file was included $(_within_text(within)): the source files there run on their " *
+                                "own (list the file in the configuration's `sources`, or include it relative to the " *
+                                "file that needs it, so it is bundled with them)"))
         end
         file in files || push!(files, file)
         return nothing
     end
-    push!(Base.include_callbacks, callback)
+    lock(() -> push!(Base.include_callbacks, callback), _CALLBACKS_LOCK)
     try
         return f(), files
     finally
-        i = findfirst(c -> c === callback, Base.include_callbacks)
-        i === nothing || deleteat!(Base.include_callbacks, i)
+        lock(_CALLBACKS_LOCK) do
+            i = findfirst(c -> c === callback, Base.include_callbacks)
+            i === nothing || deleteat!(Base.include_callbacks, i)
+        end
     end
 end
 
@@ -237,10 +256,15 @@ included: the sources and the files they include themselves (absolute paths; not
 
 With `within = dir`, the sources must run on their own inside the folder `dir` (a bundle, see
 [`bundle_sources`](@ref)): an `include` of a file outside it is refused with an `ArgumentError` before that file runs.
-This holds for `include`; code that reads or evaluates files in other ways (`evalfile`, `read`) is not seen.
+With `within = files` (absolute paths, e.g. the files a bundle lists), only those files may be included, so a file that
+was added to the folder later doesn't run either.
+
+What is seen: `include` and `Base.include` (also `evalfile`, which includes) in the task that calls `include_sources`.
+Not seen: code that reads a file and evaluates its text (`include_string(read(path, String))`), and includes in other
+tasks (`@async`, `Threads.@spawn`). Source files of packages (their `src/` and `ext/`) are neither recorded nor refused.
 """
 function include_sources(sources::AbstractVector{<:AbstractString}; mod::Module = get_target_module(),
-                         within::Union{Nothing, AbstractString} = nothing)
+                         within::Union{Nothing, AbstractString, AbstractVector{<:AbstractString}} = nothing)
     _check_sources(sources)
     _, files = _record_includes(within) do
         for file in sources
@@ -317,21 +341,28 @@ function bundle_sources(sources::AbstractVector{<:AbstractString}, dir::Abstract
 end
 
 """
-    bundle_digest(sources; extra = String[]) -> String
+    bundle_digest(sources; extra = String[], label = "") -> String
 
 What identifies the code of a configuration as a bundle ([`bundle_sources`](@ref)): the SHA-256 digest (64 hex
 digits) of its files, each with its path relative to the folder all of them lie in and its content, the sources in
 their order (the configuration's own file last), then the `extra` files sorted by path. It is the same for the files
 where they are and for their copy in a bundle, on every system, and changes when a file's content or relative path
-changes, a file is added or removed, or the sources change their order.
+changes, a file is added or removed, or the sources change their order. Contents are compared byte by byte: a copy
+whose line endings were converted (e.g. by git on Windows) has another digest; keep bundles in git as they are
+(`* -text` in a `.gitattributes` of the bundle folder).
 
 A file of values that names a bundle can record the digest and compare it before the bundle runs: the code is the
 code it was written with. A folder named after it (`dmr-3fa9c2e1`) can be shared by every file with that code.
+
+`label` is text that belongs to the identity, too (e.g. what the bundle's code is used for, recorded next to it):
+the same files with another label have another digest.
 """
-function bundle_digest(sources::AbstractVector{<:AbstractString}; extra::AbstractVector{<:AbstractString} = String[])
-    isempty(sources) && return bytes2hex(sha256(""))   # (no code: as `bundle_sources`, nothing to bundle)
+function bundle_digest(sources::AbstractVector{<:AbstractString}; extra::AbstractVector{<:AbstractString} = String[],
+                       label::AbstractString = "")
+    isempty(sources) && return bytes2hex(sha256(isempty(label) ? "" : "label\0$label"))   # (no code: nothing to bundle)
     plan = _bundle_plan(sources, extra)
     ctx = SHA.SHA256_CTX()
+    isempty(label) || SHA.update!(ctx, codeunits("label\0$label\0"))
     function add!(kind, file, name)
         SHA.update!(ctx, codeunits("$kind\0$name\0"))
         SHA.update!(ctx, open(sha256, file))
