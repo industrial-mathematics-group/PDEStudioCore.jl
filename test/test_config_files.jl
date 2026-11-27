@@ -162,4 +162,48 @@ PDEStudioCore.@param_struct ConfigFileWall
         @test bundle_sources(String[], joinpath(out, "none")) == (sources = String[], extra = String[])
         @test !isdir(joinpath(out, "none"))
     end
+
+    @testset "bundle_digest: what identifies a bundle" begin
+        dir, out = mktempdir(), mktempdir()
+        cfg = write_config(dir)
+        included = String[]
+        config = load_config_file(cfg; included = included)
+        digest = bundle_digest(config.sources; extra = included)
+        @test length(digest) == 64 && all(c -> c in "0123456789abcdef", digest)
+        # the same for the copy in a bundle (wherever it is), and for the extra files in another order
+        names = bundle_sources(config.sources, joinpath(out, "b1"); extra = included)
+        copy_digest(b) = bundle_digest(joinpath.(b, names.sources); extra = joinpath.(b, names.extra))
+        @test copy_digest(joinpath(out, "b1")) == digest
+        @test bundle_digest(config.sources; extra = reverse(included)) == digest
+        mv(joinpath(out, "b1"), joinpath(out, "moved"))
+        @test copy_digest(joinpath(out, "moved")) == digest
+        # another content, another relative path, a file more or less, or another order of the sources: another digest
+        b = joinpath(out, "moved")
+        original = read(joinpath(b, "lib", "helper.jl"), String)
+        write(joinpath(b, "lib", "helper.jl"), original * "# edited\n")
+        @test copy_digest(b) != digest
+        write(joinpath(b, "lib", "helper.jl"), original)
+        @test copy_digest(b) == digest
+        @test bundle_digest(joinpath.(b, names.sources); extra = joinpath.(b, names.extra[1:1])) != digest
+        @test bundle_digest(reverse(joinpath.(b, names.sources)); extra = joinpath.(b, names.extra)) != digest
+        mkpath(joinpath(b, "other")); mv(joinpath(b, "lib", "helper.jl"), joinpath(b, "other", "helper.jl"))
+        @test bundle_digest(joinpath.(b, names.sources); extra = [joinpath(b, "other", "helper.jl"), joinpath(b, "lib", "deep", "inner.jl")]) != digest
+        @test_throws ArgumentError bundle_digest([joinpath(b, "gone.jl")])
+        @test bundle_digest(String[]) == bundle_digest(String[]; extra = String[]) != digest
+    end
+
+    @testset "load_config_function: the configuration a named function builds" begin
+        @eval config_file_builder() = $(Meta.parse(body))
+        @test load_config_function(:config_file_builder).shared[:N] == 12
+        @test load_config_function("config_file_builder").shared[:N] == 12
+        @test load_config_function(:test_advection_1d) isa SimulationConfig          # (one of PDEStudioCore's examples)
+        @eval config_file_builder_args(N = 12) = $(Meta.parse(body))
+        err = try load_config_function(:config_file_builder_args); nothing catch e; e end
+        @test err isa ArgumentError && occursin("takes arguments", err.msg)
+        # names the target module doesn't define itself (imported ones, too) don't resolve
+        for name in (:no_such_config_function, :delete_sim_data, :println)
+            err = try load_config_function(name); nothing catch e; e end
+            @test err isa ArgumentError && occursin("isn't a function that the target module", err.msg)
+        end
+    end
 end

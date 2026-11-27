@@ -129,6 +129,10 @@ sources = joinpath.("figures/fig1_sources", names.sources)          # the source
 config = load_config_file(last(sources); within = "figures/fig1_sources")
 ```
 
+What identifies a bundle is [`bundle_digest`](@ref): the SHA-256 digest of its files with their relative paths, the same for the originals and for any copy. A file of values that names a bundle can record the digest and compare it before the bundle runs, and a folder named after it (`advection-3fa9c2e1`) can be shared by every file with that code.
+
+A configuration that a function of a package builds (without a file) is found again by the function's name: [`load_config_function`](@ref) resolves it in the target module, like solvers and references.
+
 ### Parameter values in files
 
 A file of parameter values (PDEStudio's CSV export, a preset) holds each value as the literal [`param_literal`](@ref) writes, which [`str2val`](@ref) reads back with its type (`1.5f0`, `(nothing, 1.0)`, `:a => 1`, quoted text where needed). `val2str` is the text of the *identity* (what the hash is made of) and loses some of that. Values whose literal doesn't read back, structs, enums and containers holding one, are *objects* ([`is_param_object`](@ref)): a file can only hold their identity text, and they come from the configuration that the source files build.

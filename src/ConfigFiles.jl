@@ -167,6 +167,23 @@ function load_config_file(path::AbstractString; mod::Module = get_target_module(
     return config
 end
 
+"""
+    load_config_function(name) -> SimulationConfig
+
+The configuration that the function `name` builds: a function without arguments that the target module defines
+([`set_target_module!`](@ref); or one of PDEStudioCore's examples, such as `test_advection_1d`), found by its name
+like solvers and references are, and called by the rule of [`to_simulation_config`](@ref). For configurations that
+are built by a function of a package instead of a file: a file of values can name the function and get the
+configuration again, with its objects. A name that doesn't resolve is an `ArgumentError`.
+"""
+function load_config_function(name::Union{Symbol, AbstractString})
+    f = Base.CoreLogging.with_logger(() -> resolve_dynamic_function(Symbol(name)), Base.CoreLogging.NullLogger())
+    f isa Function ||
+        throw(ArgumentError("the configuration function `$name` isn't a function that the target module " *
+                            "$(get_target_module()) defines (imported names are not accepted; see `set_target_module!`)"))
+    return to_simulation_config(f, string(name))
+end
+
 # ------------------------------------------------------------------------------
 # Included files
 # ------------------------------------------------------------------------------
@@ -252,6 +269,23 @@ function _common_folder(files::AbstractVector{<:AbstractString})
     return joinpath(parts[1][1:n]...)
 end
 
+# The files of a bundle and where they go: the sources and the `extra` files that aren't sources (absolute paths, a
+# file once, also under another path), and the path of each relative to the folder all of them lie in (with `/`).
+function _bundle_plan(sources::AbstractVector{<:AbstractString}, extra::AbstractVector{<:AbstractString})
+    files = String[abspath(src) for src in sources]
+    _check_sources(files)
+    extras = String[]
+    for file in extra
+        any(f -> _same_file(f, file), files) || any(f -> _same_file(f, file), extras) || push!(extras, abspath(file))
+    end
+    for file in Iterators.flatten((files, extras))
+        isfile(file) || throw(ArgumentError("source file not found: $file"))
+    end
+    root = _common_folder(String[files; extras])
+    relative(file) = join(splitpath(relpath(file, root)), "/")
+    return (sources = files, extra = extras, source_names = map(relative, files), extra_names = map(relative, extras))
+end
+
 """
     bundle_sources(sources, dir; extra = String[]) -> (sources = [...], extra = [...])
 
@@ -266,28 +300,45 @@ given, the configuration's own file last (`joinpath.(dir, …)` are the sources 
 that aren't sources.
 
 Files that are in place already are left as they are, other files in `dir` too. A file that doesn't exist, or files
-on different drives, are an `ArgumentError`. Data files the code reads are not part of a bundle.
+on different drives, are an `ArgumentError`. Data files the code reads are not part of a bundle. See
+[`bundle_digest`](@ref) for what identifies a bundle.
 """
 function bundle_sources(sources::AbstractVector{<:AbstractString}, dir::AbstractString;
                         extra::AbstractVector{<:AbstractString} = String[])
     isempty(sources) && return (sources = String[], extra = String[])
-    files = String[abspath(src) for src in sources]
-    _check_sources(files)
-    extras = String[]
-    for file in extra   # (a file once, also under another path)
-        any(f -> _same_file(f, file), files) || any(f -> _same_file(f, file), extras) || push!(extras, abspath(file))
-    end
-    for file in Iterators.flatten((files, extras))
-        isfile(file) || throw(ArgumentError("source file not found: $file"))
-    end
-    root = _common_folder(String[files; extras])
-    relative(file) = relpath(file, root)
-    for file in Iterators.flatten((files, extras))
-        target = joinpath(abspath(dir), relative(file))
+    plan = _bundle_plan(sources, extra)
+    for (file, name) in zip([plan.sources; plan.extra], [plan.source_names; plan.extra_names])
+        target = joinpath(abspath(dir), split(name, '/')...)
         mkpath(dirname(target))
         # (a symlinked source is copied as a file: the bundle must not follow later edits)
         (ispath(target) && samefile(file, target)) || cp(file, target; force = true, follow_symlinks = true)
     end
-    portable(file) = join(splitpath(relative(file)), "/")
-    return (sources = map(portable, files), extra = map(portable, extras))
+    return (sources = plan.source_names, extra = plan.extra_names)
+end
+
+"""
+    bundle_digest(sources; extra = String[]) -> String
+
+What identifies the code of a configuration as a bundle ([`bundle_sources`](@ref)): the SHA-256 digest (64 hex
+digits) of its files, each with its path relative to the folder all of them lie in and its content, the sources in
+their order (the configuration's own file last), then the `extra` files sorted by path. It is the same for the files
+where they are and for their copy in a bundle, on every system, and changes when a file's content or relative path
+changes, a file is added or removed, or the sources change their order.
+
+A file of values that names a bundle can record the digest and compare it before the bundle runs: the code is the
+code it was written with. A folder named after it (`dmr-3fa9c2e1`) can be shared by every file with that code.
+"""
+function bundle_digest(sources::AbstractVector{<:AbstractString}; extra::AbstractVector{<:AbstractString} = String[])
+    isempty(sources) && return bytes2hex(sha256(""))   # (no code: as `bundle_sources`, nothing to bundle)
+    plan = _bundle_plan(sources, extra)
+    ctx = SHA.SHA256_CTX()
+    function add!(kind, file, name)
+        SHA.update!(ctx, codeunits("$kind\0$name\0"))
+        SHA.update!(ctx, open(sha256, file))
+    end
+    foreach((file, name) -> add!("source", file, name), plan.sources, plan.source_names)
+    for i in sortperm(plan.extra_names)
+        add!("extra", plan.extra[i], plan.extra_names[i])
+    end
+    return bytes2hex(SHA.digest!(ctx))
 end

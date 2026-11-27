@@ -32,7 +32,8 @@ export calculate_all_stats!, stat_layer, layer_stats, generate_reference_simdata
 export convert_to_eulerian, convert_to_lagrangian, resample_eulerian
 
 # --- Configuration files & source bundles ---
-export load_config_file, to_simulation_config, include_sources, bundle_sources, param_literal, is_param_object
+export load_config_file, load_config_function, to_simulation_config, include_sources, bundle_sources, bundle_digest
+export param_literal, is_param_object
 
 # --- Utilities ---
 export get_ignore_keys, assemble_params, is_reference_method, resolve_dynamic_function
