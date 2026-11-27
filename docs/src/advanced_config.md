@@ -89,7 +89,7 @@ config = SimulationConfig(shared, methods, [:upwind]; postprocess = :add_maximum
 
 `sources` lists files that are included into the target module at the start of [`run_all_simulations`](@ref), so your solvers and reference functions are always defined and up to date (`load_sources = false` skips that, for a caller that includes them itself). For reproducibility, the SHA-256 digest of every source file is stored with each newly computed dataset (`data.metadata[:sources]`, mapping the absolute path to its digest), and the digest of the configuration's own file, the last one, on its own (`data.metadata[:configuration_source]`).
 
-**The helper files are a set, the configuration's own file comes last.** The files are included in the order of `sources`. The helper files (solvers, references, post-processors, statistics) each define their own names and don't depend on another helper being included before them, nor redefine what another helper defines. The file that builds the configuration (the one whose last expression is the `SimulationConfig`, or a function returning it) is the last entry: it is included after the helpers, so it may use and override what they define. Loaders that build a configuration from a file put that file last (PDEStudio's `load_config_file!`, HyperCloud's `@sim`); list it last yourself when you write `sources` by hand. A run records the digests of its files and which one is the configuration's (a helper that becomes the configuration file counts as changed code), not the order of the helpers, so a configuration whose results depend on the order of the helpers isn't supported (it would reuse results made with the other order). A file listed twice is refused, also under two paths (a symbolic or hard link and its file). Runs stored without a record of the configuration file (0.9.0 and earlier) are compared by the digests of all files only. Shared code belongs in one helper (or a package) that the other helpers don't redefine.
+**The helper files are a set, the configuration's own file comes last.** The files are included in the order of `sources`. The helper files (solvers, references, post-processors, statistics) each define their own names and don't depend on another helper being included before them, nor redefine what another helper defines. The file that builds the configuration (the one whose last expression is the `SimulationConfig`, or a function returning it) is the last entry: it is included after the helpers, so it may use and override what they define. [`load_config_file`](@ref) puts the file it runs last (so do the loaders built on it, PDEStudio's `load_config_file!` and HyperCloud's `@sim`); list it last yourself when you write `sources` by hand. A run records the digests of its files and which one is the configuration's (a helper that becomes the configuration file counts as changed code), not the order of the helpers, so a configuration whose results depend on the order of the helpers isn't supported (it would reuse results made with the other order). A file listed twice is refused, also under two paths (a symbolic or hard link and its file). Runs stored without a record of the configuration file (0.9.0 and earlier) are compared by the digests of all files only. Shared code belongs in one helper (or a package) that the other helpers don't redefine.
 
 The digests are compared on later runs: a stored result made with other source code (other contents of the source files, or another version of the solver's package) is kept with a warning by default. `on_changed_sources = :recompute` runs these tasks again, `:ignore` keeps them silently. Every dataset written by this version also records its provenance in its metadata (`data.metadata[:provenance]`: versions, host, git commit, solver and wall time, see [Metadata](data.md#Metadata)).
 
@@ -98,6 +98,40 @@ config = SimulationConfig(shared, methods, [:upwind];
     sources = ["src/wave_equations.jl", "src/boundary_conditions.jl", @__FILE__],   # the helpers, then this file
 )
 ```
+
+### Configuration files
+
+A configuration file is a Julia file whose last value is the `SimulationConfig`, or a function without arguments that returns it:
+
+```julia
+# configs/advection.jl
+include("solvers.jl")                    # relative to this file
+
+get_config() = SimulationConfig(shared, methods, [:upwind]; sources = [joinpath(@__DIR__, "references.jl")])
+```
+
+[`load_config_file`](@ref) runs such a file in the target module and returns its configuration, with the file as the last source. Anything else the file ends with is an error ([`to_simulation_config`](@ref)): another value, and a function with arguments, also optional or keyword ones (`get_config(N = 12)` is not called with its defaults).
+
+```julia
+included = String[]
+config = load_config_file("configs/advection.jl"; included = included)
+config.sources   # [".../references.jl", ".../advection.jl"]
+included         # [".../advection.jl", ".../solvers.jl"]: every file that ran
+```
+
+### Source bundles
+
+A copy of a configuration's code that runs on its own, e.g. next to an exported figure, is a *bundle*: [`bundle_sources`](@ref) copies the sources into a folder, and with `extra = included` the files they include themselves. Every file keeps its path relative to the folder all of them lie in, so relative `include`s find the copies. [`include_sources`](@ref) with `within = folder` (and `load_config_file` likewise) then runs the bundle and refuses an `include` of a file outside the folder before that file runs: what ran is what is in the bundle. Data files the code reads are not copied; keep them in a package, or read them relative to a folder you copy yourself.
+
+```julia
+names = bundle_sources(config.sources, "figures/fig1_sources"; extra = included)
+sources = joinpath.("figures/fig1_sources", names.sources)          # the sources of the bundle, the configuration's file last
+config = load_config_file(last(sources); within = "figures/fig1_sources")
+```
+
+### Parameter values in files
+
+A file of parameter values (PDEStudio's CSV export, a preset) holds each value as the literal [`param_literal`](@ref) writes, which [`str2val`](@ref) reads back with its type (`1.5f0`, `(nothing, 1.0)`, `:a => 1`, quoted text where needed). `val2str` is the text of the *identity* (what the hash is made of) and loses some of that. Values whose literal doesn't read back, structs, enums and containers holding one, are *objects* ([`is_param_object`](@ref)): a file can only hold their identity text, and they come from the configuration that the source files build.
 
 ## 5. Execution Options
 
