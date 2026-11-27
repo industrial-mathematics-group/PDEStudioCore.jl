@@ -123,6 +123,49 @@ PDEStudioCore.@param_struct ConfigFileWall
         @test @eval(config_file_outside_ran)
         # the callback is gone afterwards, also after an error
         @test count(c -> parentmodule(typeof(c)) === PDEStudioCore, Base.include_callbacks) == 0
+        # `within` as a list of files: only those run; a file added to the folder later is refused like one outside
+        cfg = write_config(dir; extra_line = "isfile(joinpath(@__DIR__, \"added.jl\")) && include(\"added.jl\")")
+        listed = [cfg, joinpath(dir, "lib", "helper.jl"), joinpath(dir, "lib", "deep", "inner.jl")]
+        @test include_sources([cfg]; within = listed) == listed
+        write(joinpath(dir, "added.jl"), "global config_file_added_ran = true\n")
+        @eval global config_file_added_ran = false
+        err = try include_sources([cfg]; within = listed); nothing catch e; unwrap(e) end
+        @test err isa ArgumentError && occursin("added.jl", err.msg) && !@eval(config_file_added_ran)
+        @test include_sources([cfg]; within = dir)[end] == joinpath(dir, "added.jl")   # (the folder allows it)
+        rm(joinpath(dir, "added.jl"))
+    end
+
+    @testset "include_sources: files of a package's folder that aren't its source code are seen" begin
+        # a package whose folder holds a configuration besides its code (a development checkout): with the package as
+        # the target module, the configuration's includes are recorded and checked; the package's own code isn't
+        root = mktempdir()
+        pkg = joinpath(root, "ConfigFilePkg")
+        mkpath(joinpath(pkg, "src")); mkpath(joinpath(pkg, "configs"))
+        write(joinpath(pkg, "Project.toml"), "name = \"ConfigFilePkg\"\nuuid = \"5d7a9e4e-6a1c-4c1e-9e1a-0c0ffee00001\"\n")
+        write(joinpath(pkg, "src", "ConfigFilePkg.jl"), "__precompile__(false)\nmodule ConfigFilePkg\ninclude(\"code.jl\")\nend\n")
+        write(joinpath(pkg, "src", "code.jl"), "pkg_code() = 1\n")
+        write(joinpath(pkg, "configs", "helper.jl"), "pkg_helper() = 2\n")
+        write(joinpath(pkg, "configs", "cfg.jl"), "include(\"helper.jl\")\n" * body * "\n")
+        pushfirst!(LOAD_PATH, root)
+        try
+            @eval using ConfigFilePkg
+            m = @eval ConfigFilePkg
+            # (the names the configuration file needs; the package has no dependencies to `using` them from)
+            for name in (:SimulationConfig, :create_param_dict, :create_method_dict)
+                Core.eval(m, :(const $name = $(getglobal(PDEStudioCore, name))))
+            end
+            @test PDEStudioCore._package_file(m, joinpath(pkg, "src", "code.jl"))
+            @test !PDEStudioCore._package_file(m, joinpath(pkg, "configs", "helper.jl"))
+            included = String[]
+            load_config_file(joinpath(pkg, "configs", "cfg.jl"); mod = m, included = included)
+            @test included == [joinpath(pkg, "configs", "cfg.jl"), joinpath(pkg, "configs", "helper.jl")]
+            # (an include of another file of the package's folder is refused from a bundle there, too)
+            err = try include_sources([joinpath(pkg, "configs", "cfg.jl")]; mod = m, within = [joinpath(pkg, "configs", "cfg.jl")]); nothing catch e; e end
+            err isa LoadError && (err = err.error)
+            @test err isa ArgumentError && occursin("helper.jl", err.msg)
+        finally
+            popfirst!(LOAD_PATH)
+        end
     end
 
     @testset "bundle_sources: a copy that runs on its own" begin
@@ -190,6 +233,10 @@ PDEStudioCore.@param_struct ConfigFileWall
         @test bundle_digest(joinpath.(b, names.sources); extra = [joinpath(b, "other", "helper.jl"), joinpath(b, "lib", "deep", "inner.jl")]) != digest
         @test_throws ArgumentError bundle_digest([joinpath(b, "gone.jl")])
         @test bundle_digest(String[]) == bundle_digest(String[]; extra = String[]) != digest
+        # a label belongs to the identity (the same files, another label: another digest; no label: as before)
+        @test bundle_digest(config.sources; extra = included, label = "") == digest
+        @test bundle_digest(config.sources; extra = included, label = "builds=file") != digest
+        @test bundle_digest(config.sources; extra = included, label = "builds=file") != bundle_digest(config.sources; extra = included, label = "builds=nothing")
     end
 
     @testset "load_config_function: the configuration a named function builds" begin
